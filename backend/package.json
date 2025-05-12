@@ -2,11 +2,11 @@
   "name": "ft_transcandence",
   "version": "1.0.0",
   "description": "42 Heilbronn Project",
-  "main": "index.js",
+  "main": "dist/server.js",
   "type": "module",
   "scripts": {
-    "dev": "node --loader ts-node/esm server.mts",
-    "build": "tsc",
+    "dev": "NODE_ENV=development node --loader ts-node/esm src/server.mts",
+    "build": "tsc && echo 'Build successful' && ls -la dist/",
     "start": "node dist/server.mjs",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
