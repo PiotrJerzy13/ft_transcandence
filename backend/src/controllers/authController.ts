@@ -15,6 +15,8 @@ class AuthController {
     reply: FastifyReply
   ) {
     try {
+	    console.log("Request body:", request.body);
+    	request.log.info("Registration attempt with data:", request.body);
       const { username, email, password } = request.body;
       
       // Input validation (basic)
