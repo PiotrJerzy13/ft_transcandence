@@ -1,1 +1,13 @@
-not_ready
+# node
+node_modules/
+dist/
+.env
+.vite/
+*.log
+
+# OS
+.DS_Store
+
+# IDEs
+.idea/
+.vscode/
