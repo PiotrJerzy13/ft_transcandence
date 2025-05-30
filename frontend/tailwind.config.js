@@ -1,11 +1,171 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
-    "./src/**/*.{js,jsx,ts,tsx}",
-    "./public/index.html"
+    "./index.html",
+    "./src/**/*.{js,ts,jsx,tsx}",
+  ],
+  safelist: [
+    // Background colors
+    "bg-black",
+    "bg-black/50",
+    "bg-black/80",
+    "bg-cyan-500",
+    "bg-purple-500",
+    "bg-amber-500",
+    "bg-red-900/50",
+    "bg-gradient-to-r",
+    "from-cyan-400",
+    "via-purple-400",
+    "to-amber-400",
+    "from-cyan-600",
+    "via-purple-600",
+    "to-amber-600",
+    "from-white/20",
+    "to-transparent",
+    
+    // Text colors
+    "text-white",
+    "text-black",
+    "text-cyan-100",
+    "text-cyan-300",
+    "text-cyan-400",
+    "text-purple-100",
+    "text-purple-300",
+    "text-red-300",
+    "text-gray-400",
+    "text-gray-500",
+    "text-transparent",
+    
+    // Layout
+    "min-h-screen",
+    "relative",
+    "absolute",
+    "inset-0",
+    "overflow-hidden",
+    "flex",
+    "items-center",
+    "justify-center",
+    "p-4",
+    "p-8",
+    "p-3",
+    "px-4",
+    "py-3",
+    "py-4",
+    "px-6",
+    "space-y-6",
+    "mb-2",
+    "mb-6",
+    "mb-8",
+    "mt-2",
+    "mt-3",
+    "mt-6",
+    "mt-8",
+    "w-full",
+    "w-32",
+    "w-96",
+    "w-3",
+    "h-1",
+    "h-96",
+    "h-3",
+    "max-w-md",
+    "z-10",
+    
+    // Effects
+    "opacity-20",
+    "opacity-60",
+    "rounded-full",
+    "rounded-lg",
+    "blur-xl",
+    "backdrop-blur-sm",
+    "shadow-lg",
+    "shadow-2xl",
+    "shadow-inner",
+    "shadow-cyan-400/50",
+    "shadow-purple-500/50",
+    "shadow-cyan-500/25",
+    "drop-shadow-2xl",
+    "drop-shadow-sm",
+    
+    // Borders
+    "border",
+    "border-2",
+    "border-cyan-500/30",
+    "border-cyan-500/50",
+    "border-purple-500/30",
+    "border-red-500/50",
+    "border-cyan-400/50",
+    
+    // Typography
+    "text-5xl",
+    "text-4xl",
+    "text-lg",
+    "text-sm",
+    "text-xs",
+    "font-bold",
+    "font-black",
+    "font-medium",
+    "font-mono",
+    "tracking-wider",
+    "tracking-wide",
+    "tracking-widest",
+    
+    // Positioning
+    "top-1/4",
+    "top-3/4",
+    "left-1/4",
+    "left-1/3",
+    "right-1/4",
+    "bottom-1/4",
+    "text-center",
+    "mx-auto",
+    "space-x-3",
+    "justify-center",
+    
+    // Animations
+    "animate-pulse",
+    "delay-2000",
+    "delay-4000",
+    
+    // Hover states
+    "hover:text-cyan-300",
+    "hover:no-underline",
+    "hover:from-cyan-400",
+    "hover:via-purple-400",
+    "hover:to-amber-400",
+    "hover:scale-[1.02]",
+    "hover:opacity-100",
+    
+    // Focus states
+    "focus:outline-none",
+    "focus:border-cyan-400",
+    "focus:border-purple-400",
+    "focus:ring-2",
+    "focus:ring-cyan-400/20",
+    "focus:ring-purple-400/20",
+    
+    // Misc
+    "mix-blend-screen",
+    "filter",
+    "bg-clip-text",
+    "transition-all",
+    "duration-300",
+    "transform",
+    "disabled:opacity-50",
+    "disabled:cursor-not-allowed",
+    "placeholder-gray-500",
+    "underline",
+    "block",
+    "required"
   ],
   theme: {
-    extend: {},
+    extend: {
+      animationDelay: {
+        '2000': '2s',
+        '4000': '4s',
+      }
+    },
   },
   plugins: [],
-}
+};
+
+
