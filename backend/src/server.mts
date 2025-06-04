@@ -10,6 +10,7 @@ import { initializeDatabase, closeDatabase } from './db/index.js';
 // Import routes
 import indexRoutes from './routes/index.mjs';
 import authRoutes from './routes/auth.mjs';
+import userRoutes from './routes/user.mjs';
 import tournamentRoutes from './routes/tournament.mjs';
 
 dotenv.config();
@@ -32,6 +33,7 @@ const start = async () => {
     // Register routes
     await app.register(indexRoutes);
     await app.register(authRoutes, { prefix: '/api/auth' });
+    await app.register(userRoutes, { prefix: '/api/user' });
     await app.register(tournamentRoutes, { prefix: '/api' });
 
     // Graceful shutdown

@@ -1,0 +1,556 @@
+import { useEffect, useRef, useState } from "react";
+
+export default function Arkanoid() {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [score, setScore] = useState(0);
+  const [lives, setLives] = useState(3);
+  const [level, setLevel] = useState(1);
+  const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'gameOver', 'levelComplete'
+  
+  const paddleWidth = 120;
+  const paddleHeight = 15;
+  const ballSize = 12;
+  const blockWidth = 75;
+  const blockHeight = 25;
+  const blockRows = 6;
+  const blockCols = 10;
+  const blockPadding = 5;
+  
+  // Use refs to maintain game state across renders
+  const gameStateRef = useRef({
+    paddleX: 340,
+    ballX: 400,
+    ballY: 400,
+    ballSpeedX: 2.5, // Reduced from 4
+    ballSpeedY: -2.5, // Reduced from -4
+    currentScore: 0,
+    currentLives: 3,
+    currentLevel: 1,
+    blocks: [],
+    particles: [],
+    keys: {
+      left: false,
+      right: false
+    }
+  });
+  
+  // Block colors for different rows
+  const blockColors = [
+    { primary: "#ef4444", secondary: "#dc2626", glow: "#ef4444" }, // Red
+    { primary: "#f97316", secondary: "#ea580c", glow: "#f97316" }, // Orange
+    { primary: "#eab308", secondary: "#ca8a04", glow: "#eab308" }, // Yellow
+    { primary: "#22c55e", secondary: "#16a34a", glow: "#22c55e" }, // Green
+    { primary: "#3b82f6", secondary: "#2563eb", glow: "#3b82f6" }, // Blue
+    { primary: "#a855f7", secondary: "#9333ea", glow: "#a855f7" }, // Purple
+  ];
+  
+  const createParticles = (x, y, color = "#60a5fa") => {
+    for (let i = 0; i < 12; i++) {
+      gameStateRef.current.particles.push({
+        x: x,
+        y: y,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8,
+        life: 40,
+        maxLife: 40,
+        color: color
+      });
+    }
+  };
+
+  const initializeBlocks = () => {
+    gameStateRef.current.blocks = [];
+    const startX = (800 - (blockCols * (blockWidth + blockPadding) - blockPadding)) / 2;
+    const startY = 80;
+    
+    for (let row = 0; row < blockRows; row++) {
+      for (let col = 0; col < blockCols; col++) {
+        gameStateRef.current.blocks.push({
+          x: startX + col * (blockWidth + blockPadding),
+          y: startY + row * (blockHeight + blockPadding),
+          width: blockWidth,
+          height: blockHeight,
+          destroyed: false,
+          color: blockColors[row % blockColors.length],
+          points: (blockRows - row) * 10 // Higher rows worth more points
+        });
+      }
+    }
+  };
+
+  const resetGame = () => {
+    gameStateRef.current.currentScore = 0;
+    gameStateRef.current.currentLives = 3;
+    gameStateRef.current.currentLevel = 1;
+    setScore(0);
+    setLives(3);
+    setLevel(1);
+    resetBall();
+    resetPaddle();
+    initializeBlocks();
+  };
+
+  const resetBall = () => {
+    gameStateRef.current.ballX = 400;
+    gameStateRef.current.ballY = 400;
+    gameStateRef.current.ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * 2.5; // Reduced speed
+    gameStateRef.current.ballSpeedY = -2.5; // Reduced speed
+  };
+
+  const resetPaddle = () => {
+    gameStateRef.current.paddleX = 340;
+  };
+
+  const nextLevel = () => {
+    gameStateRef.current.currentLevel++;
+    setLevel(gameStateRef.current.currentLevel);
+    resetBall();
+    resetPaddle();
+    initializeBlocks();
+    // Increase ball speed slightly each level (smaller increment)
+    gameStateRef.current.ballSpeedX *= 1.05; // Reduced from 1.1
+    gameStateRef.current.ballSpeedY *= 1.05; // Reduced from 1.1
+  };
+
+  const loseLife = () => {
+    gameStateRef.current.currentLives--;
+    setLives(gameStateRef.current.currentLives);
+    if (gameStateRef.current.currentLives <= 0) {
+      setGameState('gameOver');
+      createParticles(400, 250, "#ef4444");
+    } else {
+      resetBall();
+      resetPaddle();
+    }
+  };
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const context = canvas?.getContext("2d");
+    if (!canvas || !context) return;
+
+    initializeBlocks();
+
+    const draw = () => {
+      // Create gradient background
+      const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+      gradient.addColorStop(0, "#0f0f23");
+      gradient.addColorStop(0.5, "#1a1a3e");
+      gradient.addColorStop(1, "#0f0f23");
+      
+      context.fillStyle = gradient;
+      context.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw blocks
+      gameStateRef.current.blocks.forEach(block => {
+        if (!block.destroyed) {
+          context.save();
+          
+          // Glow effect
+          context.shadowColor = block.color.glow;
+          context.shadowBlur = 8;
+          
+          // Block gradient
+          const blockGradient = context.createLinearGradient(
+            block.x, block.y, 
+            block.x, block.y + block.height
+          );
+          blockGradient.addColorStop(0, block.color.primary);
+          blockGradient.addColorStop(1, block.color.secondary);
+          
+          context.fillStyle = blockGradient;
+          context.fillRect(block.x, block.y, block.width, block.height);
+          
+          // Inner highlight
+          context.shadowBlur = 0;
+          context.fillStyle = "rgba(255, 255, 255, 0.3)";
+          context.fillRect(block.x + 2, block.y + 2, block.width - 4, 2);
+          
+          // Border
+          context.strokeStyle = "rgba(255, 255, 255, 0.2)";
+          context.lineWidth = 1;
+          context.strokeRect(block.x, block.y, block.width, block.height);
+          
+          context.restore();
+        }
+      });
+
+      // Draw paddle
+      context.save();
+      context.shadowColor = "#06b6d4";
+      context.shadowBlur = 15;
+      
+      const paddleGradient = context.createLinearGradient(
+        gameStateRef.current.paddleX, 470, gameStateRef.current.paddleX, 470 + paddleHeight
+      );
+      paddleGradient.addColorStop(0, "#06b6d4");
+      paddleGradient.addColorStop(1, "#0891b2");
+      
+      context.fillStyle = paddleGradient;
+      context.fillRect(gameStateRef.current.paddleX, 470, paddleWidth, paddleHeight);
+      
+      // Paddle highlight
+      context.shadowBlur = 0;
+      context.fillStyle = "rgba(255, 255, 255, 0.4)";
+      context.fillRect(gameStateRef.current.paddleX + 2, 472, paddleWidth - 4, 3);
+      
+      context.restore();
+
+      // Draw ball
+      context.save();
+      context.shadowColor = "#ef4444";
+      context.shadowBlur = 20;
+      
+      const ballGradient = context.createRadialGradient(
+        gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, 0,
+        gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, ballSize
+      );
+      ballGradient.addColorStop(0, "#fbbf24");
+      ballGradient.addColorStop(0.7, "#f59e0b");
+      ballGradient.addColorStop(1, "#dc2626");
+      
+      context.fillStyle = ballGradient;
+      context.beginPath();
+      context.arc(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, ballSize/2, 0, Math.PI * 2);
+      context.fill();
+      
+      // Ball highlight
+      context.shadowBlur = 0;
+      context.fillStyle = "rgba(255, 255, 255, 0.6)";
+      context.beginPath();
+      context.arc(gameStateRef.current.ballX + ballSize/3, gameStateRef.current.ballY + ballSize/3, ballSize/6, 0, Math.PI * 2);
+      context.fill();
+      
+      context.restore();
+
+      // Draw and update particles
+      gameStateRef.current.particles = gameStateRef.current.particles.filter(particle => {
+        particle.x += particle.vx;
+        particle.y += particle.vy;
+        particle.life--;
+        particle.vx *= 0.98;
+        particle.vy *= 0.98;
+        
+        const alpha = particle.life / particle.maxLife;
+        context.save();
+        context.globalAlpha = alpha;
+        context.fillStyle = particle.color;
+        context.beginPath();
+        context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
+        context.fill();
+        context.restore();
+        
+        return particle.life > 0;
+      });
+
+      // Draw UI
+      context.save();
+      context.font = "bold 24px 'Courier New', monospace";
+      context.textAlign = "left";
+      context.fillStyle = "#06b6d4";
+      context.shadowColor = "#06b6d4";
+      context.shadowBlur = 10;
+      context.fillText(`Score: ${gameStateRef.current.currentScore}`, 20, 40);
+      
+      context.textAlign = "center";
+      context.fillStyle = "#f59e0b";
+      context.shadowColor = "#f59e0b";
+      context.fillText(`Lives: ${gameStateRef.current.currentLives}`, canvas.width / 2, 40);
+      
+      context.textAlign = "right";
+      context.fillStyle = "#a855f7";
+      context.shadowColor = "#a855f7";
+      context.fillText(`Level: ${gameStateRef.current.currentLevel}`, canvas.width - 20, 40);
+      context.restore();
+
+      // Game state overlays
+      if (gameState === 'menu') {
+        context.save();
+        context.fillStyle = "rgba(0, 0, 0, 0.8)";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = "bold 40px 'Courier New', monospace";
+        context.textAlign = "center";
+        context.fillStyle = "#ffffff";
+        context.shadowColor = "#4338ca";
+        context.shadowBlur = 15;
+        context.fillText("CYBER ARKANOID", canvas.width / 2, canvas.height / 2 - 60);
+        
+        context.font = "20px 'Courier New', monospace";
+        context.fillText("Break all blocks to advance!", canvas.width / 2, canvas.height / 2 - 20);
+        context.fillText("PRESS SPACE TO START", canvas.width / 2, canvas.height / 2 + 20);
+        
+        context.font = "16px 'Courier New', monospace";
+        context.fillText("A/D or ←/→ to move paddle", canvas.width / 2, canvas.height / 2 + 60);
+        context.fillText("R: Restart", canvas.width / 2, canvas.height / 2 + 85);
+        context.restore();
+      }
+
+      if (gameState === 'gameOver') {
+        context.save();
+        context.fillStyle = "rgba(0, 0, 0, 0.8)";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = "bold 36px 'Courier New', monospace";
+        context.textAlign = "center";
+        context.fillStyle = "#ef4444";
+        context.shadowColor = "#ef4444";
+        context.shadowBlur = 15;
+        context.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 40);
+        
+        context.font = "24px 'Courier New', monospace";
+        context.fillStyle = "#ffffff";
+        context.shadowColor = "#4338ca";
+        context.shadowBlur = 10;
+        context.fillText(`Final Score: ${gameStateRef.current.currentScore}`, canvas.width / 2, canvas.height / 2);
+        context.fillText(`Level Reached: ${gameStateRef.current.currentLevel}`, canvas.width / 2, canvas.height / 2 + 30);
+        
+        context.font = "18px 'Courier New', monospace";
+        context.fillText("PRESS R TO PLAY AGAIN", canvas.width / 2, canvas.height / 2 + 70);
+        context.fillText("PRESS SPACE FOR MENU", canvas.width / 2, canvas.height / 2 + 95);
+        context.restore();
+      }
+
+      if (gameState === 'levelComplete') {
+        context.save();
+        context.fillStyle = "rgba(0, 0, 0, 0.8)";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = "bold 32px 'Courier New', monospace";
+        context.textAlign = "center";
+        context.fillStyle = "#22c55e";
+        context.shadowColor = "#22c55e";
+        context.shadowBlur = 15;
+        context.fillText("LEVEL COMPLETE!", canvas.width / 2, canvas.height / 2 - 20);
+        
+        context.font = "20px 'Courier New', monospace";
+        context.fillStyle = "#ffffff";
+        context.shadowColor = "#4338ca";
+        context.shadowBlur = 10;
+        context.fillText("PRESS SPACE TO CONTINUE", canvas.width / 2, canvas.height / 2 + 20);
+        context.restore();
+      }
+    };
+
+    const update = () => {
+      if (gameState !== 'playing') return;
+      
+      // Handle continuous paddle movement
+      const paddleSpeed = 6; // Smooth paddle movement speed
+      if (gameStateRef.current.keys.left) {
+        gameStateRef.current.paddleX = Math.max(0, gameStateRef.current.paddleX - paddleSpeed);
+      }
+      if (gameStateRef.current.keys.right) {
+        gameStateRef.current.paddleX = Math.min(canvas.width - paddleWidth, gameStateRef.current.paddleX + paddleSpeed);
+      }
+      
+      gameStateRef.current.ballX += gameStateRef.current.ballSpeedX;
+      gameStateRef.current.ballY += gameStateRef.current.ballSpeedY;
+
+      // Ball collision with walls
+      if (gameStateRef.current.ballX <= 0 || gameStateRef.current.ballX + ballSize >= canvas.width) {
+        gameStateRef.current.ballSpeedX *= -1;
+        createParticles(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, "#60a5fa");
+      }
+      
+      if (gameStateRef.current.ballY <= 0) {
+        gameStateRef.current.ballSpeedY *= -1;
+        createParticles(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, "#60a5fa");
+      }
+
+      // Ball falls off bottom
+      if (gameStateRef.current.ballY > canvas.height) {
+        loseLife();
+        return;
+      }
+
+      // Ball collision with paddle
+      if (
+        gameStateRef.current.ballY + ballSize >= 470 &&
+        gameStateRef.current.ballY <= 470 + paddleHeight &&
+        gameStateRef.current.ballX + ballSize >= gameStateRef.current.paddleX &&
+        gameStateRef.current.ballX <= gameStateRef.current.paddleX + paddleWidth &&
+        gameStateRef.current.ballSpeedY > 0
+      ) {
+        gameStateRef.current.ballSpeedY *= -1;
+        
+        // Add some angle based on where it hits the paddle
+        const hitPos = (gameStateRef.current.ballX + ballSize/2 - gameStateRef.current.paddleX) / paddleWidth;
+        gameStateRef.current.ballSpeedX = (hitPos - 0.5) * 6; // Reduced from 8
+        
+        createParticles(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, "#06b6d4");
+      }
+
+      // Ball collision with blocks
+      gameStateRef.current.blocks.forEach(block => {
+        if (block.destroyed) return;
+        
+        if (
+          gameStateRef.current.ballX + ballSize >= block.x &&
+          gameStateRef.current.ballX <= block.x + block.width &&
+          gameStateRef.current.ballY + ballSize >= block.y &&
+          gameStateRef.current.ballY <= block.y + block.height
+        ) {
+          block.destroyed = true;
+          gameStateRef.current.currentScore += block.points;
+          setScore(gameStateRef.current.currentScore);
+          
+          // Determine collision side and bounce accordingly
+          const ballCenterX = gameStateRef.current.ballX + ballSize/2;
+          const ballCenterY = gameStateRef.current.ballY + ballSize/2;
+          const blockCenterX = block.x + block.width/2;
+          const blockCenterY = block.y + block.height/2;
+          
+          const dx = ballCenterX - blockCenterX;
+          const dy = ballCenterY - blockCenterY;
+          
+          if (Math.abs(dx) > Math.abs(dy)) {
+            gameStateRef.current.ballSpeedX *= -1;
+          } else {
+            gameStateRef.current.ballSpeedY *= -1;
+          }
+          
+          createParticles(
+            block.x + block.width/2, 
+            block.y + block.height/2, 
+            block.color.primary
+          );
+        }
+      });
+
+      // Check if all blocks are destroyed
+      const remainingBlocks = gameStateRef.current.blocks.filter(block => !block.destroyed);
+      if (remainingBlocks.length === 0) {
+        setGameState('levelComplete');
+        createParticles(400, 250, "#22c55e");
+        createParticles(200, 150, "#22c55e");
+        createParticles(600, 350, "#22c55e");
+      }
+    };
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!canvas) return;
+      
+      if (["ArrowLeft", "ArrowRight", "a", "d", " ", "r"].includes(e.key.toLowerCase())) {
+        e.preventDefault();
+      }
+      
+      // Set key states for smooth movement
+      if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
+        gameStateRef.current.keys.left = true;
+      }
+      if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
+        gameStateRef.current.keys.right = true;
+      }
+      
+      // Menu controls
+      if (gameState === 'menu') {
+        if (e.key === " ") {
+          setGameState('playing');
+          resetGame();
+          return;
+        }
+      }
+      
+      // Level complete controls
+      if (gameState === 'levelComplete') {
+        if (e.key === " ") {
+          setGameState('playing');
+          nextLevel();
+          return;
+        }
+      }
+      
+      // Game over controls
+      if (gameState === 'gameOver') {
+        if (e.key.toLowerCase() === 'r') {
+          setGameState('playing');
+          resetGame();
+          return;
+        }
+        if (e.key === ' ') {
+          setGameState('menu');
+          resetGame();
+          return;
+        }
+      }
+      
+      // Gameplay controls
+      if (gameState === 'playing') {
+        if (e.key.toLowerCase() === 'r') {
+          setGameState('menu');
+          resetGame();
+          return;
+        }
+      }
+    };
+
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // Clear key states for smooth movement
+      if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
+        gameStateRef.current.keys.left = false;
+      }
+      if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
+        gameStateRef.current.keys.right = false;
+      }
+    };
+
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+
+    const gameLoop = () => {
+      update();
+      draw();
+      requestAnimationFrame(gameLoop);
+    };
+
+    gameLoop();
+
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+    };
+  }, [gameState]);
+
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-8">
+      <div className="mb-6">
+        <h1 className="text-4xl font-bold text-white text-center mb-4 font-mono tracking-wider">
+          CYBER ARKANOID
+        </h1>
+        <div className="flex justify-center space-x-8 text-lg font-mono mb-2">
+          <div className="text-cyan-400">
+            Score: <span className="text-2xl font-bold">{score}</span>
+          </div>
+          <div className="text-amber-400">
+            Lives: <span className="text-2xl font-bold">{lives}</span>
+          </div>
+          <div className="text-purple-400">
+            Level: <span className="text-2xl font-bold">{level}</span>
+          </div>
+        </div>
+      </div>
+      
+      <div className="relative">
+        <canvas 
+          ref={canvasRef} 
+          width={800} 
+          height={500} 
+          className="border-2 border-purple-500 rounded-lg shadow-2xl shadow-purple-500/50 bg-black"
+        />
+        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-amber-500 rounded-lg blur opacity-20"></div>
+      </div>
+      
+      <div className="mt-6 text-center text-gray-300 font-mono">
+        <div className="text-sm">
+          <p className="text-cyan-400 font-bold mb-1">Controls:</p>
+          <p>Hold A/D or ←/→ keys to move paddle smoothly</p>
+        </div>
+        <div className="mt-4 text-xs text-gray-400">
+          <p>R: Restart/Menu | Space: Start/Continue</p>
+          <p>Break all blocks to advance to the next level!</p>
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -46,6 +46,8 @@ export async function initializeDatabase() {
   }
 }
 
+// Update for src/db/index.ts - Replace the runMigrations function
+
 async function runMigrations() {
   console.log('Running migrations...');
   
@@ -60,6 +62,46 @@ async function runMigrations() {
       avatar_url TEXT,
       status TEXT DEFAULT 'offline',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- User Stats table
+    CREATE TABLE IF NOT EXISTS user_stats (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER UNIQUE NOT NULL,
+      total_games INTEGER DEFAULT 0,
+      wins INTEGER DEFAULT 0,
+      losses INTEGER DEFAULT 0,
+      win_streak INTEGER DEFAULT 0,
+      best_streak INTEGER DEFAULT 0,
+      total_play_time INTEGER DEFAULT 0,
+      rank TEXT DEFAULT 'Novice',
+      level INTEGER DEFAULT 1,
+      xp INTEGER DEFAULT 0,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    );
+    
+    -- Achievements table
+    CREATE TABLE IF NOT EXISTS achievements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      description TEXT NOT NULL,
+      icon TEXT NOT NULL,
+      requirement_type TEXT NOT NULL,
+      requirement_value INTEGER NOT NULL,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    );
+    
+    -- User Achievements table
+    CREATE TABLE IF NOT EXISTS user_achievements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      achievement_id INTEGER NOT NULL,
+      progress INTEGER DEFAULT 0,
+      unlocked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (achievement_id) REFERENCES achievements(id) ON DELETE CASCADE,
+      UNIQUE(user_id, achievement_id)
     );
     
     -- Tournaments table
@@ -95,12 +137,24 @@ async function runMigrations() {
       player1_score INTEGER DEFAULT 0,
       player2_score INTEGER DEFAULT 0,
       status TEXT DEFAULT 'pending',
+      duration INTEGER DEFAULT 0,
       played_at TIMESTAMP,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (tournament_id) REFERENCES tournaments(id) ON DELETE SET NULL,
       FOREIGN KEY (player1_id) REFERENCES users(id),
       FOREIGN KEY (player2_id) REFERENCES users(id)
     );
+  `);
+  
+  // Insert default achievements if they don't exist
+  await db?.exec(`
+    INSERT OR IGNORE INTO achievements (id, name, description, icon, requirement_type, requirement_value) VALUES
+    (1, 'First Victory', 'Win your first game', 'Trophy', 'first_win', 1),
+    (2, 'Speed Demon', 'Win a game in under 2 minutes', 'Zap', 'game_duration', 120),
+    (3, 'Unstoppable', 'Achieve a 5-game win streak', 'Target', 'win_streak', 5),
+    (4, 'Century Club', 'Play 100 games', 'Star', 'games_played', 100),
+    (5, 'Perfect Game', 'Win without opponent scoring', 'Crown', 'perfect_game', 1),
+    (6, 'Marathon', 'Play for 10 hours total', 'Clock', 'play_time', 600);
   `);
   
   console.log('Migrations completed');

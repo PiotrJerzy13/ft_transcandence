@@ -22,6 +22,7 @@ export default function Login() {
         headers: {
           "Content-Type": "application/json",
         },
+        credentials: "include", // store cookie!
         body: JSON.stringify({
           username: form.username,
           password: form.password,
@@ -31,19 +32,13 @@ export default function Login() {
       const data = await response.json();
 
       if (response.ok) {
-        // Store auth token if your backend provides one
-        if (data.token) {
-          localStorage.setItem('authToken', data.token);
-        }
-        
-        console.log("Login successful!", data);
-        // Navigate to game
-        navigate("/game");
+        console.log("✅ Login successful:", data);
+        navigate("/lobby");
       } else {
-        setError(data.message || "Login failed");
+        setError(data.error || "Login failed");
       }
     } catch (err) {
-      console.error("Login error:", err);
+      console.error("❌ Login error:", err);
       setError("Network error. Please check your connection.");
     } finally {
       setIsLoading(false);
@@ -52,28 +47,15 @@ export default function Login() {
 
   return (
     <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-4">
-      {/* Floating Cyber Orbs */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500 rounded-full mix-blend-screen filter blur-xl opacity-20 animate-pulse" />
-        <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-purple-500 rounded-full mix-blend-screen filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '2s' }} />
-        <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-amber-500 rounded-full mix-blend-screen filter blur-xl opacity-20 animate-pulse" style={{ animationDelay: '4s' }} />
+      {/* Animated Background & Grid */}
+      <div className="absolute inset-0 overflow-hidden opacity-20">
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-3/4 right-1/4 w-96 h-96 bg-purple-500 rounded-full blur-xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+        <div className="absolute bottom-1/4 left-1/3 w-96 h-96 bg-amber-500 rounded-full blur-xl animate-pulse" style={{ animationDelay: '4s' }}></div>
+        <div className="absolute inset-0 bg-[linear-gradient(rgba(6,182,212,0.1)_1px,transparent_1px),linear-gradient(90deg,rgba(6,182,212,0.1)_1px,transparent_1px)] bg-[50px_50px]"></div>
       </div>
 
-      {/* Cyber Grid Background */}
-      <div className="absolute inset-0 opacity-20">
-        <div
-          className="absolute inset-0"
-          style={{
-            backgroundImage: `
-              linear-gradient(rgba(6, 182, 212, 0.1) 1px, transparent 1px),
-              linear-gradient(90deg, rgba(6, 182, 212, 0.1) 1px, transparent 1px)
-            `,
-            backgroundSize: '50px 50px',
-          }}
-        ></div>
-      </div>
-
-      {/* Main Content */}
+      {/* Login Form */}
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-5xl font-bold text-white font-mono tracking-wider mb-2 drop-shadow-2xl">
