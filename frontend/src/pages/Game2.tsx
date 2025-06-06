@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 
 export default function Arkanoid() {
-  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const canvasRef = useRef(null);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
-  const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'gameOver', 'levelComplete'
+  const [gameState, setGameState] = useState('menu');
+  const animationFrameRef = useRef(null);
   
   const paddleWidth = 120;
   const paddleHeight = 15;
@@ -16,13 +17,13 @@ export default function Arkanoid() {
   const blockCols = 10;
   const blockPadding = 5;
   
-  // Use refs to maintain game state across renders
+  // Game state ref
   const gameStateRef = useRef({
     paddleX: 340,
     ballX: 400,
     ballY: 400,
-    ballSpeedX: 2.5, // Reduced from 4
-    ballSpeedY: -2.5, // Reduced from -4
+    ballSpeedX: 2.5,
+    ballSpeedY: -2.5,
     currentScore: 0,
     currentLives: 3,
     currentLevel: 1,
@@ -36,12 +37,12 @@ export default function Arkanoid() {
   
   // Block colors for different rows
   const blockColors = [
-    { primary: "#ef4444", secondary: "#dc2626", glow: "#ef4444" }, // Red
-    { primary: "#f97316", secondary: "#ea580c", glow: "#f97316" }, // Orange
-    { primary: "#eab308", secondary: "#ca8a04", glow: "#eab308" }, // Yellow
-    { primary: "#22c55e", secondary: "#16a34a", glow: "#22c55e" }, // Green
-    { primary: "#3b82f6", secondary: "#2563eb", glow: "#3b82f6" }, // Blue
-    { primary: "#a855f7", secondary: "#9333ea", glow: "#a855f7" }, // Purple
+    { primary: "#ef4444", secondary: "#dc2626", glow: "#ef4444" },
+    { primary: "#f97316", secondary: "#ea580c", glow: "#f97316" },
+    { primary: "#eab308", secondary: "#ca8a04", glow: "#eab308" },
+    { primary: "#22c55e", secondary: "#16a34a", glow: "#22c55e" },
+    { primary: "#3b82f6", secondary: "#2563eb", glow: "#3b82f6" },
+    { primary: "#a855f7", secondary: "#9333ea", glow: "#a855f7" },
   ];
   
   const createParticles = (x, y, color = "#60a5fa") => {
@@ -72,7 +73,7 @@ export default function Arkanoid() {
           height: blockHeight,
           destroyed: false,
           color: blockColors[row % blockColors.length],
-          points: (blockRows - row) * 10 // Higher rows worth more points
+          points: (blockRows - row) * 10
         });
       }
     }
@@ -88,13 +89,14 @@ export default function Arkanoid() {
     resetBall();
     resetPaddle();
     initializeBlocks();
+    gameStateRef.current.particles = [];
   };
 
   const resetBall = () => {
     gameStateRef.current.ballX = 400;
     gameStateRef.current.ballY = 400;
-    gameStateRef.current.ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * 2.5; // Reduced speed
-    gameStateRef.current.ballSpeedY = -2.5; // Reduced speed
+    gameStateRef.current.ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * 2.5;
+    gameStateRef.current.ballSpeedY = -2.5;
   };
 
   const resetPaddle = () => {
@@ -107,9 +109,8 @@ export default function Arkanoid() {
     resetBall();
     resetPaddle();
     initializeBlocks();
-    // Increase ball speed slightly each level (smaller increment)
-    gameStateRef.current.ballSpeedX *= 1.05; // Reduced from 1.1
-    gameStateRef.current.ballSpeedY *= 1.05; // Reduced from 1.1
+    gameStateRef.current.ballSpeedX *= 1.05;
+    gameStateRef.current.ballSpeedY *= 1.05;
   };
 
   const loseLife = () => {
@@ -129,7 +130,19 @@ export default function Arkanoid() {
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
 
-    initializeBlocks();
+    // Clean up previous animation frame
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    // Clear key states on game state change
+    gameStateRef.current.keys.left = false;
+    gameStateRef.current.keys.right = false;
+
+    // initializeBlocks();
+	  if (gameState === 'menu') {
+    	initializeBlocks();
+  		}
 
     const draw = () => {
       // Create gradient background
@@ -146,11 +159,9 @@ export default function Arkanoid() {
         if (!block.destroyed) {
           context.save();
           
-          // Glow effect
           context.shadowColor = block.color.glow;
           context.shadowBlur = 8;
           
-          // Block gradient
           const blockGradient = context.createLinearGradient(
             block.x, block.y, 
             block.x, block.y + block.height
@@ -161,12 +172,10 @@ export default function Arkanoid() {
           context.fillStyle = blockGradient;
           context.fillRect(block.x, block.y, block.width, block.height);
           
-          // Inner highlight
           context.shadowBlur = 0;
           context.fillStyle = "rgba(255, 255, 255, 0.3)";
           context.fillRect(block.x + 2, block.y + 2, block.width - 4, 2);
           
-          // Border
           context.strokeStyle = "rgba(255, 255, 255, 0.2)";
           context.lineWidth = 1;
           context.strokeRect(block.x, block.y, block.width, block.height);
@@ -189,7 +198,6 @@ export default function Arkanoid() {
       context.fillStyle = paddleGradient;
       context.fillRect(gameStateRef.current.paddleX, 470, paddleWidth, paddleHeight);
       
-      // Paddle highlight
       context.shadowBlur = 0;
       context.fillStyle = "rgba(255, 255, 255, 0.4)";
       context.fillRect(gameStateRef.current.paddleX + 2, 472, paddleWidth - 4, 3);
@@ -214,7 +222,6 @@ export default function Arkanoid() {
       context.arc(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, ballSize/2, 0, Math.PI * 2);
       context.fill();
       
-      // Ball highlight
       context.shadowBlur = 0;
       context.fillStyle = "rgba(255, 255, 255, 0.6)";
       context.beginPath();
@@ -223,25 +230,38 @@ export default function Arkanoid() {
       
       context.restore();
 
-      // Draw and update particles
-      gameStateRef.current.particles = gameStateRef.current.particles.filter(particle => {
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-        particle.life--;
-        particle.vx *= 0.98;
-        particle.vy *= 0.98;
-        
-        const alpha = particle.life / particle.maxLife;
-        context.save();
-        context.globalAlpha = alpha;
-        context.fillStyle = particle.color;
-        context.beginPath();
-        context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
-        context.fill();
-        context.restore();
-        
-        return particle.life > 0;
-      });
+      // Draw particles
+      if (gameState === 'playing') {
+        gameStateRef.current.particles = gameStateRef.current.particles.filter(particle => {
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+          particle.life--;
+          particle.vx *= 0.98;
+          particle.vy *= 0.98;
+          
+          const alpha = particle.life / particle.maxLife;
+          context.save();
+          context.globalAlpha = alpha;
+          context.fillStyle = particle.color;
+          context.beginPath();
+          context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
+          context.fill();
+          context.restore();
+          
+          return particle.life > 0;
+        });
+      } else {
+        gameStateRef.current.particles.forEach(particle => {
+          const alpha = particle.life / particle.maxLife;
+          context.save();
+          context.globalAlpha = alpha;
+          context.fillStyle = particle.color;
+          context.beginPath();
+          context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
+          context.fill();
+          context.restore();
+        });
+      }
 
       // Draw UI
       context.save();
@@ -263,7 +283,7 @@ export default function Arkanoid() {
       context.fillText(`Level: ${gameStateRef.current.currentLevel}`, canvas.width - 20, 40);
       context.restore();
 
-      // Game state overlays
+      // Game overlays
       if (gameState === 'menu') {
         context.save();
         context.fillStyle = "rgba(0, 0, 0, 0.8)";
@@ -282,7 +302,28 @@ export default function Arkanoid() {
         
         context.font = "16px 'Courier New', monospace";
         context.fillText("A/D or ←/→ to move paddle", canvas.width / 2, canvas.height / 2 + 60);
-        context.fillText("R: Restart", canvas.width / 2, canvas.height / 2 + 85);
+        context.fillText("R: Restart | ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 85);
+        context.restore();
+      }
+
+      if (gameState === 'paused') {
+        context.save();
+        context.fillStyle = "rgba(0, 0, 0, 0.7)";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = "bold 36px 'Courier New', monospace";
+        context.textAlign = "center";
+        context.fillStyle = "#f59e0b";
+        context.shadowColor = "#f59e0b";
+        context.shadowBlur = 15;
+        context.fillText("PAUSED", canvas.width / 2, canvas.height / 2 - 20);
+        
+        context.font = "18px 'Courier New', monospace";
+        context.fillStyle = "#ffffff";
+        context.shadowColor = "#4338ca";
+        context.shadowBlur = 10;
+        context.fillText("PRESS SPACE TO RESUME", canvas.width / 2, canvas.height / 2 + 20);
+        context.fillText("ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 45);
         context.restore();
       }
 
@@ -335,8 +376,7 @@ export default function Arkanoid() {
     const update = () => {
       if (gameState !== 'playing') return;
       
-      // Handle continuous paddle movement
-      const paddleSpeed = 6; // Smooth paddle movement speed
+      const paddleSpeed = 6;
       if (gameStateRef.current.keys.left) {
         gameStateRef.current.paddleX = Math.max(0, gameStateRef.current.paddleX - paddleSpeed);
       }
@@ -374,9 +414,8 @@ export default function Arkanoid() {
       ) {
         gameStateRef.current.ballSpeedY *= -1;
         
-        // Add some angle based on where it hits the paddle
         const hitPos = (gameStateRef.current.ballX + ballSize/2 - gameStateRef.current.paddleX) / paddleWidth;
-        gameStateRef.current.ballSpeedX = (hitPos - 0.5) * 6; // Reduced from 8
+        gameStateRef.current.ballSpeedX = (hitPos - 0.5) * 6;
         
         createParticles(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, "#06b6d4");
       }
@@ -395,7 +434,6 @@ export default function Arkanoid() {
           gameStateRef.current.currentScore += block.points;
           setScore(gameStateRef.current.currentScore);
           
-          // Determine collision side and bounce accordingly
           const ballCenterX = gameStateRef.current.ballX + ballSize/2;
           const ballCenterY = gameStateRef.current.ballY + ballSize/2;
           const blockCenterX = block.x + block.width/2;
@@ -423,70 +461,82 @@ export default function Arkanoid() {
       if (remainingBlocks.length === 0) {
         setGameState('levelComplete');
         createParticles(400, 250, "#22c55e");
-        createParticles(200, 150, "#22c55e");
-        createParticles(600, 350, "#22c55e");
       }
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!canvas) return;
-      
-      if (["ArrowLeft", "ArrowRight", "a", "d", " ", "r"].includes(e.key.toLowerCase())) {
-        e.preventDefault();
-      }
-      
-      // Set key states for smooth movement
-      if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
-        gameStateRef.current.keys.left = true;
-      }
-      if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
-        gameStateRef.current.keys.right = true;
-      }
-      
-      // Menu controls
-      if (gameState === 'menu') {
-        if (e.key === " ") {
-          setGameState('playing');
-          resetGame();
-          return;
-        }
-      }
-      
-      // Level complete controls
-      if (gameState === 'levelComplete') {
-        if (e.key === " ") {
-          setGameState('playing');
-          nextLevel();
-          return;
-        }
-      }
-      
-      // Game over controls
-      if (gameState === 'gameOver') {
-        if (e.key.toLowerCase() === 'r') {
-          setGameState('playing');
-          resetGame();
-          return;
-        }
-        if (e.key === ' ') {
-          setGameState('menu');
-          resetGame();
-          return;
-        }
-      }
-      
-      // Gameplay controls
-      if (gameState === 'playing') {
-        if (e.key.toLowerCase() === 'r') {
-          setGameState('menu');
-          resetGame();
-          return;
-        }
-      }
-    };
+	const handleKeyDown = (e) => {
+	if (["ArrowLeft", "ArrowRight", "a", "d", " ", "r", "Escape"].includes(e.key)) {
+		e.preventDefault();
+	}
 
-    const handleKeyUp = (e: KeyboardEvent) => {
-      // Clear key states for smooth movement
+	// Movement keys (only when playing)
+	if (gameState === 'playing') {
+		if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
+		gameStateRef.current.keys.left = true;
+		}
+		if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
+		gameStateRef.current.keys.right = true;
+		}
+	}
+
+	// Game state controls
+	switch (gameState) {
+		case 'menu':
+		if (e.key === " ") {
+			// Start new game from menu
+			resetGame();
+			setGameState('playing');
+		}
+		break;
+
+		case 'playing':
+		if (e.key === " ") {
+			// Pause game - no reset
+			setGameState('paused');
+		} else if (e.key === "Escape") {
+			// Return to menu - reset everything
+			resetGame();
+			setGameState('menu');
+		} else if (e.key.toLowerCase() === 'r') {
+			// Restart game - reset everything
+			resetGame();
+		}
+		break;
+
+		case 'paused':
+		if (e.key === " ") {
+			// Resume game - no reset
+			setGameState('playing');
+		} else if (e.key === "Escape") {
+			// Return to menu - reset everything
+			resetGame();
+			setGameState('menu');
+		}
+		break;
+
+		case 'levelComplete':
+		if (e.key === " ") {
+			// Continue to next level
+			nextLevel();
+			setGameState('playing');
+		}
+		break;
+
+		case 'gameOver':
+		if (e.key.toLowerCase() === 'r') {
+			// Restart game completely
+			resetGame();
+			setGameState('playing');
+		} else if (e.key === ' ') {
+			// Return to menu
+			resetGame();
+			setGameState('menu');
+		}
+		break;
+	}
+	};
+
+    const handleKeyUp = (e) => {
       if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
         gameStateRef.current.keys.left = false;
       }
@@ -501,7 +551,7 @@ export default function Arkanoid() {
     const gameLoop = () => {
       update();
       draw();
-      requestAnimationFrame(gameLoop);
+      animationFrameRef.current = requestAnimationFrame(gameLoop);
     };
 
     gameLoop();
@@ -509,6 +559,9 @@ export default function Arkanoid() {
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, [gameState]);
 
@@ -544,11 +597,11 @@ export default function Arkanoid() {
       <div className="mt-6 text-center text-gray-300 font-mono">
         <div className="text-sm">
           <p className="text-cyan-400 font-bold mb-1">Controls:</p>
-          <p>Hold A/D or ←/→ keys to move paddle smoothly</p>
+          <p>Hold A/D or ←/→ keys to move paddle</p>
+          <p className="text-amber-400 mt-2">SPACE: Pause/Resume | ESC: Back to Menu</p>
         </div>
         <div className="mt-4 text-xs text-gray-400">
-          <p>R: Restart/Menu | Space: Start/Continue</p>
-          <p>Break all blocks to advance to the next level!</p>
+          <p>R: Restart | Break all blocks to advance!</p>
         </div>
       </div>
     </div>

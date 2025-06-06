@@ -64,9 +64,9 @@ export default function Login() {
             </span>
           </h1>
           <div className="h-1 w-32 bg-gradient-to-r from-cyan-400 via-purple-400 to-amber-400 mx-auto rounded-full animate-pulse shadow-lg shadow-cyan-400/50" />
-          <div className="text-xs text-gray-400 font-mono mt-2 tracking-widest opacity-60">
+          {/* <div className="text-xs text-gray-400 font-mono mt-2 tracking-widest opacity-60">
             &gt; INITIALIZE_AUTH_PROTOCOL &lt;
-          </div>
+          </div> */}
         </div>
 
         <div className="relative bg-black/80 backdrop-blur-sm border-2 border-cyan-500/50 p-8 rounded-lg shadow-2xl shadow-cyan-500/25">
@@ -79,7 +79,7 @@ export default function Login() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label className="block mb-2 text-sm font-medium text-cyan-300 font-mono tracking-wide">
-                &gt; USERNAME_INPUT
+                &gt; USERNAME INPUT
               </label>
               <input
                 type="text"
@@ -94,7 +94,7 @@ export default function Login() {
 
             <div>
               <label className="block mb-2 text-sm font-medium text-purple-300 font-mono tracking-wide">
-                &gt; PASSWORD_INPUT
+                &gt; PASSWORD INPUT
               </label>
               <input
                 type="password"
@@ -121,7 +121,7 @@ export default function Login() {
 
           <div className="mt-6 text-center">
             <p className="text-gray-400 font-mono text-sm">
-              &gt; NEW_USER_REQUIRED ?{" "}
+              &gt; ARE YOU NEW HERE ?{" "}
               <a
                 href="/register"
                 className="text-cyan-400 hover:text-cyan-300 underline hover:no-underline transition-all duration-300 font-bold animate-pulse"

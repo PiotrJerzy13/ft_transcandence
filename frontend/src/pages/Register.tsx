@@ -117,9 +117,6 @@ export default function Register() {
             </span>
           </h1>
           <div className="h-1 w-32 bg-gradient-to-r from-cyan-400 via-purple-400 to-amber-400 mx-auto rounded-full animate-pulse shadow-lg shadow-cyan-400/50"></div>
-          <div className="text-xs text-gray-400 font-mono mt-2 tracking-widest opacity-60">
-            &gt; INITIALIZE_AUTH_PROTOCOL &lt;
-          </div>
         </div>
 
         {/* Form Container */}
@@ -133,7 +130,7 @@ export default function Register() {
           >
             <h2 className="text-3xl font-bold mb-8 text-center font-mono tracking-wide">
               <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
-                &gt; REGISTER_USER &lt;
+                REGISTER USER
               </span>
             </h2>
 
@@ -215,21 +212,21 @@ export default function Register() {
               className="w-full mt-8 relative overflow-hidden bg-gradient-to-r from-cyan-600 via-purple-600 to-amber-600 text-black font-black py-4 px-6 rounded-lg font-mono tracking-wide text-lg hover:from-cyan-400 hover:via-purple-400 hover:to-amber-400 transition-all duration-300 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-purple-500/50 border border-cyan-400/50"
             >
               <span className="relative z-10 drop-shadow-sm">
-                {isLoading ? "&gt; REGISTERING... &lt;" : "&gt; INITIALIZE_USER &lt;"}
+                {isLoading ? "REGISTERING..." : "REGISTER"}
               </span>
               <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 hover:opacity-100 transition-opacity duration-300"></div>
             </button>
 
             <div className="mt-6 text-center">
-              <p className="text-gray-400 font-mono text-sm">
-                &gt; USER_EXISTS_CHECK ?{" "}
-                <a 
-                  href="/login" 
-                  className="text-cyan-400 hover:text-cyan-300 underline hover:no-underline transition-all duration-300 font-bold animate-pulse"
-                >
-                  [LOGIN_PROTOCOL]
-                </a>
-              </p>
+				<p className="text-gray-400 font-mono text-sm">
+				&gt; ALREADY REGISTERED?{" "}
+				<a 
+					href="/login" 
+					className="text-cyan-400 hover:text-cyan-300 underline hover:no-underline transition-all duration-300 font-bold animate-pulse"
+				>
+					[LOGIN]
+				</a>
+				</p>
             </div>
           </form>
         </div>
