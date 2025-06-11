@@ -1,6 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-export default function Pong ({ onNavigateToLobby })
-export default function Game() {
+
+type GameProps = {
+  onNavigateToLobby?: () => void;
+};
+
+export default function Game({ onNavigateToLobby }: GameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [score, setScore] = useState({ left: 0, right: 0 });
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver'
@@ -8,8 +12,35 @@ export default function Game() {
   const [winningScore, setWinningScore] = useState(5);
   const [gameMode, setGameMode] = useState('two-player'); // 'one-player', 'two-player'
   
+  // Define the type for a particle
+  type Particle = {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number;
+    maxLife: number;
+    color: string;
+  };
+
   // Move all game variables to useRef to persist state across renders
-  const gameVars = useRef({
+  const gameVars = useRef<{
+    paddleHeight: number;
+    paddleWidth: number;
+    ballSize: number;
+    leftPaddleY: number;
+    rightPaddleY: number;
+    ballX: number;
+    ballY: number;
+    ballSpeedX: number;
+    ballSpeedY: number;
+    leftScore: number;
+    rightScore: number;
+    aiSpeed: number;
+    aiReactionDelay: number;
+    aiTarget: number;
+    particles: Particle[];
+  }>({
     paddleHeight: 100,
     paddleWidth: 12,
     ballSize: 12,
@@ -27,19 +58,23 @@ export default function Game() {
     particles: []
   });
   
-  const createParticles = (x, y, color = "#60a5fa") => {
-    for (let i = 0; i < 8; i++) {
-      gameVars.current.particles.push({
-        x: x,
-        y: y,
-        vx: (Math.random() - 0.5) * 6,
-        vy: (Math.random() - 0.5) * 6,
-        life: 30,
-        maxLife: 30,
-        color: color
-      });
-    }
-  };
+interface CreateParticles {
+	(x: number, y: number, color?: string): void;
+}
+
+const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
+	for (let i = 0; i < 8; i++) {
+		gameVars.current.particles.push({
+			x: x,
+			y: y,
+			vx: (Math.random() - 0.5) * 6,
+			vy: (Math.random() - 0.5) * 6,
+			life: 30,
+			maxLife: 30,
+			color: color
+		});
+	}
+};
 
   const resetGame = () => {
     gameVars.current.leftScore = 0;
@@ -77,7 +112,6 @@ export default function Game() {
     const vars = gameVars.current;
     // AI controls the right paddle
     const paddleCenter = vars.rightPaddleY + vars.paddleHeight / 2;
-    const ballCenter = vars.ballY + vars.ballSize / 2;
     
     // Only react when ball is moving towards AI paddle
     if (vars.ballSpeedX > 0) {
@@ -163,28 +197,43 @@ export default function Game() {
       context.restore();
 
       // Draw paddles with gradient and glow
-      const drawPaddle = (x, y, color1, color2, shadowColor) => {
-        context.save();
-        
-        // Glow effect
-        context.shadowColor = shadowColor;
-        context.shadowBlur = 15;
-        
-        // Gradient fill
-        const paddleGradient = context.createLinearGradient(x, y, x + vars.paddleWidth, y + vars.paddleHeight);
-        paddleGradient.addColorStop(0, color1);
-        paddleGradient.addColorStop(1, color2);
-        
-        context.fillStyle = paddleGradient;
-        context.fillRect(x, y, vars.paddleWidth, vars.paddleHeight);
-        
-        // Inner highlight
-        context.shadowBlur = 0;
-        context.fillStyle = "rgba(255, 255, 255, 0.3)";
-        context.fillRect(x + 2, y + 2, 2, vars.paddleHeight - 4);
-        
-        context.restore();
-      };
+	interface DrawPaddle {
+		(
+			x: number,
+			y: number,
+			color1: string,
+			color2: string,
+			shadowColor: string
+		): void;
+	}
+
+	const drawPaddle: DrawPaddle = (x, y, color1, color2, shadowColor) => {
+		context.save();
+
+		// Glow effect
+		context.shadowColor = shadowColor;
+		context.shadowBlur = 15;
+
+		// Gradient fill
+		const paddleGradient = context.createLinearGradient(
+			x,
+			y,
+			x + vars.paddleWidth,
+			y + vars.paddleHeight
+		);
+		paddleGradient.addColorStop(0, color1);
+		paddleGradient.addColorStop(1, color2);
+
+		context.fillStyle = paddleGradient;
+		context.fillRect(x, y, vars.paddleWidth, vars.paddleHeight);
+
+		// Inner highlight
+		context.shadowBlur = 0;
+		context.fillStyle = "rgba(255, 255, 255, 0.3)";
+		context.fillRect(x + 2, y + 2, 2, vars.paddleHeight - 4);
+
+		context.restore();
+	};
 
       drawPaddle(20, vars.leftPaddleY, "#06b6d4", "#0891b2", "#06b6d4");
       drawPaddle(canvas.width - 32, vars.rightPaddleY, "#f59e0b", "#d97706", "#f59e0b");

@@ -1,12 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function Arkanoid({ onNavigateToLobby }) {
-  const canvasRef = useRef(null);
+interface ArkanoidProps {
+  onNavigateToLobby?: () => void;
+}
+
+export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
   const [gameState, setGameState] = useState('menu');
-  const animationFrameRef = useRef(null);
+  const animationFrameRef = useRef<number | null>(null);
   
   const paddleWidth = 120;
   const paddleHeight = 15;
@@ -17,8 +21,44 @@ export default function Arkanoid({ onNavigateToLobby }) {
   const blockCols = 10;
   const blockPadding = 5;
   
+  // Particle and Block types
+  type Particle = {
+    x: number;
+    y: number;
+    vx: number;
+    vy: number;
+    life: number;
+    maxLife: number;
+    color: string;
+  };
+
+  type Block = {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    destroyed: boolean;
+    color: { primary: string; secondary: string; glow: string };
+    points: number;
+  };
+
   // Game state ref
-  const gameStateRef = useRef({
+  const gameStateRef = useRef<{
+    paddleX: number;
+    ballX: number;
+    ballY: number;
+    ballSpeedX: number;
+    ballSpeedY: number;
+    currentScore: number;
+    currentLives: number;
+    currentLevel: number;
+    blocks: Block[];
+    particles: Particle[];
+    keys: {
+      left: boolean;
+      right: boolean;
+    };
+  }>({
     paddleX: 340,
     ballX: 400,
     ballY: 400,
@@ -45,19 +85,23 @@ export default function Arkanoid({ onNavigateToLobby }) {
     { primary: "#a855f7", secondary: "#9333ea", glow: "#a855f7" },
   ];
   
-  const createParticles = (x, y, color = "#60a5fa") => {
-    for (let i = 0; i < 12; i++) {
-      gameStateRef.current.particles.push({
-        x: x,
-        y: y,
-        vx: (Math.random() - 0.5) * 8,
-        vy: (Math.random() - 0.5) * 8,
-        life: 40,
-        maxLife: 40,
-        color: color
-      });
-    }
-  };
+interface CreateParticlesFn {
+	(x: number, y: number, color?: string): void;
+}
+
+const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
+	for (let i = 0; i < 12; i++) {
+		gameStateRef.current.particles.push({
+			x: x,
+			y: y,
+			vx: (Math.random() - 0.5) * 8,
+			vy: (Math.random() - 0.5) * 8,
+			life: 40,
+			maxLife: 40,
+			color: color
+		});
+	}
+};
 
   const initializeBlocks = () => {
     gameStateRef.current.blocks = [];
@@ -476,92 +520,100 @@ export default function Arkanoid({ onNavigateToLobby }) {
       }
     };
 
-    const handleKeyDown = (e) => {
-      if (["ArrowLeft", "ArrowRight", "a", "d", " ", "r", "Escape", "l"].includes(e.key)) {
-        e.preventDefault();
-      }
+	interface KeyboardEventWithPrevent extends KeyboardEvent {
+	  preventDefault(): void;
+	}
 
-      // Back to lobby key (L)
-      if (e.key.toLowerCase() === 'l') {
-        handleBackToLobby();
-        return;
-      }
+	const handleKeyDown = (e: KeyboardEventWithPrevent) => {
+	  if (["ArrowLeft", "ArrowRight", "a", "d", " ", "r", "Escape", "l"].includes(e.key)) {
+		e.preventDefault();
+	  }
 
-      // Movement keys (only when playing)
-      if (gameState === 'playing') {
-        if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
-          gameStateRef.current.keys.left = true;
-        }
-        if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
-          gameStateRef.current.keys.right = true;
-        }
-      }
+	  // Back to lobby key (L)
+	  if (e.key.toLowerCase() === 'l') {
+		handleBackToLobby();
+		return;
+	  }
 
-      // Game state controls
-      switch (gameState) {
-        case 'menu':
-          if (e.key === " ") {
-            // Start new game from menu
-            resetGame();
-            setGameState('playing');
-          }
-          break;
+	  // Movement keys (only when playing)
+	  if (gameState === 'playing') {
+		if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
+		  gameStateRef.current.keys.left = true;
+		}
+		if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
+		  gameStateRef.current.keys.right = true;
+		}
+	  }
 
-        case 'playing':
-          if (e.key === " ") {
-            // Pause game - no reset
-            setGameState('paused');
-          } else if (e.key === "Escape") {
-            // Return to menu - reset everything
-            resetGame();
-            setGameState('menu');
-          } else if (e.key.toLowerCase() === 'r') {
-            // Restart game - reset everything
-            resetGame();
-          }
-          break;
+	  // Game state controls
+	  switch (gameState) {
+		case 'menu':
+		  if (e.key === " ") {
+			// Start new game from menu
+			resetGame();
+			setGameState('playing');
+		  }
+		  break;
 
-        case 'paused':
-          if (e.key === " ") {
-            // Resume game - no reset
-            setGameState('playing');
-          } else if (e.key === "Escape") {
-            // Return to menu - reset everything
-            resetGame();
-            setGameState('menu');
-          }
-          break;
+		case 'playing':
+		  if (e.key === " ") {
+			// Pause game - no reset
+			setGameState('paused');
+		  } else if (e.key === "Escape") {
+			// Return to menu - reset everything
+			resetGame();
+			setGameState('menu');
+		  } else if (e.key.toLowerCase() === 'r') {
+			// Restart game - reset everything
+			resetGame();
+		  }
+		  break;
 
-        case 'levelComplete':
-          if (e.key === " ") {
-            // Continue to next level
-            nextLevel();
-            setGameState('playing');
-          }
-          break;
+		case 'paused':
+		  if (e.key === " ") {
+			// Resume game - no reset
+			setGameState('playing');
+		  } else if (e.key === "Escape") {
+			// Return to menu - reset everything
+			resetGame();
+			setGameState('menu');
+		  }
+		  break;
 
-        case 'gameOver':
-          if (e.key.toLowerCase() === 'r') {
-            // Restart game completely
-            resetGame();
-            setGameState('playing');
-          } else if (e.key === ' ') {
-            // Return to menu
-            resetGame();
-            setGameState('menu');
-          }
-          break;
-      }
-    };
+		case 'levelComplete':
+		  if (e.key === " ") {
+			// Continue to next level
+			nextLevel();
+			setGameState('playing');
+		  }
+		  break;
 
-    const handleKeyUp = (e) => {
-      if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
-        gameStateRef.current.keys.left = false;
-      }
-      if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
-        gameStateRef.current.keys.right = false;
-      }
-    };
+		case 'gameOver':
+		  if (e.key.toLowerCase() === 'r') {
+			// Restart game completely
+			resetGame();
+			setGameState('playing');
+		  } else if (e.key === ' ') {
+			// Return to menu
+			resetGame();
+			setGameState('menu');
+		  }
+		  break;
+	  }
+	};
+
+	interface KeyUpEvent extends KeyboardEvent {
+	  key: string;
+	}
+
+	const handleKeyUp = (e: KeyUpEvent) => {
+	  if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
+		gameStateRef.current.keys.left = false;
+	  }
+	  if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
+		gameStateRef.current.keys.right = false;
+	  }
+	};
 
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
