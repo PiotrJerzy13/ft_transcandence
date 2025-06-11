@@ -33,7 +33,7 @@ services:
 
   sqlite-web:
     image: coleifer/sqlite-web
-    platform: linux/amd64  # Force AMD64 emulation
+    platform: linux/amd64
     container_name: ft_sqlite_web
     ports:
       - "8086:8080"
@@ -43,4 +43,3 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
-
