@@ -3,35 +3,33 @@ import { useEffect, useRef, useState } from "react";
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [score, setScore] = useState({ left: 0, right: 0 });
-  const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'gameOver'
+  const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver'
   const [winner, setWinner] = useState('');
   const [winningScore, setWinningScore] = useState(5);
   const [gameMode, setGameMode] = useState('two-player'); // 'one-player', 'two-player'
   
-  const paddleHeight = 100;
-  const paddleWidth = 12;
-  const ballSize = 12;
-  
-  let leftPaddleY = 160;
-  let rightPaddleY = 160;
-  let ballX = 300;
-  let ballY = 200;
-  let ballSpeedX = 4;
-  let ballSpeedY = 3;
-  let leftScore = 0;
-  let rightScore = 0;
-  
-  // AI variables
-  let aiSpeed = 3.5; // Base AI speed
-  let aiReactionDelay = 0; // Frames to wait before AI reacts
-  let aiTarget = 250; // Where AI wants to position its paddle
-  
-  // Particle system for effects
-  let particles = [];
+  // Move all game variables to useRef to persist state across renders
+  const gameVars = useRef({
+    paddleHeight: 100,
+    paddleWidth: 12,
+    ballSize: 12,
+    leftPaddleY: 160,
+    rightPaddleY: 160,
+    ballX: 300,
+    ballY: 200,
+    ballSpeedX: 4,
+    ballSpeedY: 3,
+    leftScore: 0,
+    rightScore: 0,
+    aiSpeed: 3.5,
+    aiReactionDelay: 0,
+    aiTarget: 250,
+    particles: []
+  });
   
   const createParticles = (x, y, color = "#60a5fa") => {
     for (let i = 0; i < 8; i++) {
-      particles.push({
+      gameVars.current.particles.push({
         x: x,
         y: y,
         vx: (Math.random() - 0.5) * 6,
@@ -44,8 +42,8 @@ export default function Game() {
   };
 
   const resetGame = () => {
-    leftScore = 0;
-    rightScore = 0;
+    gameVars.current.leftScore = 0;
+    gameVars.current.rightScore = 0;
     setScore({ left: 0, right: 0 });
     setWinner('');
     resetBall();
@@ -53,67 +51,69 @@ export default function Game() {
   };
 
   const resetBall = () => {
-    ballX = 400;
-    ballY = 250;
-    ballSpeedX = ballSpeedX > 0 ? -4 : 4;
-    ballSpeedY = (Math.random() - 0.5) * 4;
+    gameVars.current.ballX = 400;
+    gameVars.current.ballY = 250;
+    gameVars.current.ballSpeedX = gameVars.current.ballSpeedX > 0 ? -4 : 4;
+    gameVars.current.ballSpeedY = (Math.random() - 0.5) * 4;
   };
 
   const resetPaddles = () => {
-    leftPaddleY = 200;
-    rightPaddleY = 200;
+    gameVars.current.leftPaddleY = 200;
+    gameVars.current.rightPaddleY = 200;
   };
-
+	
   const updateAI = () => {
     if (gameMode !== 'one-player' || gameState !== 'playing') return;
     
+    const vars = gameVars.current;
     // AI controls the right paddle
-    const paddleCenter = rightPaddleY + paddleHeight / 2;
-    const ballCenter = ballY + ballSize / 2;
+    const paddleCenter = vars.rightPaddleY + vars.paddleHeight / 2;
+    const ballCenter = vars.ballY + vars.ballSize / 2;
     
     // Only react when ball is moving towards AI paddle
-    if (ballSpeedX > 0) {
+    if (vars.ballSpeedX > 0) {
       // Predict where ball will be when it reaches paddle
-      const timeToReachPaddle = (760 - ballX) / ballSpeedX;
-      const predictedBallY = ballY + (ballSpeedY * timeToReachPaddle);
+      const timeToReachPaddle = (760 - vars.ballX) / vars.ballSpeedX;
+      const predictedBallY = vars.ballY + (vars.ballSpeedY * timeToReachPaddle);
       
       // Add some imperfection to make AI beatable
       const imperfection = (Math.random() - 0.5) * 40; // Random offset
-      aiTarget = predictedBallY + imperfection;
+      vars.aiTarget = predictedBallY + imperfection;
     } else {
       // When ball is moving away, move towards center
-      aiTarget = 250;
+      vars.aiTarget = 250;
     }
     
     // Move AI paddle towards target with some smoothing
-    const difference = aiTarget - paddleCenter;
+    const difference = vars.aiTarget - paddleCenter;
     
     if (Math.abs(difference) > 5) {
       if (difference > 0) {
-        rightPaddleY = Math.min(500 - paddleHeight, rightPaddleY + aiSpeed);
+        vars.rightPaddleY = Math.min(500 - vars.paddleHeight, vars.rightPaddleY + vars.aiSpeed);
       } else {
-        rightPaddleY = Math.max(0, rightPaddleY - aiSpeed);
+        vars.rightPaddleY = Math.max(0, vars.rightPaddleY - vars.aiSpeed);
       }
     }
     
     // Adjust AI difficulty based on score difference
-    const scoreDiff = rightScore - leftScore;
+    const scoreDiff = vars.rightScore - vars.leftScore;
     if (scoreDiff > 2) {
-      aiSpeed = Math.max(2, aiSpeed - 0.1); // Make AI slower if it's winning by a lot
+      vars.aiSpeed = Math.max(2, vars.aiSpeed - 0.1); // Make AI slower if it's winning by a lot
     } else if (scoreDiff < -2) {
-      aiSpeed = Math.min(5, aiSpeed + 0.1); // Make AI faster if it's losing
+      vars.aiSpeed = Math.min(5, vars.aiSpeed + 0.1); // Make AI faster if it's losing
     }
   };
 
   const checkWinCondition = () => {
-    if (leftScore >= winningScore) {
+    const vars = gameVars.current;
+    if (vars.leftScore >= winningScore) {
       const winnerText = gameMode === 'one-player' ? 'You Win!' : 'Player 1';
       setWinner(winnerText);
       setGameState('gameOver');
       createParticles(200, 250, "#06b6d4");
       createParticles(300, 150, "#06b6d4");
       createParticles(400, 350, "#06b6d4");
-    } else if (rightScore >= winningScore) {
+    } else if (vars.rightScore >= winningScore) {
       const winnerText = gameMode === 'one-player' ? 'AI Wins!' : 'Player 2';
       setWinner(winnerText);
       setGameState('gameOver');
@@ -129,6 +129,8 @@ export default function Game() {
     if (!canvas || !context) return;
 
     const draw = () => {
+      const vars = gameVars.current;
+      
       // Create gradient background
       const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
       gradient.addColorStop(0, "#0f0f23");
@@ -160,23 +162,23 @@ export default function Game() {
         context.shadowBlur = 15;
         
         // Gradient fill
-        const paddleGradient = context.createLinearGradient(x, y, x + paddleWidth, y + paddleHeight);
+        const paddleGradient = context.createLinearGradient(x, y, x + vars.paddleWidth, y + vars.paddleHeight);
         paddleGradient.addColorStop(0, color1);
         paddleGradient.addColorStop(1, color2);
         
         context.fillStyle = paddleGradient;
-        context.fillRect(x, y, paddleWidth, paddleHeight);
+        context.fillRect(x, y, vars.paddleWidth, vars.paddleHeight);
         
         // Inner highlight
         context.shadowBlur = 0;
         context.fillStyle = "rgba(255, 255, 255, 0.3)";
-        context.fillRect(x + 2, y + 2, 2, paddleHeight - 4);
+        context.fillRect(x + 2, y + 2, 2, vars.paddleHeight - 4);
         
         context.restore();
       };
 
-      drawPaddle(20, leftPaddleY, "#06b6d4", "#0891b2", "#06b6d4");
-      drawPaddle(canvas.width - 32, rightPaddleY, "#f59e0b", "#d97706", "#f59e0b");
+      drawPaddle(20, vars.leftPaddleY, "#06b6d4", "#0891b2", "#06b6d4");
+      drawPaddle(canvas.width - 32, vars.rightPaddleY, "#f59e0b", "#d97706", "#f59e0b");
 
       // Draw ball with glow and trail effect
       context.save();
@@ -185,8 +187,8 @@ export default function Game() {
       
       // Ball gradient
       const ballGradient = context.createRadialGradient(
-        ballX + ballSize/2, ballY + ballSize/2, 0,
-        ballX + ballSize/2, ballY + ballSize/2, ballSize
+        vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, 0,
+        vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, vars.ballSize
       );
       ballGradient.addColorStop(0, "#fbbf24");
       ballGradient.addColorStop(0.7, "#f59e0b");
@@ -194,37 +196,51 @@ export default function Game() {
       
       context.fillStyle = ballGradient;
       context.beginPath();
-      context.arc(ballX + ballSize/2, ballY + ballSize/2, ballSize/2, 0, Math.PI * 2);
+      context.arc(vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, vars.ballSize/2, 0, Math.PI * 2);
       context.fill();
       
       // Inner highlight
       context.shadowBlur = 0;
       context.fillStyle = "rgba(255, 255, 255, 0.6)";
       context.beginPath();
-      context.arc(ballX + ballSize/3, ballY + ballSize/3, ballSize/6, 0, Math.PI * 2);
+      context.arc(vars.ballX + vars.ballSize/3, vars.ballY + vars.ballSize/3, vars.ballSize/6, 0, Math.PI * 2);
       context.fill();
       
       context.restore();
 
       // Draw and update particles
-      particles = particles.filter(particle => {
-        particle.x += particle.vx;
-        particle.y += particle.vy;
-        particle.life--;
-        particle.vx *= 0.98; // Slow down over time
-        particle.vy *= 0.98;
-        
-        const alpha = particle.life / particle.maxLife;
-        context.save();
-        context.globalAlpha = alpha;
-        context.fillStyle = particle.color;
-        context.beginPath();
-        context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
-        context.fill();
-        context.restore();
-        
-        return particle.life > 0;
-      });
+      if (gameState === 'playing') {
+        vars.particles = vars.particles.filter(particle => {
+          particle.x += particle.vx;
+          particle.y += particle.vy;
+          particle.life--;
+          particle.vx *= 0.98; // Slow down over time
+          particle.vy *= 0.98;
+          
+          const alpha = particle.life / particle.maxLife;
+          context.save();
+          context.globalAlpha = alpha;
+          context.fillStyle = particle.color;
+          context.beginPath();
+          context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
+          context.fill();
+          context.restore();
+          
+          return particle.life > 0;
+        });
+      } else {
+        // Still draw particles even when paused, but don't update them
+        vars.particles.forEach(particle => {
+          const alpha = particle.life / particle.maxLife;
+          context.save();
+          context.globalAlpha = alpha;
+          context.fillStyle = particle.color;
+          context.beginPath();
+          context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
+          context.fill();
+          context.restore();
+        });
+      }
 
       // Draw scores with glow
       context.save();
@@ -235,13 +251,13 @@ export default function Game() {
       context.shadowColor = "#06b6d4";
       context.shadowBlur = 15;
       context.fillStyle = "#06b6d4";
-      context.fillText(leftScore.toString(), canvas.width / 4, 60);
+      context.fillText(vars.leftScore.toString(), canvas.width / 4, 60);
       
       // Right score
       context.shadowColor = "#f59e0b";
       context.shadowBlur = 15;
       context.fillStyle = "#f59e0b";
-      context.fillText(rightScore.toString(), (canvas.width * 3) / 4, 60);
+      context.fillText(vars.rightScore.toString(), (canvas.width * 3) / 4, 60);
       
       context.restore();
 
@@ -276,7 +292,29 @@ export default function Game() {
         context.font = "16px 'Courier New', monospace";
         const controlText = gameMode === 'one-player' ? "W/S - Your Paddle" : "W/S - Left Paddle | ↑/↓ - Right Paddle";
         context.fillText(controlText, canvas.width / 2, canvas.height / 2 + 80);
-        context.fillText("1-9: Set winning score | R: Restart", canvas.width / 2, canvas.height / 2 + 100);
+        context.fillText("1-9: Set winning score | R: Restart | SPACE: Pause/Resume", canvas.width / 2, canvas.height / 2 + 100);
+        context.fillText("ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 120);
+        context.restore();
+      }
+
+      if (gameState === 'paused') {
+        context.save();
+        context.fillStyle = "rgba(0, 0, 0, 0.7)";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+        
+        context.font = "bold 36px 'Courier New', monospace";
+        context.textAlign = "center";
+        context.fillStyle = "#f59e0b";
+        context.shadowColor = "#f59e0b";
+        context.shadowBlur = 15;
+        context.fillText("PAUSED", canvas.width / 2, canvas.height / 2 - 20);
+        
+        context.font = "18px 'Courier New', monospace";
+        context.fillStyle = "#ffffff";
+        context.shadowColor = "#4338ca";
+        context.shadowBlur = 10;
+        context.fillText("PRESS SPACE TO RESUME", canvas.width / 2, canvas.height / 2 + 20);
+        context.fillText("ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 45);
         context.restore();
       }
 
@@ -299,7 +337,7 @@ export default function Game() {
         context.fillStyle = "#ffffff";
         context.shadowColor = "#4338ca";
         context.shadowBlur = 10;
-        context.fillText(`Final Score: ${leftScore} - ${rightScore}`, canvas.width / 2, canvas.height / 2);
+        context.fillText(`Final Score: ${vars.leftScore} - ${vars.rightScore}`, canvas.width / 2, canvas.height / 2);
         
         context.font = "18px 'Courier New', monospace";
         context.fillText("PRESS R TO PLAY AGAIN", canvas.width / 2, canvas.height / 2 + 40);
@@ -309,140 +347,155 @@ export default function Game() {
     };
 
     const update = () => {
-      if (gameState !== 'playing') return;
+      if (gameState !== 'playing') return; // Only update when playing
+      
+      const vars = gameVars.current;
       
       updateAI(); // Update AI paddle
       
-      ballX += ballSpeedX;
-      ballY += ballSpeedY;
+      vars.ballX += vars.ballSpeedX;
+      vars.ballY += vars.ballSpeedY;
 
       // Bounce off top/bottom with particles
-      if (ballY <= 0 || ballY + ballSize >= canvas.height) {
-        ballSpeedY *= -1;
-        createParticles(ballX + ballSize/2, ballY + ballSize/2, "#60a5fa");
+      if (vars.ballY <= 0 || vars.ballY + vars.ballSize >= canvas.height) {
+        vars.ballSpeedY *= -1;
+        createParticles(vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, "#60a5fa");
       }
 
       // Bounce off left paddle
       if (
-        ballX <= 32 &&
-        ballY + ballSize >= leftPaddleY &&
-        ballY <= leftPaddleY + paddleHeight &&
-        ballSpeedX < 0
+        vars.ballX <= 32 &&
+        vars.ballY + vars.ballSize >= vars.leftPaddleY &&
+        vars.ballY <= vars.leftPaddleY + vars.paddleHeight &&
+        vars.ballSpeedX < 0
       ) {
-        ballSpeedX *= -1;
+        vars.ballSpeedX *= -1;
         // Add some randomness to prevent boring rallies
-        ballSpeedY += (Math.random() - 0.5) * 2;
-        createParticles(ballX + ballSize/2, ballY + ballSize/2, "#06b6d4");
+        vars.ballSpeedY += (Math.random() - 0.5) * 2;
+        createParticles(vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, "#06b6d4");
       }
 
       // Bounce off right paddle
       if (
-        ballX + ballSize >= canvas.width - 32 &&
-        ballY + ballSize >= rightPaddleY &&
-        ballY <= rightPaddleY + paddleHeight &&
-        ballSpeedX > 0
+        vars.ballX + vars.ballSize >= canvas.width - 32 &&
+        vars.ballY + vars.ballSize >= vars.rightPaddleY &&
+        vars.ballY <= vars.rightPaddleY + vars.paddleHeight &&
+        vars.ballSpeedX > 0
       ) {
-        ballSpeedX *= -1;
-        ballSpeedY += (Math.random() - 0.5) * 2;
-        createParticles(ballX + ballSize/2, ballY + ballSize/2, "#f59e0b");
+        vars.ballSpeedX *= -1;
+        vars.ballSpeedY += (Math.random() - 0.5) * 2;
+        createParticles(vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, "#f59e0b");
       }
 
       // Score and reset
-      if (ballX < 0) {
-        rightScore++;
-        setScore(prev => ({ ...prev, right: rightScore }));
+      if (vars.ballX < 0) {
+        vars.rightScore++;
+        setScore(prev => ({ ...prev, right: vars.rightScore }));
         resetBall();
         createParticles(canvas.width - 100, canvas.height / 2, "#f59e0b");
         setTimeout(checkWinCondition, 100);
       }
       
-      if (ballX > canvas.width) {
-        leftScore++;
-        setScore(prev => ({ ...prev, left: leftScore }));
+      if (vars.ballX > canvas.width) {
+        vars.leftScore++;
+        setScore(prev => ({ ...prev, left: vars.leftScore }));
         resetBall();
         createParticles(100, canvas.height / 2, "#06b6d4");
         setTimeout(checkWinCondition, 100);
       }
 
       // Limit ball speed
-      ballSpeedY = Math.max(-8, Math.min(8, ballSpeedY));
-      ballSpeedX = Math.max(-10, Math.min(10, ballSpeedX));
+      vars.ballSpeedY = Math.max(-8, Math.min(8, vars.ballSpeedY));
+      vars.ballSpeedX = Math.max(-10, Math.min(10, vars.ballSpeedX));
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!canvas) return;
       
+      const vars = gameVars.current;
       const step = 25;
       
-      if (["ArrowUp", "ArrowDown", "w", "s", " ", "r", "1", "2"].includes(e.key.toLowerCase())) {
+      if (["ArrowUp", "ArrowDown", "w", "s", " ", "r", "Escape", "1", "2"].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
       
-      // Menu controls
-      if (gameState === 'menu') {
-        if (e.key === " ") {
-          setGameState('playing');
-          resetGame();
-          return;
-        }
-        
-        // Game mode selection
-        if (e.key === '1') {
-          setGameMode('one-player');
-          return;
-        }
-        if (e.key === '2') {
-          setGameMode('two-player');
-          return;
-        }
-        
-        // Set winning score (3-9, avoiding 1 and 2 which are used for mode selection)
-        const num = parseInt(e.key);
-        if (num >= 3 && num <= 9) {
-          setWinningScore(num);
-          return;
-        }
-      }
-      
-      // Game over controls
-      if (gameState === 'gameOver') {
-        if (e.key.toLowerCase() === 'r') {
-          setGameState('playing');
-          resetGame();
-          return;
-        }
-        if (e.key === ' ') {
-          setGameState('menu');
-          resetGame();
-          return;
-        }
-      }
-      
-      // Gameplay controls
+      // Movement keys (only when playing)
       if (gameState === 'playing') {
-        if (e.key.toLowerCase() === 'r') {
-          setGameState('menu');
-          resetGame();
-          return;
-        }
-
         // Left paddle (always player controlled)
         if (e.key.toLowerCase() === "w") {
-          leftPaddleY = Math.max(0, leftPaddleY - step);
+          vars.leftPaddleY = Math.max(0, vars.leftPaddleY - step);
         }
         if (e.key.toLowerCase() === "s") {
-          leftPaddleY = Math.min(canvas.height - paddleHeight, leftPaddleY + step);
+          vars.leftPaddleY = Math.min(canvas.height - vars.paddleHeight, vars.leftPaddleY + step);
         }
         
         // Right paddle (only in two-player mode)
         if (gameMode === 'two-player') {
           if (e.key === "ArrowUp") {
-            rightPaddleY = Math.max(0, rightPaddleY - step);
+            vars.rightPaddleY = Math.max(0, vars.rightPaddleY - step);
           }
           if (e.key === "ArrowDown") {
-            rightPaddleY = Math.min(canvas.height - paddleHeight, rightPaddleY + step);
+            vars.rightPaddleY = Math.min(canvas.height - vars.paddleHeight, vars.rightPaddleY + step);
           }
         }
+      }
+
+      // Game state controls
+      switch (gameState) {
+        case 'menu':
+          if (e.key === " ") {
+            // Start new game from menu
+            setGameState('playing');
+            resetGame();
+          } else if (e.key === '1') {
+            setGameMode('one-player');
+          } else if (e.key === '2') {
+            setGameMode('two-player');
+          } else {
+            // Set winning score (3-9, avoiding 1 and 2 which are used for mode selection)
+            const num = parseInt(e.key);
+            if (num >= 3 && num <= 9) {
+              setWinningScore(num);
+            }
+          }
+          break;
+
+        case 'playing':
+          if (e.key === " ") {
+            // Pause game - no reset
+            setGameState('paused');
+          } else if (e.key === "Escape") {
+            // Return to menu - reset everything
+            resetGame();
+            setGameState('menu');
+          } else if (e.key.toLowerCase() === 'r') {
+            // Restart game - reset everything but stay playing
+            resetGame();
+          }
+          break;
+
+        case 'paused':
+          if (e.key === " ") {
+            // Resume game - no reset
+            setGameState('playing');
+          } else if (e.key === "Escape") {
+            // Return to menu - reset everything
+            resetGame();
+            setGameState('menu');
+          }
+          break;
+
+        case 'gameOver':
+          if (e.key.toLowerCase() === 'r') {
+            // Restart game completely
+            resetGame();
+            setGameState('playing');
+          } else if (e.key === ' ') {
+            // Return to menu
+            resetGame();
+            setGameState('menu');
+          }
+          break;
       }
     };
 
@@ -512,7 +565,8 @@ export default function Game() {
           </div>
         )}
         <div className="mt-4 text-xs text-gray-400">
-          <p>R: Restart/Menu | 1/2: Game Mode | 3-9: Set winning score | Space: Start/Menu</p>
+          <p>SPACE: Pause/Resume | ESC: Back to Menu</p>
+          <p>R: Restart | 1/2: Game Mode | 3-9: Set winning score</p>
         </div>
       </div>
     </div>

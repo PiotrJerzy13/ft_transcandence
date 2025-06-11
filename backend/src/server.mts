@@ -1,6 +1,8 @@
 import fastify from 'fastify';
 import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
+import swagger from '@fastify/swagger';
+import swaggerUi from '@fastify/swagger-ui';
 import dotenv from 'dotenv';
 import type { FastifyInstance } from 'fastify';
 
@@ -21,6 +23,50 @@ const start = async () => {
   try {
     // Initialize database
     await initializeDatabase();
+    
+    // Register Swagger
+    await app.register(swagger, {
+      openapi: {
+        openapi: '3.0.0',
+        info: {
+          title: 'Tournament API',
+          description: 'API for tournament management system',
+          version: '1.0.0',
+        },
+        servers: [
+          {
+            url: 'http://localhost:3000',
+            description: 'Development server',
+          },
+        ],
+        components: {
+          securitySchemes: {
+            cookieAuth: {
+              type: 'apiKey',
+              in: 'cookie',
+              name: 'token',
+            },
+          },
+        },
+      },
+    });
+
+    await app.register(swaggerUi, {
+      routePrefix: '/documentation',
+      uiConfig: {
+        docExpansion: 'list',
+        deepLinking: false,
+      },
+	uiHooks: {
+		onRequest: function (_request, _reply, next) { next(); },
+  		preHandler: function (_request, _reply, next) { next(); },},
+      staticCSP: true,
+      transformStaticCSP: (header) => header,
+      transformSpecification: (_swaggerObject, _request, _reply) => {
+  return _swaggerObject;
+	},
+      transformSpecificationClone: true,
+    });
     
     // Register plugins
     await app.register(cors, {
@@ -52,12 +98,17 @@ const start = async () => {
     process.on('SIGINT', closeGracefully);
     process.on('SIGTERM', closeGracefully);
 
+	app.ready(err => {
+  if (err) throw err;
+  app.printRoutes(); // Debug: logs all registered routes to console
+	});
     // Start server
     await app.listen({ 
       port: Number(process.env.PORT) || 3000, 
       host: '0.0.0.0' 
     });
     console.log(`Server running on port ${Number(process.env.PORT) || 3000}`);
+    console.log(`Swagger documentation available at http://localhost:${Number(process.env.PORT) || 3000}/documentation`);
   } catch (err) {
     app.log.error(err);
     await closeDatabase();
