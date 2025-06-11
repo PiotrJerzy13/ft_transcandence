@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 
-export default function Arkanoid() {
+export default function Arkanoid({ onNavigateToLobby }) {
   const canvasRef = useRef(null);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
@@ -125,6 +125,15 @@ export default function Arkanoid() {
     }
   };
 
+  const handleBackToLobby = () => {
+    if (onNavigateToLobby) {
+      onNavigateToLobby();
+    } else {
+      // Fallback if no navigation function is provided
+      console.log('Navigate to lobby');
+    }
+  };
+
   useEffect(() => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
@@ -139,10 +148,9 @@ export default function Arkanoid() {
     gameStateRef.current.keys.left = false;
     gameStateRef.current.keys.right = false;
 
-    // initializeBlocks();
-	  if (gameState === 'menu') {
-    	initializeBlocks();
-  		}
+    if (gameState === 'menu') {
+      initializeBlocks();
+    }
 
     const draw = () => {
       // Create gradient background
@@ -294,15 +302,16 @@ export default function Arkanoid() {
         context.fillStyle = "#ffffff";
         context.shadowColor = "#4338ca";
         context.shadowBlur = 15;
-        context.fillText("CYBER ARKANOID", canvas.width / 2, canvas.height / 2 - 60);
+        context.fillText("CYBER ARKANOID", canvas.width / 2, canvas.height / 2 - 80);
         
         context.font = "20px 'Courier New', monospace";
-        context.fillText("Break all blocks to advance!", canvas.width / 2, canvas.height / 2 - 20);
-        context.fillText("PRESS SPACE TO START", canvas.width / 2, canvas.height / 2 + 20);
+        context.fillText("Break all blocks to advance!", canvas.width / 2, canvas.height / 2 - 40);
+        context.fillText("PRESS SPACE TO START", canvas.width / 2, canvas.height / 2);
         
         context.font = "16px 'Courier New', monospace";
-        context.fillText("A/D or ←/→ to move paddle", canvas.width / 2, canvas.height / 2 + 60);
-        context.fillText("R: Restart | ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 85);
+        context.fillText("A/D or ←/→ to move paddle", canvas.width / 2, canvas.height / 2 + 40);
+        context.fillText("R: Restart | ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 65);
+        context.fillText("L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 90);
         context.restore();
       }
 
@@ -323,7 +332,7 @@ export default function Arkanoid() {
         context.shadowColor = "#4338ca";
         context.shadowBlur = 10;
         context.fillText("PRESS SPACE TO RESUME", canvas.width / 2, canvas.height / 2 + 20);
-        context.fillText("ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 45);
+        context.fillText("ESC: Back to Menu | L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 45);
         context.restore();
       }
 
@@ -348,7 +357,7 @@ export default function Arkanoid() {
         
         context.font = "18px 'Courier New', monospace";
         context.fillText("PRESS R TO PLAY AGAIN", canvas.width / 2, canvas.height / 2 + 70);
-        context.fillText("PRESS SPACE FOR MENU", canvas.width / 2, canvas.height / 2 + 95);
+        context.fillText("PRESS SPACE FOR MENU | L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 95);
         context.restore();
       }
 
@@ -369,6 +378,9 @@ export default function Arkanoid() {
         context.shadowColor = "#4338ca";
         context.shadowBlur = 10;
         context.fillText("PRESS SPACE TO CONTINUE", canvas.width / 2, canvas.height / 2 + 20);
+        
+        context.font = "16px 'Courier New', monospace";
+        context.fillText("L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 50);
         context.restore();
       }
     };
@@ -464,77 +476,83 @@ export default function Arkanoid() {
       }
     };
 
-	const handleKeyDown = (e) => {
-	if (["ArrowLeft", "ArrowRight", "a", "d", " ", "r", "Escape"].includes(e.key)) {
-		e.preventDefault();
-	}
+    const handleKeyDown = (e) => {
+      if (["ArrowLeft", "ArrowRight", "a", "d", " ", "r", "Escape", "l"].includes(e.key)) {
+        e.preventDefault();
+      }
 
-	// Movement keys (only when playing)
-	if (gameState === 'playing') {
-		if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
-		gameStateRef.current.keys.left = true;
-		}
-		if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
-		gameStateRef.current.keys.right = true;
-		}
-	}
+      // Back to lobby key (L)
+      if (e.key.toLowerCase() === 'l') {
+        handleBackToLobby();
+        return;
+      }
 
-	// Game state controls
-	switch (gameState) {
-		case 'menu':
-		if (e.key === " ") {
-			// Start new game from menu
-			resetGame();
-			setGameState('playing');
-		}
-		break;
+      // Movement keys (only when playing)
+      if (gameState === 'playing') {
+        if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
+          gameStateRef.current.keys.left = true;
+        }
+        if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
+          gameStateRef.current.keys.right = true;
+        }
+      }
 
-		case 'playing':
-		if (e.key === " ") {
-			// Pause game - no reset
-			setGameState('paused');
-		} else if (e.key === "Escape") {
-			// Return to menu - reset everything
-			resetGame();
-			setGameState('menu');
-		} else if (e.key.toLowerCase() === 'r') {
-			// Restart game - reset everything
-			resetGame();
-		}
-		break;
+      // Game state controls
+      switch (gameState) {
+        case 'menu':
+          if (e.key === " ") {
+            // Start new game from menu
+            resetGame();
+            setGameState('playing');
+          }
+          break;
 
-		case 'paused':
-		if (e.key === " ") {
-			// Resume game - no reset
-			setGameState('playing');
-		} else if (e.key === "Escape") {
-			// Return to menu - reset everything
-			resetGame();
-			setGameState('menu');
-		}
-		break;
+        case 'playing':
+          if (e.key === " ") {
+            // Pause game - no reset
+            setGameState('paused');
+          } else if (e.key === "Escape") {
+            // Return to menu - reset everything
+            resetGame();
+            setGameState('menu');
+          } else if (e.key.toLowerCase() === 'r') {
+            // Restart game - reset everything
+            resetGame();
+          }
+          break;
 
-		case 'levelComplete':
-		if (e.key === " ") {
-			// Continue to next level
-			nextLevel();
-			setGameState('playing');
-		}
-		break;
+        case 'paused':
+          if (e.key === " ") {
+            // Resume game - no reset
+            setGameState('playing');
+          } else if (e.key === "Escape") {
+            // Return to menu - reset everything
+            resetGame();
+            setGameState('menu');
+          }
+          break;
 
-		case 'gameOver':
-		if (e.key.toLowerCase() === 'r') {
-			// Restart game completely
-			resetGame();
-			setGameState('playing');
-		} else if (e.key === ' ') {
-			// Return to menu
-			resetGame();
-			setGameState('menu');
-		}
-		break;
-	}
-	};
+        case 'levelComplete':
+          if (e.key === " ") {
+            // Continue to next level
+            nextLevel();
+            setGameState('playing');
+          }
+          break;
+
+        case 'gameOver':
+          if (e.key.toLowerCase() === 'r') {
+            // Restart game completely
+            resetGame();
+            setGameState('playing');
+          } else if (e.key === ' ') {
+            // Return to menu
+            resetGame();
+            setGameState('menu');
+          }
+          break;
+      }
+    };
 
     const handleKeyUp = (e) => {
       if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
@@ -601,9 +619,20 @@ export default function Arkanoid() {
           <p className="text-amber-400 mt-2">SPACE: Pause/Resume | ESC: Back to Menu</p>
         </div>
         <div className="mt-4 text-xs text-gray-400">
-          <p>R: Restart | Break all blocks to advance!</p>
+          <p>R: Restart | L: Back to Lobby</p>
+          <p>Break all blocks to advance!</p>
         </div>
       </div>
+
+      {/* Lobby Button - visible when on menu screen */}
+      {gameState === 'menu' && (
+        <button
+          onClick={handleBackToLobby}
+          className="mt-4 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 font-mono"
+        >
+          ← BACK TO LOBBY
+        </button>
+      )}
     </div>
   );
 }

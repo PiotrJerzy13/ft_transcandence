@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
+export default function Pong ({ onNavigateToLobby })
 export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [score, setScore] = useState({ left: 0, right: 0 });
@@ -60,6 +60,15 @@ export default function Game() {
   const resetPaddles = () => {
     gameVars.current.leftPaddleY = 200;
     gameVars.current.rightPaddleY = 200;
+  };
+
+    const handleBackToLobby = () => {
+    if (onNavigateToLobby) {
+      onNavigateToLobby();
+    } else {
+      // Fallback if no navigation function is provided
+      console.log('Navigate to lobby');
+    }
   };
 	
   const updateAI = () => {
@@ -418,6 +427,11 @@ export default function Game() {
       if (["ArrowUp", "ArrowDown", "w", "s", " ", "r", "Escape", "1", "2"].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
+		// Back to lobby key (L)
+      if (e.key.toLowerCase() === 'l') {
+        handleBackToLobby();
+        return;
+      }
       
       // Movement keys (only when playing)
       if (gameState === 'playing') {
@@ -569,6 +583,15 @@ export default function Game() {
           <p>R: Restart | 1/2: Game Mode | 3-9: Set winning score</p>
         </div>
       </div>
+      {/* Lobby Button - visible when on menu screen */}
+      {gameState === 'menu' && (
+        <button
+          onClick={handleBackToLobby}
+          className="mt-4 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 font-mono"
+        >
+          ← BACK TO LOBBY
+        </button>
+      )}
     </div>
   );
 }

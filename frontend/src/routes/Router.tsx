@@ -2,8 +2,8 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Home from "../pages/Home";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
-import Game from "../pages/Game";
-import Game2 from "../pages/Game2";
+import GameWithRouter from "../components/GameWithRouter";
+import Game2WithRouter from "../components/Game2WithRouter";
 import Lobby from "../pages/Lobby"; // ✅ added
 import ProtectedRoute from "../components/ProtectedRoute";
 
@@ -15,8 +15,8 @@ export default function AppRouter() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/lobby" element={<ProtectedRoute><Lobby /></ProtectedRoute>} /> {/* ✅ added */}
-        <Route path="/game" element={<ProtectedRoute><Game /></ProtectedRoute>} />
-		<Route path="/game2" element={<ProtectedRoute><Game2 /></ProtectedRoute>} />
+        <Route path="/game" element={<ProtectedRoute><Game2WithRouter /></ProtectedRoute>} />
+		<Route path="/game2" element={<ProtectedRoute><Game2WithRouter /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
