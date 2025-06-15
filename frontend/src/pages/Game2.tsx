@@ -10,6 +10,8 @@ export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
   const [gameState, setGameState] = useState('menu');
+  const [history, setHistory] = useState<{ score: number; level_reached: number; created_at: string }[]>([]);
+
   const animationFrameRef = useRef<number | null>(null);
   
   const paddleWidth = 120;
@@ -103,6 +105,30 @@ const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
 	}
 };
 
+const saveArkanoidScore = async () => {
+  try {
+    const response = await fetch('/api/arkanoid/score', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({
+        score: gameStateRef.current.currentScore,
+        levelReached: gameStateRef.current.currentLevel,
+      }),
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    console.log('Score saved successfully:', data);
+  } catch (err) {
+    console.error('Failed to save Arkanoid score:', err);
+  }
+};
+
+
   const initializeBlocks = () => {
     gameStateRef.current.blocks = [];
     const startX = (800 - (blockCols * (blockWidth + blockPadding) - blockPadding)) / 2;
@@ -155,12 +181,16 @@ const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
     initializeBlocks();
     gameStateRef.current.ballSpeedX *= 1.05;
     gameStateRef.current.ballSpeedY *= 1.05;
+    
+    // Save score when completing a level
+    saveArkanoidScore();
   };
 
   const loseLife = () => {
     gameStateRef.current.currentLives--;
     setLives(gameStateRef.current.currentLives);
     if (gameStateRef.current.currentLives <= 0) {
+	  saveArkanoidScore();
       setGameState('gameOver');
       createParticles(400, 250, "#ef4444");
     } else {
@@ -182,7 +212,7 @@ const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
-
+	
     // Clean up previous animation frame
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
@@ -560,11 +590,13 @@ const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
 			// Pause game - no reset
 			setGameState('paused');
 		  } else if (e.key === "Escape") {
-			// Return to menu - reset everything
+			// Return to menu - save score and reset
+			saveArkanoidScore();
 			resetGame();
 			setGameState('menu');
 		  } else if (e.key.toLowerCase() === 'r') {
-			// Restart game - reset everything
+			// Restart game - save score and reset
+			saveArkanoidScore();
 			resetGame();
 		  }
 		  break;
@@ -635,6 +667,29 @@ const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
     };
   }, [gameState]);
 
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await fetch('/api/arkanoid/history', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('🎮 Arkanoid Score History:', data.history);
+        setHistory(data.history);
+      } catch (err) {
+        console.error('Failed to load Arkanoid history:', err);
+      }
+    };
+
+    fetchHistory();
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-8">
       <div className="mb-6">
@@ -684,6 +739,31 @@ const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
         >
           ← BACK TO LOBBY
         </button>
+      )}
+
+      {/* Score History */}
+      {history.length > 0 && (
+        <div className="mt-6 text-left text-sm text-gray-300 font-mono w-full max-w-2xl">
+          <h2 className="text-xl text-cyan-400 font-bold mb-2">Your Arkanoid History</h2>
+          <table className="w-full table-auto border-collapse">
+            <thead>
+              <tr className="text-left border-b border-gray-500">
+                <th className="pb-1">Date</th>
+                <th className="pb-1">Score</th>
+                <th className="pb-1">Level</th>
+              </tr>
+            </thead>
+            <tbody>
+              {history.map((entry, index) => (
+                <tr key={index} className="border-b border-gray-700">
+                  <td className="py-2">{new Date(entry.created_at).toLocaleDateString()}</td>
+                  <td className="py-2">{entry.score}</td>
+                  <td className="py-2">{entry.level_reached}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   );

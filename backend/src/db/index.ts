@@ -145,6 +145,15 @@ async function runMigrations() {
       FOREIGN KEY (player1_id) REFERENCES users(id),
       FOREIGN KEY (player2_id) REFERENCES users(id)
     );
+	-- Arkanoid Scores table
+	CREATE TABLE IF NOT EXISTS arkanoid_scores (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		score INTEGER NOT NULL,
+		level_reached INTEGER NOT NULL,
+		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	);
   `);
   
   // Insert default achievements if they don't exist

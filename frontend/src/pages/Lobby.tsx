@@ -76,44 +76,68 @@ export default function GameLobby() {
   const [showStats, setShowStats] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [arkanoidStats, setArkanoidStats] = useState({
+    highScore: 0,
+    highestLevel: 1,
+    recentScores: []
+  });
 
   useEffect(() => {
     const fetchData = async () => {
       try {
         console.log('🔍 [DEBUG] Starting API fetch...');
         
-        const response = await fetch('/api/user/profile', {
+        // Fetch user profile and stats
+        const profileResponse = await fetch('/api/user/profile', {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
           }
         });
 
-        console.log('🔍 [DEBUG] Response status:', response.status);
-        console.log('🔍 [DEBUG] Response ok:', response.ok);
+        // Fetch Arkanoid history
+        const arkanoidResponse = await fetch('/api/arkanoid/history', {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
 
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
+        if (!profileResponse.ok) {
+          throw new Error(`HTTP error! status: ${profileResponse.status}`);
         }
 
-        const data = await response.json();
-        console.log('🔍 [DEBUG] Raw response data:', data);
+        const profileData = await profileResponse.json();
+        console.log('🔍 [DEBUG] Raw profile data:', profileData);
 
-        // Handle the response structure - backend might return { stats, achievements } or just stats
+        // Process Arkanoid stats if available
+        if (arkanoidResponse.ok) {
+          const arkanoidData = await arkanoidResponse.json();
+          console.log('🔍 [DEBUG] Arkanoid history:', arkanoidData);
+          
+          if (arkanoidData.history && arkanoidData.history.length > 0) {
+            const highScore = Math.max(...arkanoidData.history.map(score => score.score));
+            const highestLevel = Math.max(...arkanoidData.history.map(score => score.level_reached));
+            const recentScores = arkanoidData.history.slice(0, 5); // Get last 5 scores
+            
+            setArkanoidStats({
+              highScore,
+              highestLevel,
+              recentScores
+            });
+          }
+        }
+
+        // Handle the profile response structure
         let stats, achievementsData;
         
-        if (data.stats) {
-          // Backend returns { stats: {...}, achievements: [...] }
-          stats = data.stats;
-          achievementsData = data.achievements || defaultAchievements;
+        if (profileData.stats) {
+          stats = profileData.stats;
+          achievementsData = profileData.achievements || defaultAchievements;
         } else {
-          // Backend returns stats directly
-          stats = data;
+          stats = profileData;
           achievementsData = defaultAchievements;
         }
-
-        console.log('🔍 [DEBUG] Processed stats:', stats);
-        console.log('🔍 [DEBUG] Processed achievements:', achievementsData);
 
         // Transform backend data to frontend format
         const transformedStats = {
@@ -129,8 +153,6 @@ export default function GameLobby() {
           totalPlayTime: stats.total_play_time || "0h 0m"
         };
 
-        console.log('🔍 [DEBUG] Transformed stats:', transformedStats);
-
         setPlayerStats(transformedStats);
         setAchievements(achievementsData);
         
@@ -138,9 +160,6 @@ export default function GameLobby() {
         console.error('❌ Error loading profile:', err);
         console.error('❌ Error details:', err.message);
         setError(err.message || 'Failed to load profile data');
-        
-        // Don't use mock data - show the error instead
-        // This helps with debugging
       } finally {
         setLoading(false);
       }
@@ -332,6 +351,62 @@ export default function GameLobby() {
                   <div className="text-2xl font-bold text-yellow-400">{playerStats.winStreak}</div>
                   <div className="text-sm text-gray-300">Win Streak</div>
                 </div>
+              </div>
+
+              {/* Arkanoid Stats */}
+              <div className="mt-6 pt-6 border-t border-purple-500/30">
+                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                  <Target className="w-5 h-5 mr-2 text-indigo-400" />
+                  Arkanoid Stats
+                </h3>
+                
+                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                  <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-indigo-400">{arkanoidStats.highScore}</div>
+                    <div className="text-sm text-gray-300">High Score</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-purple-400">Level {arkanoidStats.highestLevel}</div>
+                    <div className="text-sm text-gray-300">Highest Level</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-pink-900/30 to-red-900/30 border border-pink-500/30 rounded-lg p-4 text-center">
+                    <div className="text-2xl font-bold text-pink-400">{arkanoidStats.recentScores.length}</div>
+                    <div className="text-sm text-gray-300">Games Played</div>
+                  </div>
+                </div>
+
+                {/* Recent Scores */}
+                {arkanoidStats.recentScores.length > 0 && (
+                  <div className="mt-4">
+                    <h4 className="text-sm font-semibold text-gray-300 mb-2">Recent Scores</h4>
+                    <div className="bg-black/20 rounded-lg overflow-hidden">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="bg-purple-900/20">
+                            <th className="px-4 py-2 text-left text-gray-300">Date</th>
+                            <th className="px-4 py-2 text-right text-gray-300">Score</th>
+                            <th className="px-4 py-2 text-right text-gray-300">Level</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {arkanoidStats.recentScores.map((score, index) => (
+                            <tr key={index} className="border-t border-purple-500/10">
+                              <td className="px-4 py-2 text-gray-400">
+                                {new Date(score.created_at).toLocaleDateString()}
+                              </td>
+                              <td className="px-4 py-2 text-right text-indigo-400 font-mono">
+                                {score.score}
+                              </td>
+                              <td className="px-4 py-2 text-right text-purple-400 font-mono">
+                                {score.level_reached}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>

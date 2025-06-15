@@ -5,6 +5,8 @@ import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import dotenv from 'dotenv';
 import type { FastifyInstance } from 'fastify';
+// import pongRoutes from './routes/pongRoutes.js';
+import arkanoidRoutes from './routes/arkanoidRoutes.js';
 
 // Import database
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -77,7 +79,8 @@ const start = async () => {
       origin: true,
       credentials: true,
     });
-
+	// await app.register(pongRoutes);
+	await app.register(arkanoidRoutes, { prefix: '/api/arkanoid' });
     await app.register(cookie);
     
     // Register routes
