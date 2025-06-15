@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { User, Trophy, Target, Zap, Crown, Star, Users, Bot, BarChart3, Award, Clock, TrendingUp } from "lucide-react";
 
 // Icon mapping for achievements
@@ -12,36 +11,25 @@ const iconMap = {
   Clock
 };
 
-// Mock data for demonstration
-const mockPlayerStats = {
-  level: 12,
-  xp: 7850,
-  xpToNext: 150,
-  rank: "Pro",
-  wins: 45,
-  losses: 23,
-  totalGames: 68,
-  winStreak: 3,
-  bestStreak: 8,
-  totalPlayTime: "24h 35m"
-};
-
-const mockAchievements = [
+// Default achievements structure
+const defaultAchievements = [
   {
     id: 1,
     name: "First Victory",
     description: "Win your first game",
     icon: "Trophy",
-    unlocked: true,
-    date: "2024-01-15"
+    unlocked: false,
+    progress: 0,
+    maxProgress: 1
   },
   {
     id: 2,
     name: "Speed Demon",
     description: "Win a game in under 60 seconds",
     icon: "Zap",
-    unlocked: true,
-    date: "2024-01-20"
+    unlocked: false,
+    progress: 0,
+    maxProgress: 1
   },
   {
     id: 3,
@@ -49,7 +37,7 @@ const mockAchievements = [
     description: "Score 10 consecutive hits",
     icon: "Target",
     unlocked: false,
-    progress: 7,
+    progress: 0,
     maxProgress: 10
   },
   {
@@ -57,8 +45,9 @@ const mockAchievements = [
     name: "Rising Star",
     description: "Reach Pro rank",
     icon: "Star",
-    unlocked: true,
-    date: "2024-02-01"
+    unlocked: false,
+    progress: 0,
+    maxProgress: 1
   },
   {
     id: 5,
@@ -66,7 +55,7 @@ const mockAchievements = [
     description: "Win 10 games in a row",
     icon: "Crown",
     unlocked: false,
-    progress: 3,
+    progress: 0,
     maxProgress: 10
   },
   {
@@ -75,72 +64,116 @@ const mockAchievements = [
     description: "Play for 2 hours straight",
     icon: "Clock",
     unlocked: false,
-    progress: 87,
+    progress: 0,
     maxProgress: 120
   }
 ];
 
 export default function GameLobby() {
   const [playerStats, setPlayerStats] = useState(null);
-  const [achievements, setAchievements] = useState([]);
+  const [achievements, setAchievements] = useState(defaultAchievements);
   const [selectedMode, setSelectedMode] = useState(null);
   const [showStats, setShowStats] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-useEffect(() => {
-  const fetchData = async () => {
-    try {
-      const response = await fetch('/api/user/profile', {
-        credentials: 'include',
-      });
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        console.log('🔍 [DEBUG] Starting API fetch...');
+        
+        const response = await fetch('/api/user/profile', {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
 
-      if (!response.ok) {
-        throw new Error('Failed to fetch player profile');
+        console.log('🔍 [DEBUG] Response status:', response.status);
+        console.log('🔍 [DEBUG] Response ok:', response.ok);
+
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log('🔍 [DEBUG] Raw response data:', data);
+
+        // Handle the response structure - backend might return { stats, achievements } or just stats
+        let stats, achievementsData;
+        
+        if (data.stats) {
+          // Backend returns { stats: {...}, achievements: [...] }
+          stats = data.stats;
+          achievementsData = data.achievements || defaultAchievements;
+        } else {
+          // Backend returns stats directly
+          stats = data;
+          achievementsData = defaultAchievements;
+        }
+
+        console.log('🔍 [DEBUG] Processed stats:', stats);
+        console.log('🔍 [DEBUG] Processed achievements:', achievementsData);
+
+        // Transform backend data to frontend format
+        const transformedStats = {
+          level: stats.level || 1,
+          xp: stats.xp || 0,
+          xpToNext: stats.xp ? (1000 - (stats.xp % 1000)) : 1000,
+          rank: stats.rank || "Novice",
+          wins: stats.wins || 0,
+          losses: stats.losses || 0,
+          totalGames: stats.total_games || 0,
+          winStreak: stats.win_streak || 0,
+          bestStreak: stats.best_streak || 0,
+          totalPlayTime: stats.total_play_time || "0h 0m"
+        };
+
+        console.log('🔍 [DEBUG] Transformed stats:', transformedStats);
+
+        setPlayerStats(transformedStats);
+        setAchievements(achievementsData);
+        
+      } catch (err) {
+        console.error('❌ Error loading profile:', err);
+        console.error('❌ Error details:', err.message);
+        setError(err.message || 'Failed to load profile data');
+        
+        // Don't use mock data - show the error instead
+        // This helps with debugging
+      } finally {
+        setLoading(false);
       }
+    };
 
-      const { stats, achievements } = await response.json();
-      setPlayerStats(stats);
-      setAchievements(achievements);
-    } catch (err: any) {
-      console.error('❌ Error loading profile:', err);
-      setError(err.message || 'Something went wrong');
-    } finally {
-      setLoading(false);
+    fetchData();
+  }, []);
+
+  const handleGameModeSelect = (mode) => {
+    if (mode === 'pong') {
+      // Replace with your actual navigation logic
+      window.location.href = '/game';
+    } else if (mode === 'arkanoid') {
+      window.location.href = '/game2';
     }
   };
 
-  fetchData();
-}, []);
-
-
-const navigate = useNavigate(); // Add this near the top inside your component
-
-const handleGameModeSelect = (mode: string) => {
-  if (mode === 'pong') {
-    navigate('/game');
-  } else if (mode === 'arkanoid') {
-    navigate('/game2');
-  }
-};
-const handleLogout = async () => {
-	try {
-	  const res = await fetch('/api/auth/logout', {
-		method: 'POST',
-		credentials: 'include',
-	  });
-	  if (res.ok) {
-		navigate('/login');
-	  } else {
-		alert('Logout failed');
-	  }
-	} catch (err) {
-	  console.error('Logout error:', err);
-	  alert('Logout error');
-	}
+  const handleLogout = async () => {
+    try {
+      const res = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (res.ok) {
+        window.location.href = '/login';
+      } else {
+        alert('Logout failed');
+      }
+    } catch (err) {
+      console.error('Logout error:', err);
+      alert('Logout error');
+    }
   };
-  
-
 
   const getRankColor = (rank) => {
     const colors = {
@@ -158,7 +191,7 @@ const handleLogout = async () => {
     console.log('🔍 [DEBUG] Rendering loading state');
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">Loading...</div>
+        <div className="text-white text-xl">Loading player data...</div>
       </div>
     );
   }
@@ -167,16 +200,34 @@ const handleLogout = async () => {
     console.log('🔍 [DEBUG] Rendering error state:', error);
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-red-400 text-xl">{error}</div>
+        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-8 max-w-md">
+          <h2 className="text-red-400 text-xl mb-4">Failed to Load Profile</h2>
+          <p className="text-gray-300 mb-4">{error}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+          >
+            Retry
+          </button>
+        </div>
       </div>
     );
   }
 
   if (!playerStats) {
-    console.log('🔍 [DEBUG] Rendering no data state, playerStats:', playerStats);
+    console.log('🔍 [DEBUG] Rendering no data state');
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="text-white text-xl">No user data available</div>
+        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-8 max-w-md">
+          <h2 className="text-yellow-400 text-xl mb-4">No Profile Data</h2>
+          <p className="text-gray-300 mb-4">Unable to load your player profile. Please try refreshing the page.</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
+          >
+            Refresh
+          </button>
+        </div>
       </div>
     );
   }
@@ -184,8 +235,8 @@ const handleLogout = async () => {
   console.log('🔍 [DEBUG] Rendering main lobby with playerStats:', playerStats);
 
   const winRate = playerStats.totalGames > 0 ? Math.round((playerStats.wins / playerStats.totalGames) * 100) : 0;
-  const progressPercent = playerStats.xpToNext > 0 ? 
-    ((playerStats.xp % 1000) / 1000) * 100 : 100;
+  const progressPercent = playerStats.xp > 0 ? 
+    ((playerStats.xp % 1000) / 1000) * 100 : 0;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
@@ -222,39 +273,39 @@ const handleLogout = async () => {
                 Select Game Mode
               </h2>
               
-				<div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-				{/* Pong Mode */}
-				<div 
-					className="group bg-gradient-to-br from-blue-900/50 to-cyan-900/50 border border-cyan-500/30 rounded-xl p-6 cursor-pointer hover:border-cyan-400 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20"
-					onClick={() => handleGameModeSelect('pong')}
-				>
-					<div className="flex items-center mb-4">
-					<Users className="w-8 h-8 text-cyan-400 mr-3" />
-					<h3 className="text-xl font-bold text-white">Cyber Pong</h3>
-					</div>
-					<p className="text-gray-300 mb-4">Play the classic Pong in futuristic style. Local multiplayer or vs AI!</p>
-					<div className="flex items-center justify-between">
-					<span className="text-sm text-cyan-400 font-mono">PONG</span>
-					<div className="w-6 h-6 rounded-full border-2 border-cyan-400 group-hover:bg-cyan-400 transition-colors"></div>
-					</div>
-				</div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Pong Mode */}
+                <div 
+                  className="group bg-gradient-to-br from-blue-900/50 to-cyan-900/50 border border-cyan-500/30 rounded-xl p-6 cursor-pointer hover:border-cyan-400 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20"
+                  onClick={() => handleGameModeSelect('pong')}
+                >
+                  <div className="flex items-center mb-4">
+                    <Users className="w-8 h-8 text-cyan-400 mr-3" />
+                    <h3 className="text-xl font-bold text-white">Cyber Pong</h3>
+                  </div>
+                  <p className="text-gray-300 mb-4">Play the classic Pong in futuristic style. Local multiplayer or vs AI!</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-cyan-400 font-mono">PONG</span>
+                    <div className="w-6 h-6 rounded-full border-2 border-cyan-400 group-hover:bg-cyan-400 transition-colors"></div>
+                  </div>
+                </div>
 
-				{/* Arkanoid Mode */}
-				<div 
-					className="group bg-gradient-to-br from-indigo-900/50 to-pink-900/50 border border-indigo-500/30 rounded-xl p-6 cursor-pointer hover:border-indigo-400 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/20"
-					onClick={() => handleGameModeSelect('arkanoid')}
-				>
-					<div className="flex items-center mb-4">
-					<Target className="w-8 h-8 text-indigo-400 mr-3" />
-					<h3 className="text-xl font-bold text-white">Cyber Arkanoid</h3>
-					</div>
-					<p className="text-gray-300 mb-4">Break blocks, level up, and survive in this retro-style challenge!</p>
-					<div className="flex items-center justify-between">
-					<span className="text-sm text-indigo-400 font-mono">ARKANOID</span>
-					<div className="w-6 h-6 rounded-full border-2 border-indigo-400 group-hover:bg-indigo-400 transition-colors"></div>
-					</div>
-				</div>
-				</div>
+                {/* Arkanoid Mode */}
+                <div 
+                  className="group bg-gradient-to-br from-indigo-900/50 to-pink-900/50 border border-indigo-500/30 rounded-xl p-6 cursor-pointer hover:border-indigo-400 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/20"
+                  onClick={() => handleGameModeSelect('arkanoid')}
+                >
+                  <div className="flex items-center mb-4">
+                    <Target className="w-8 h-8 text-indigo-400 mr-3" />
+                    <h3 className="text-xl font-bold text-white">Cyber Arkanoid</h3>
+                  </div>
+                  <p className="text-gray-300 mb-4">Break blocks, level up, and survive in this retro-style challenge!</p>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-indigo-400 font-mono">ARKANOID</span>
+                    <div className="w-6 h-6 rounded-full border-2 border-indigo-400 group-hover:bg-indigo-400 transition-colors"></div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Quick Stats */}
@@ -430,6 +481,14 @@ const handleLogout = async () => {
           >
             Logout
           </button>
+        </div>
+
+        {/* Debug Info - Remove this in production */}
+        <div className="mt-8 bg-black/60 border border-gray-600 rounded-lg p-4">
+          <h4 className="text-white font-bold mb-2">Debug Info:</h4>
+          <pre className="text-xs text-gray-300 overflow-auto">
+            {JSON.stringify({ playerStats, error, loading }, null, 2)}
+          </pre>
         </div>
 
       </div>

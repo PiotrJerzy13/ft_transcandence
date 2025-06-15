@@ -37,7 +37,25 @@ export interface UserAchievement {
 export class UserStatsRepository {
   async findByUserId(userId: number): Promise<UserStats | undefined> {
     const db = getDb();
-    return await db.get('SELECT * FROM user_stats WHERE user_id = ?', userId);
+    const row = await db.get('SELECT * FROM user_stats WHERE user_id = ?', userId);
+    console.log("DEBUG (findByUserId) raw row:", row);
+    if (!row) return undefined;
+    const stats: UserStats = {
+      id: row.id,
+      user_id: row.user_id,
+      total_games: row.total_games,
+      wins: row.wins,
+      losses: row.losses,
+      win_streak: row.win_streak,
+      best_streak: row.best_streak,
+      total_play_time: row.total_play_time,
+      rank: row.rank,
+      level: row.level,
+      xp: row.xp,
+      updated_at: row.updated_at
+    };
+    console.log("DEBUG (findByUserId) returned stats:", stats);
+    return stats;
   }
 
   async createOrUpdate(stats: UserStats): Promise<UserStats> {
