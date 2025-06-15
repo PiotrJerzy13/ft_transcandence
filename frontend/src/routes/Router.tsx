@@ -14,7 +14,7 @@ export default function AppRouter() {
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
-        <Route path="/lobby" element={<ProtectedRoute><Lobby /></ProtectedRoute>} /> {/* ✅ added */}
+        <Route path="/lobby" element={<ProtectedRoute><Lobby /></ProtectedRoute>} />
         <Route path="/game" element={<ProtectedRoute><GameWithRouter /></ProtectedRoute>} />
 		<Route path="/game2" element={<ProtectedRoute><Game2WithRouter /></ProtectedRoute>} />
       </Routes>

@@ -123,7 +123,23 @@ const handleGameModeSelect = (mode: string) => {
     navigate('/game2');
   }
 };
-
+const handleLogout = async () => {
+	try {
+	  const res = await fetch('/api/auth/logout', {
+		method: 'POST',
+		credentials: 'include',
+	  });
+	  if (res.ok) {
+		navigate('/login');
+	  } else {
+		alert('Logout failed');
+	  }
+	} catch (err) {
+	  console.error('Logout error:', err);
+	  alert('Logout error');
+	}
+  };
+  
 
 
   const getRankColor = (rank) => {
@@ -409,7 +425,7 @@ const handleGameModeSelect = (mode: string) => {
             Settings
           </button>
           <button 
-            onClick={() => alert('Logout feature coming soon!')}
+            onClick={handleLogout}
             className="px-6 py-3 bg-red-900/50 border border-red-500/30 text-red-400 rounded-lg font-semibold hover:bg-red-900/70 transition-all duration-300"
           >
             Logout
