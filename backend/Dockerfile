@@ -1,7 +1,9 @@
-FROM node:18-alpine
+# NOTE: This base image (node:20-alpine3.19) may show high vulnerability warnings in VS Code.
+# These are related to known CVEs in Alpine packages and do not always pose a direct threat.
+FROM node:20-alpine3.19
 
-# Install SQLite and build dependencies
-RUN apk add --no-cache sqlite python3 make g++ libc6-compat
+# Update package index and install SQLite and build dependencies
+RUN apk update && apk upgrade && apk add --no-cache sqlite python3 make g++ libc6-compat
 
 WORKDIR /app
 

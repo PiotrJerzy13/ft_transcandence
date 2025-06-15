@@ -4,21 +4,21 @@ import userStatsRepository from '../repositories/userStatsRepository.js';
 class UserController {
   async getProfile(request: FastifyRequest, reply: FastifyReply) {
     try {
-      request.log.info('🔐 Authenticated as user', request.user);
+      request.log.info('Authenticated as user', request.user);
 
       if (!request.user) {
-        console.log('❌ No user in request');
+        console.log('No user in request');
         return reply.status(401).send({ error: 'User not authenticated' });
       }
 
       const userId = request.user.id;
-      console.log('📊 Fetching stats for user ID:', userId);
+      console.log('Fetching stats for user ID:', userId);
 
       // Get user stats
       let stats = await userStatsRepository.findByUserId(userId);
       
       if (!stats) {
-        console.log('📝 Creating initial stats for user:', userId);
+        console.log('Creating initial stats for user:', userId);
         // Create initial stats if they don't exist
         stats = {
           user_id: userId,
@@ -67,7 +67,7 @@ class UserController {
         xpToNext: 1000 - (stats.xp % 1000)
       };
 
-      console.log('✅ Profile data prepared:', { stats: formattedStats, achievements: achievements.length });
+      console.log('Profile data prepared:', { stats: formattedStats, achievements: achievements.length });
 
       return reply.send({
         stats: formattedStats,
@@ -94,7 +94,7 @@ class UserController {
       const { won, duration } = request.body as { won: boolean; duration: number };
       const userId = request.user.id;
 
-      console.log('📊 Updating game stats:', { userId, won, duration });
+      console.log('Updating game stats:', { userId, won, duration });
 
       // Update game stats
       await userStatsRepository.updateGameStats(userId, won, duration);
@@ -102,7 +102,7 @@ class UserController {
       // Check for new achievements
       const newAchievements = await userStatsRepository.checkAndUnlockAchievements(userId);
 
-      console.log('🏆 New achievements unlocked:', newAchievements.length);
+      console.log(' New achievements unlocked:', newAchievements.length);
 
       return reply.send({
         success: true,
@@ -111,7 +111,7 @@ class UserController {
       });
 
     } catch (error) {
-      console.error('💥 Error in updateGameResult:', error);
+      console.error('Error in updateGameResult:', error);
       return reply.status(500).send({ 
         error: 'Failed to update game result',
         details: error instanceof Error ? error.message : 'Unknown error'

@@ -24,7 +24,7 @@ const start = async () => {
     // Initialize database
     await initializeDatabase();
     
-    // Register Swagger
+    // Register Swagger - pass options as the second parameter
     await app.register(swagger, {
       openapi: {
         openapi: '3.0.0',
@@ -57,14 +57,15 @@ const start = async () => {
         docExpansion: 'list',
         deepLinking: false,
       },
-	uiHooks: {
-		onRequest: function (_request, _reply, next) { next(); },
-  		preHandler: function (_request, _reply, next) { next(); },},
+      uiHooks: {
+        onRequest: function (_request, _reply, next) { next(); },
+        preHandler: function (_request, _reply, next) { next(); },
+      },
       staticCSP: true,
       transformStaticCSP: (header) => header,
       transformSpecification: (_swaggerObject, _request, _reply) => {
-  return _swaggerObject;
-	},
+        return _swaggerObject;
+      },
       transformSpecificationClone: true,
     });
     
@@ -98,10 +99,11 @@ const start = async () => {
     process.on('SIGINT', closeGracefully);
     process.on('SIGTERM', closeGracefully);
 
-	app.ready(err => {
-  if (err) throw err;
-  app.printRoutes(); // Debug: logs all registered routes to console
-	});
+    app.ready(err => {
+      if (err) throw err;
+      app.printRoutes(); // Debug: logs all registered routes to console
+    });
+    
     // Start server
     await app.listen({ 
       port: Number(process.env.PORT) || 3000, 

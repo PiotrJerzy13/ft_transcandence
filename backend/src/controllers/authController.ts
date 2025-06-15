@@ -1,3 +1,5 @@
+// VS Code shows "Cannot find module" because node_modules are in Docker, not locally. 
+// Run `docker exec -it ft_backend sh` then `npm list jsonwebtoken` to confirm it's installed.
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import type { FastifyRequest, FastifyReply } from 'fastify';
@@ -198,7 +200,7 @@ class AuthController {
         return reply.status(404).send({ error: 'User not found' });
       }
 
-      // Mock stats data (you'll want to get this from your database)
+      // Mock stats data
       const stats = {
         level: 12,
         xp: 7850,
@@ -212,7 +214,7 @@ class AuthController {
         totalPlayTime: "24h 35m"
       };
 
-      // Mock achievements data (you'll want to get this from your database)
+      // Mock achievements data
       const achievements = [
         {
           id: 1,

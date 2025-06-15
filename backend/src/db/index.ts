@@ -1,4 +1,5 @@
-// src/db/index.ts
+// VS Code shows "Cannot find module" because node_modules are in Docker, not locally. 
+// Run `docker exec -it ft_backend sh` then `sqlite3 --version` to confirm it's installed.
 import sqlite3 from 'sqlite3';
 import { open, Database } from 'sqlite';
 import path from 'path';

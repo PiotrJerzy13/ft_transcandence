@@ -1,4 +1,5 @@
-// Enhanced version of your auth.ts with debugging
+// VS Code shows "Cannot find module" because node_modules are in Docker, not locally. 
+// Run `docker exec -it ft_backend sh` then `npm list jsonwebtoken` to confirm it's installed.
 import { FastifyRequest, FastifyReply } from 'fastify';
 import jwt from 'jsonwebtoken';
 import { getDb } from '../db/index.js';
@@ -13,21 +14,21 @@ export async function authenticate(
   reply: FastifyReply
 ): Promise<void> {
   try {
-    console.log('🔐 Auth middleware called for:', request.method, request.url);
-    console.log('🍪 Cookies:', request.cookies);
-    console.log('📋 Headers:', request.headers.authorization);
+    console.log('Auth middleware called for:', request.method, request.url);
+    console.log('Cookies:', request.cookies);
+    console.log('Headers:', request.headers.authorization);
     
     // Get token from cookie or authorization header
     const token = request.cookies.token || 
       (request.headers.authorization && request.headers.authorization.split(' ')[1]);
     
     if (!token) {
-      console.log('❌ No token found');
+      console.log('No token found');
       reply.status(401).send({ error: 'Authentication required' });
       return;
     }
     
-    console.log('🎫 Token found:', token.substring(0, 20) + '...');
+    console.log('Token found:', token.substring(0, 20) + '...');
     
     try {
       // Verify token
@@ -36,30 +37,30 @@ export async function authenticate(
         process.env.JWT_SECRET || 'your-secret-key'
       ) as JwtPayload;
       
-      console.log('✅ Token decoded:', decoded);
+      console.log('Token decoded:', decoded);
       
       // Verify user exists in DB
       const db = getDb();
       const user = await db.get('SELECT id, username FROM users WHERE id = ?', decoded.id);
       
       if (!user) {
-        console.log('❌ User not found in DB for id:', decoded.id);
+        console.log('User not found in DB for id:', decoded.id);
         reply.status(401).send({ error: 'User not found' });
         return;
       }
       
-      console.log('👤 User found:', user);
+      console.log('User found:', user);
       
       // Add user to request object
       request.user = user;
-      console.log('✅ User attached to request');
+      console.log('User attached to request');
     } catch (err) {
-      console.log('❌ Token verification failed:', err);
+      console.log('Token verification failed:', err);
       reply.status(401).send({ error: 'Invalid or expired token' });
       return;
     }
   } catch (error) {
-    console.error('💥 Authentication error:', error);
+    console.error('Authentication error:', error);
     reply.status(500).send({ error: 'Internal server error during authentication' });
   }
 }
