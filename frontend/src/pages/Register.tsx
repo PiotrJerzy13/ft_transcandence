@@ -28,6 +28,11 @@ export default function Register() {
       setIsLoading(false);
       return;
     }
+	if (form.password.length < 6) {
+    setError("Password must be at least 6 characters");
+    setIsLoading(false);
+    return;
+}
 
     try {
       const res = await fetch("http://localhost:3000/api/auth/register", {
@@ -42,11 +47,20 @@ export default function Register() {
         }),
       });
 
-      if (!res.ok) {
-        const data = await res.json();
-        console.error("Registration failed - Server response:", data);
-        throw new Error(data.message || "Registration failed");
-      }
+	if (!res.ok) {
+	let errorMessage = "Registration failed";
+	try {
+		const data = await res.json();
+		console.error("Registration failed - Server response:", data);
+		errorMessage = data?.error || data?.message || res.statusText || errorMessage;
+	} catch (parseError) {
+		console.error("Failed to parse error response:", parseError);
+		errorMessage = res.statusText || errorMessage;
+	}
+
+	throw new Error(errorMessage);
+}
+
 
       navigate("/login");
     } catch (err: any) {

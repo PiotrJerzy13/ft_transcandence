@@ -25,6 +25,9 @@ class AuthController {
       if (!username || !email || !password) {
         return reply.status(400).send({ error: 'Username, email and password are required' });
       }
+	if (password.length < 6) {
+      return reply.status(400).send({ error: 'Password must be at least 6 characters long' });
+    }
       
       // Check if user exists
       const existingUser = await userRepository.findByUsername(username);
