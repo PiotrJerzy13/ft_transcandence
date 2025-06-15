@@ -6,6 +6,7 @@ type GameProps = {
 
 export default function Game({ onNavigateToLobby }: GameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
   const [score, setScore] = useState({ left: 0, right: 0 });
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver'
   const [winner, setWinner] = useState('');
@@ -18,7 +19,7 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     y: number;
     vx: number;
     vy: number;
-    life: number;
+    life: number; 
     maxLife: number;
     color: string;
   };
@@ -40,6 +41,12 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     aiReactionDelay: number;
     aiTarget: number;
     particles: Particle[];
+    keys: {
+      w: boolean;
+      s: boolean;
+      up: boolean;
+      down: boolean;
+    };
   }>({
     paddleHeight: 100,
     paddleWidth: 12,
@@ -55,7 +62,13 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     aiSpeed: 3.5,
     aiReactionDelay: 0,
     aiTarget: 250,
-    particles: []
+    particles: [],
+    keys: {
+      w: false,
+      s: false,
+      up: false,
+      down: false
+    }
   });
   
 interface CreateParticles {
@@ -83,6 +96,12 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
     setWinner('');
     resetBall();
     resetPaddles();
+    gameVars.current.keys = {
+      w: false,
+      s: false,
+      up: false,
+      down: false
+    };
   };
 
   const resetBall = () => {
@@ -170,6 +189,19 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
     const canvas = canvasRef.current;
     const context = canvas?.getContext("2d");
     if (!canvas || !context) return;
+
+    // Clean up previous animation frame
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+
+    // Clear key states on game state change
+    gameVars.current.keys = {
+      w: false,
+      s: false,
+      up: false,
+      down: false
+    };
 
     const draw = () => {
       const vars = gameVars.current;
@@ -405,9 +437,27 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
     };
 
     const update = () => {
-      if (gameState !== 'playing') return; // Only update when playing
+      if (gameState !== 'playing') return;
       
       const vars = gameVars.current;
+      const step = 5; // Smaller step for smoother movement
+      
+      // Update paddle positions based on key states
+      if (vars.keys.w) {
+        vars.leftPaddleY = Math.max(0, vars.leftPaddleY - step);
+      }
+      if (vars.keys.s) {
+        vars.leftPaddleY = Math.min(canvas.height - vars.paddleHeight, vars.leftPaddleY + step);
+      }
+      
+      if (gameMode === 'two-player') {
+        if (vars.keys.up) {
+          vars.rightPaddleY = Math.max(0, vars.rightPaddleY - step);
+        }
+        if (vars.keys.down) {
+          vars.rightPaddleY = Math.min(canvas.height - vars.paddleHeight, vars.rightPaddleY + step);
+        }
+      }
       
       updateAI(); // Update AI paddle
       
@@ -470,13 +520,11 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!canvas) return;
       
-      const vars = gameVars.current;
-      const step = 25;
-      
-      if (["ArrowUp", "ArrowDown", "w", "s", " ", "r", "Escape", "1", "2"].includes(e.key.toLowerCase())) {
+      if (["ArrowUp", "ArrowDown", "w", "s", " ", "r", "Escape", "1", "2", "l"].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
-		// Back to lobby key (L)
+
+      // Back to lobby key (L)
       if (e.key.toLowerCase() === 'l') {
         handleBackToLobby();
         return;
@@ -484,21 +532,18 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       
       // Movement keys (only when playing)
       if (gameState === 'playing') {
-        // Left paddle (always player controlled)
         if (e.key.toLowerCase() === "w") {
-          vars.leftPaddleY = Math.max(0, vars.leftPaddleY - step);
+          gameVars.current.keys.w = true;
         }
         if (e.key.toLowerCase() === "s") {
-          vars.leftPaddleY = Math.min(canvas.height - vars.paddleHeight, vars.leftPaddleY + step);
+          gameVars.current.keys.s = true;
         }
-        
-        // Right paddle (only in two-player mode)
         if (gameMode === 'two-player') {
           if (e.key === "ArrowUp") {
-            vars.rightPaddleY = Math.max(0, vars.rightPaddleY - step);
+            gameVars.current.keys.up = true;
           }
           if (e.key === "ArrowDown") {
-            vars.rightPaddleY = Math.min(canvas.height - vars.paddleHeight, vars.rightPaddleY + step);
+            gameVars.current.keys.down = true;
           }
         }
       }
@@ -562,18 +607,38 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (e.key.toLowerCase() === "w") {
+        gameVars.current.keys.w = false;
+      }
+      if (e.key.toLowerCase() === "s") {
+        gameVars.current.keys.s = false;
+      }
+      if (e.key === "ArrowUp") {
+        gameVars.current.keys.up = false;
+      }
+      if (e.key === "ArrowDown") {
+        gameVars.current.keys.down = false;
+      }
+    };
+
     window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
 
     const gameLoop = () => {
       update();
       draw();
-      requestAnimationFrame(gameLoop);
+      animationFrameRef.current = requestAnimationFrame(gameLoop);
     };
 
     gameLoop();
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+      }
     };
   }, [gameState, winningScore, gameMode]);
 
