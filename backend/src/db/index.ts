@@ -154,6 +154,18 @@ async function runMigrations() {
 		created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);
+	-- Pong Matches table
+	DROP TABLE IF EXISTS pong_matches;
+	CREATE TABLE IF NOT EXISTS pong_matches (
+	id INTEGER PRIMARY KEY AUTOINCREMENT,
+	user_id INTEGER NOT NULL,
+	mode TEXT NOT NULL, -- 'one-player' or 'two-player'
+	score INTEGER NOT NULL, -- player's score
+	opponent_score INTEGER NOT NULL, -- opponent's score
+	winner TEXT NOT NULL, -- 'player' or 'opponent'
+	created_at TEXT NOT NULL,
+	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+	);
   `);
   
   // Insert default achievements if they don't exist

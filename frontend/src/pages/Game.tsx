@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Trophy } from "lucide-react";
 
 type GameProps = {
   onNavigateToLobby?: () => void;
@@ -12,6 +13,7 @@ export default function Game({ onNavigateToLobby }: GameProps) {
   const [winner, setWinner] = useState('');
   const [winningScore, setWinningScore] = useState(5);
   const [gameMode, setGameMode] = useState('two-player'); // 'one-player', 'two-player'
+  const [history, setHistory] = useState<{ mode: string; score: number; opponentScore: number; winner: string; created_at: string }[]>([]);
   
   // Define the type for a particle
   type Particle = {
@@ -90,6 +92,10 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
 };
 
   const resetGame = () => {
+    // Save score before resetting if we have a game in progress
+    if (gameState === 'playing' || gameState === 'paused') {
+      savePongScore();
+    }
     gameVars.current.leftScore = 0;
     gameVars.current.rightScore = 0;
     setScore({ left: 0, right: 0 });
@@ -166,6 +172,42 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
     }
   };
 
+  const savePongScore = async () => {
+    try {
+      const response = await fetch('/api/pong/score', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({
+          mode: gameMode,
+          score: gameVars.current.leftScore,
+          opponentScore: gameVars.current.rightScore,
+          winner: winner.includes('You') || winner.includes('Player 1') ? 'player' : 'opponent'
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Pong score saved successfully:', data);
+      
+      // Refresh history after saving
+      const historyResponse = await fetch('/api/pong/history', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (historyResponse.ok) {
+        const historyData = await historyResponse.json();
+        setHistory(historyData.history);
+      }
+    } catch (err) {
+      console.error('Failed to save Pong score:', err);
+    }
+  };
+
   const checkWinCondition = () => {
     const vars = gameVars.current;
     if (vars.leftScore >= winningScore) {
@@ -175,6 +217,8 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       createParticles(200, 250, "#06b6d4");
       createParticles(300, 150, "#06b6d4");
       createParticles(400, 350, "#06b6d4");
+      // Save score immediately when game ends
+      savePongScore();
     } else if (vars.rightScore >= winningScore) {
       const winnerText = gameMode === 'one-player' ? 'AI Wins!' : 'Player 2';
       setWinner(winnerText);
@@ -182,8 +226,34 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       createParticles(600, 250, "#f59e0b");
       createParticles(500, 150, "#f59e0b");
       createParticles(700, 350, "#f59e0b");
+      // Save score immediately when game ends
+      savePongScore();
     }
   };
+
+  // Add useEffect for fetching history on component mount and after each game
+  useEffect(() => {
+    const fetchHistory = async () => {
+      try {
+        const response = await fetch('/api/pong/history', {
+          method: 'GET',
+          credentials: 'include',
+        });
+        
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('🎮 Pong Score History:', data.history);
+        setHistory(data.history);
+      } catch (err) {
+        console.error('Failed to load Pong history:', err);
+      }
+    };
+
+    fetchHistory();
+  }, [gameState]); // Re-fetch history when game state changes
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -570,24 +640,27 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
 
         case 'playing':
           if (e.key === " ") {
-            // Pause game - no reset
+            // Pause game - save score before pausing
+            savePongScore();
             setGameState('paused');
           } else if (e.key === "Escape") {
-            // Return to menu - reset everything
+            // Return to menu - save score and reset
+            savePongScore();
             resetGame();
             setGameState('menu');
           } else if (e.key.toLowerCase() === 'r') {
-            // Restart game - reset everything but stay playing
+            // Restart game - save score and reset
+            savePongScore();
             resetGame();
           }
           break;
 
         case 'paused':
           if (e.key === " ") {
-            // Resume game - no reset
             setGameState('playing');
           } else if (e.key === "Escape") {
-            // Return to menu - reset everything
+            // Return to menu - save score and reset
+            savePongScore();
             resetGame();
             setGameState('menu');
           }
@@ -595,11 +668,13 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
 
         case 'gameOver':
           if (e.key.toLowerCase() === 'r') {
-            // Restart game completely
+            // Restart game - save score and reset
+            savePongScore();
             resetGame();
             setGameState('playing');
           } else if (e.key === ' ') {
-            // Return to menu
+            // Return to menu - save score and reset
+            savePongScore();
             resetGame();
             setGameState('menu');
           }
@@ -705,6 +780,50 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
         >
           ← BACK TO LOBBY
         </button>
+      )}
+      
+      {/* Add history display when in menu state */}
+      {gameState === 'menu' && history.length > 0 && (
+        <div className="mt-8 w-full max-w-2xl bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
+          <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+            <Trophy className="w-5 h-5 mr-2 text-purple-400" />
+            Recent Games
+          </h3>
+          <div className="bg-black/20 rounded-lg overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-purple-900/20">
+                  <th className="px-4 py-2 text-left text-gray-300">Date</th>
+                  <th className="px-4 py-2 text-left text-gray-300">Mode</th>
+                  <th className="px-4 py-2 text-right text-gray-300">Your Score</th>
+                  <th className="px-4 py-2 text-right text-gray-300">Result</th>
+                </tr>
+              </thead>
+              <tbody>
+                {history.slice(0, 5).map((game, index) => (
+                  <tr key={index} className="border-t border-purple-500/10">
+                    <td className="px-4 py-2 text-gray-400">
+                      {new Date(game.created_at).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-2 text-gray-400">
+                      {game.mode === 'one-player' ? 'Single Player' : 'Two Player'}
+                    </td>
+                    <td className="px-4 py-2 text-right text-cyan-400">
+                      {game.score}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      <span className={`font-mono ${
+                        game.winner === 'player' ? 'text-cyan-400' : 'text-amber-400'
+                      }`}>
+                        {game.winner === 'player' ? 'Victory' : 'Defeat'}
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       )}
     </div>
   );

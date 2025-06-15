@@ -81,6 +81,11 @@ export default function GameLobby() {
     highestLevel: 1,
     recentScores: []
   });
+  const [pongStats, setPongStats] = useState({
+    totalGames: 0,
+    wins: 0,
+    recentGames: []
+  });
 
   useEffect(() => {
     const fetchData = async () => {
@@ -97,6 +102,14 @@ export default function GameLobby() {
 
         // Fetch Arkanoid history
         const arkanoidResponse = await fetch('/api/arkanoid/history', {
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          }
+        });
+
+        // Fetch Pong history
+        const pongResponse = await fetch('/api/pong/history', {
           credentials: 'include',
           headers: {
             'Content-Type': 'application/json',
@@ -124,6 +137,24 @@ export default function GameLobby() {
               highScore,
               highestLevel,
               recentScores
+            });
+          }
+        }
+
+        // Process Pong stats if available
+        if (pongResponse.ok) {
+          const pongData = await pongResponse.json();
+          console.log('🔍 [DEBUG] Pong history:', pongData);
+          
+          if (pongData.history && pongData.history.length > 0) {
+            const wins = pongData.history.filter(game => 
+              game.winner.includes('You') || game.winner.includes('Player 1')
+            ).length;
+            
+            setPongStats({
+              totalGames: pongData.history.length,
+              wins,
+              recentGames: pongData.history.slice(0, 5) // Get last 5 games
             });
           }
         }
@@ -353,60 +384,113 @@ export default function GameLobby() {
                 </div>
               </div>
 
-              {/* Arkanoid Stats */}
-              <div className="mt-6 pt-6 border-t border-purple-500/30">
-                <h3 className="text-xl font-bold text-white mb-4 flex items-center">
-                  <Target className="w-5 h-5 mr-2 text-indigo-400" />
-                  Arkanoid Stats
-                </h3>
-                
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  <div className="bg-gradient-to-br from-indigo-900/30 to-purple-900/30 border border-indigo-500/30 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-indigo-400">{arkanoidStats.highScore}</div>
-                    <div className="text-sm text-gray-300">High Score</div>
-                  </div>
-                  <div className="bg-gradient-to-br from-purple-900/30 to-pink-900/30 border border-purple-500/30 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-purple-400">Level {arkanoidStats.highestLevel}</div>
-                    <div className="text-sm text-gray-300">Highest Level</div>
-                  </div>
-                  <div className="bg-gradient-to-br from-pink-900/30 to-red-900/30 border border-pink-500/30 rounded-lg p-4 text-center">
-                    <div className="text-2xl font-bold text-pink-400">{arkanoidStats.recentScores.length}</div>
-                    <div className="text-sm text-gray-300">Games Played</div>
-                  </div>
-                </div>
-
-                {/* Recent Scores */}
-                {arkanoidStats.recentScores.length > 0 && (
-                  <div className="mt-4">
-                    <h4 className="text-sm font-semibold text-gray-300 mb-2">Recent Scores</h4>
-                    <div className="bg-black/20 rounded-lg overflow-hidden">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="bg-purple-900/20">
-                            <th className="px-4 py-2 text-left text-gray-300">Date</th>
-                            <th className="px-4 py-2 text-right text-gray-300">Score</th>
-                            <th className="px-4 py-2 text-right text-gray-300">Level</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {arkanoidStats.recentScores.map((score, index) => (
-                            <tr key={index} className="border-t border-purple-500/10">
-                              <td className="px-4 py-2 text-gray-400">
-                                {new Date(score.created_at).toLocaleDateString()}
-                              </td>
-                              <td className="px-4 py-2 text-right text-indigo-400 font-mono">
-                                {score.score}
-                              </td>
-                              <td className="px-4 py-2 text-right text-purple-400 font-mono">
-                                {score.level_reached}
-                              </td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
+              {/* Game Stats Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+                {/* Arkanoid Stats */}
+                <div className="bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                    <Trophy className="w-5 h-5 mr-2 text-purple-400" />
+                    Arkanoid Stats
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">High Score</div>
+                      <div className="text-2xl font-bold text-cyan-400">{arkanoidStats.highScore}</div>
+                    </div>
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Highest Level</div>
+                      <div className="text-2xl font-bold text-purple-400">{arkanoidStats.highestLevel}</div>
                     </div>
                   </div>
-                )}
+                  {arkanoidStats.recentScores.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Recent Scores</h4>
+                      <div className="bg-black/20 rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-purple-900/20">
+                              <th className="px-4 py-2 text-left text-gray-300">Date</th>
+                              <th className="px-4 py-2 text-right text-gray-300">Score</th>
+                              <th className="px-4 py-2 text-right text-gray-300">Level</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {arkanoidStats.recentScores.map((score, index) => (
+                              <tr key={index} className="border-t border-purple-500/10">
+                                <td className="px-4 py-2 text-gray-400">
+                                  {new Date(score.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-2 text-right text-cyan-400">{score.score}</td>
+                                <td className="px-4 py-2 text-right text-purple-400">{score.level_reached}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Pong Stats */}
+                <div className="bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
+                  <h3 className="text-xl font-bold text-white mb-4 flex items-center">
+                    <Trophy className="w-5 h-5 mr-2 text-purple-400" />
+                    Pong Stats
+                  </h3>
+                  <div className="grid grid-cols-2 gap-4 mb-4">
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Total Games</div>
+                      <div className="text-2xl font-bold text-cyan-400">{pongStats.totalGames}</div>
+                    </div>
+                    <div className="bg-black/20 rounded-lg p-4">
+                      <div className="text-sm text-gray-400">Wins</div>
+                      <div className="text-2xl font-bold text-purple-400">{pongStats.wins}</div>
+                    </div>
+                  </div>
+                  {pongStats.recentGames.length > 0 && (
+                    <div className="mt-4">
+                      <h4 className="text-sm font-semibold text-gray-300 mb-2">Recent Games</h4>
+                      <div className="bg-black/20 rounded-lg overflow-hidden">
+                        <table className="w-full text-sm">
+                          <thead>
+                            <tr className="bg-purple-900/20">
+                              <th className="px-4 py-2 text-left text-gray-300">Date</th>
+                              <th className="px-4 py-2 text-left text-gray-300">Mode</th>
+                              <th className="px-4 py-2 text-right text-gray-300">Score</th>
+                              <th className="px-4 py-2 text-right text-gray-300">Winner</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {pongStats.recentGames.map((game, index) => (
+                              <tr key={index} className="border-t border-purple-500/10">
+                                <td className="px-4 py-2 text-gray-400">
+                                  {new Date(game.created_at).toLocaleDateString()}
+                                </td>
+                                <td className="px-4 py-2 text-gray-400">
+                                  {game.mode === 'one-player' ? 'Single Player' : 'Two Player'}
+                                </td>
+                                <td className="px-4 py-2 text-right font-mono">
+                                  <span className="text-cyan-400">{game.left_score}</span>
+                                  <span className="text-gray-400 mx-1">-</span>
+                                  <span className="text-amber-400">{game.right_score}</span>
+                                </td>
+                                <td className="px-4 py-2 text-right">
+                                  <span className={`font-mono ${
+                                    game.winner.includes('You') || game.winner.includes('Player 1')
+                                      ? 'text-cyan-400'
+                                      : 'text-amber-400'
+                                  }`}>
+                                    {game.winner}
+                                  </span>
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

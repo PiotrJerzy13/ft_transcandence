@@ -1,8 +1,19 @@
-// src/components/Game2WithRouter.tsx
+// src/components/GameWithRouter.tsx
 import { useNavigate } from "react-router-dom";
-import Game2 from "../pages/Game";
+import { useEffect } from "react";
+import Game from "../pages/Game";
 
-export default function Game2WithRouter() {
+export default function GameWithRouter() {
   const navigate = useNavigate();
-  return <Game2 onNavigateToLobby={() => navigate("/lobby")} />;
+
+  useEffect(() => {
+    console.log('GameWithRouter mounted');
+    return () => console.log('GameWithRouter unmounted');
+  }, []);
+
+  return (
+    <div className="w-full h-full">
+      <Game onNavigateToLobby={() => navigate("/lobby")} />
+    </div>
+  );
 }
