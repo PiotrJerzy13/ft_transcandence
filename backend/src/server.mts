@@ -25,6 +25,9 @@ const start = async () => {
     await initializeDatabase();
     
     // Register Swagger - pass options as the second parameter
+	// Errors if Swagger is not installed or configured correctly
+	// Only present locally in development environment is correct
+	// To check if installed, run: docker exec -it ft_backend npm ls @fastify/swagger @fastify/swagger-ui
     await app.register(swagger, {
       openapi: {
         openapi: '3.0.0',
