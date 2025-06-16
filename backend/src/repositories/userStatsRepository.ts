@@ -103,11 +103,10 @@ export class UserStatsRepository {
   }
 
   async updateGameStats(userId: number, won: boolean, gameDuration: number): Promise<void> {
-    // const db = getDb();
     const stats = await this.findByUserId(userId);
     
     if (!stats) {
-      // Create initial stats
+      // Create initial stats without XP (XP is handled by game routes)
       const newStats: UserStats = {
         user_id: userId,
         total_games: 1,
@@ -118,7 +117,7 @@ export class UserStatsRepository {
         total_play_time: Math.round(gameDuration / 60), // convert to minutes
         rank: 'Novice',
         level: 1,
-        xp: won ? 100 : 25
+        xp: 0  // XP is handled by game routes
       };
       await this.createOrUpdate(newStats);
     } else {
@@ -129,12 +128,11 @@ export class UserStatsRepository {
         losses: stats.losses + (won ? 0 : 1),
         win_streak: won ? stats.win_streak + 1 : 0,
         best_streak: won ? Math.max(stats.best_streak, stats.win_streak + 1) : stats.best_streak,
-        total_play_time: stats.total_play_time + Math.round(gameDuration / 60),
-        xp: stats.xp + (won ? 100 : 25)
+        total_play_time: stats.total_play_time + Math.round(gameDuration / 60)
+        // XP and level are handled by game routes
       };
       
-      // Calculate level and rank based on XP
-      updatedStats.level = Math.floor(updatedStats.xp / 1000) + 1;
+      // Calculate rank based on level and wins (level is set by game routes)
       updatedStats.rank = this.calculateRank(updatedStats.level, updatedStats.wins);
       
       await this.createOrUpdate(updatedStats);

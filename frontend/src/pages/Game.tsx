@@ -1,6 +1,23 @@
 import { useEffect, useRef, useState } from "react";
 import { Trophy } from "lucide-react";
 
+// Add at the top of the file, after imports
+interface Particle {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  life: number;
+  maxLife: number;
+  color: string;
+}
+
+interface KeyboardEventWithPrevent extends KeyboardEvent {
+  preventDefault(): void;
+}
+
+const WINNING_SCORE = 5;
+
 type GameProps = {
   onNavigateToLobby?: () => void;
 };
@@ -11,37 +28,22 @@ export default function Game({ onNavigateToLobby }: GameProps) {
   const [score, setScore] = useState({ left: 0, right: 0 });
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver'
   const [winner, setWinner] = useState('');
-  const [winningScore, setWinningScore] = useState(5);
   const [gameMode, setGameMode] = useState('two-player'); // 'one-player', 'two-player'
-  const [history, setHistory] = useState<{ mode: string; score: number; opponentScore: number; winner: string; created_at: string }[]>([]);
+  const [history, setHistory] = useState<{ mode: string; score: number; opponent_score: number; winner: string; created_at: string }[]>([]);
   
-  // Define the type for a particle
-  type Particle = {
-    x: number;
-    y: number;
-    vx: number;
-    vy: number;
-    life: number; 
-    maxLife: number;
-    color: string;
-  };
-
-  // Move all game variables to useRef to persist state across renders
+  // Add a ref to track if the current game has been saved
+  const gameScoreSaved = useRef(false);
+  
+  // Update gameVars type to include particles
   const gameVars = useRef<{
-    paddleHeight: number;
-    paddleWidth: number;
-    ballSize: number;
-    leftPaddleY: number;
-    rightPaddleY: number;
+    playerScore: number;
+    opponentScore: number;
     ballX: number;
     ballY: number;
     ballSpeedX: number;
     ballSpeedY: number;
-    leftScore: number;
-    rightScore: number;
-    aiSpeed: number;
-    aiReactionDelay: number;
-    aiTarget: number;
+    paddle1Y: number;
+    paddle2Y: number;
     particles: Particle[];
     keys: {
       w: boolean;
@@ -50,20 +52,14 @@ export default function Game({ onNavigateToLobby }: GameProps) {
       down: boolean;
     };
   }>({
-    paddleHeight: 100,
-    paddleWidth: 12,
-    ballSize: 12,
-    leftPaddleY: 160,
-    rightPaddleY: 160,
-    ballX: 300,
-    ballY: 200,
+    playerScore: 0,
+    opponentScore: 0,
+    ballX: 400,
+    ballY: 250,
     ballSpeedX: 4,
-    ballSpeedY: 3,
-    leftScore: 0,
-    rightScore: 0,
-    aiSpeed: 3.5,
-    aiReactionDelay: 0,
-    aiTarget: 250,
+    ballSpeedY: 4,
+    paddle1Y: 200,
+    paddle2Y: 200,
     particles: [],
     keys: {
       w: false,
@@ -73,31 +69,27 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     }
   });
   
-interface CreateParticles {
-	(x: number, y: number, color?: string): void;
-}
-
-const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
-	for (let i = 0; i < 8; i++) {
-		gameVars.current.particles.push({
-			x: x,
-			y: y,
-			vx: (Math.random() - 0.5) * 6,
-			vy: (Math.random() - 0.5) * 6,
-			life: 30,
-			maxLife: 30,
-			color: color
-		});
-	}
-};
+  // Update createParticles function with proper typing
+  const createParticles = (x: number, y: number, color: string = "#60a5fa") => {
+    for (let i = 0; i < 12; i++) {
+      gameVars.current.particles.push({
+        x: x,
+        y: y,
+        vx: (Math.random() - 0.5) * 8,
+        vy: (Math.random() - 0.5) * 8,
+        life: 40,
+        maxLife: 40,
+        color: color
+      });
+    }
+  };
 
   const resetGame = () => {
-    // Save score before resetting if we have a game in progress
-    if (gameState === 'playing' || gameState === 'paused') {
-      savePongScore();
-    }
-    gameVars.current.leftScore = 0;
-    gameVars.current.rightScore = 0;
+    // Reset game score saved flag
+    gameScoreSaved.current = false;
+    
+    gameVars.current.playerScore = 0;
+    gameVars.current.opponentScore = 0;
     setScore({ left: 0, right: 0 });
     setWinner('');
     resetBall();
@@ -118,8 +110,8 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
   };
 
   const resetPaddles = () => {
-    gameVars.current.leftPaddleY = 200;
-    gameVars.current.rightPaddleY = 200;
+    gameVars.current.paddle1Y = 200;
+    gameVars.current.paddle2Y = 200;
   };
 
     const handleBackToLobby = () => {
@@ -136,7 +128,7 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
     
     const vars = gameVars.current;
     // AI controls the right paddle
-    const paddleCenter = vars.rightPaddleY + vars.paddleHeight / 2;
+    const paddleCenter = vars.paddle2Y + 100 / 2;
     
     // Only react when ball is moving towards AI paddle
     if (vars.ballSpeedX > 0) {
@@ -146,43 +138,123 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       
       // Add some imperfection to make AI beatable
       const imperfection = (Math.random() - 0.5) * 40; // Random offset
-      vars.aiTarget = predictedBallY + imperfection;
+      vars.paddle2Y = predictedBallY + imperfection;
     } else {
       // When ball is moving away, move towards center
-      vars.aiTarget = 250;
+      vars.paddle2Y = 250;
     }
     
     // Move AI paddle towards target with some smoothing
-    const difference = vars.aiTarget - paddleCenter;
+    const difference = vars.paddle2Y - paddleCenter;
     
     if (Math.abs(difference) > 5) {
       if (difference > 0) {
-        vars.rightPaddleY = Math.min(500 - vars.paddleHeight, vars.rightPaddleY + vars.aiSpeed);
+        vars.paddle2Y = Math.min(500 - 100, vars.paddle2Y + 5);
       } else {
-        vars.rightPaddleY = Math.max(0, vars.rightPaddleY - vars.aiSpeed);
+        vars.paddle2Y = Math.max(0, vars.paddle2Y - 5);
       }
     }
+  };
+
+  // Calculate XP for winning a game
+  const calculateWinXp = (score: number, opponentScore: number): number => {
+    const baseXp = 100; // Base XP for winning
+    const scoreBonus = Math.floor(score / 2); // 1 XP per 2 points
+    const marginBonus = Math.floor((score - opponentScore) * 5); // Bonus for winning by a larger margin
+    return baseXp + scoreBonus + marginBonus;
+  };
+
+  // Calculate XP for losing a game
+  const calculateLossXp = (score: number): number => {
+    const baseXp = 25; // Base XP for losing
+    const scoreBonus = Math.floor(score / 4); // Less XP per point for losing
+    return baseXp + scoreBonus;
+  };
+
+  // Visual effect for XP gain
+  const showXpGain = (amount: number) => {
+    const xpGainElement = document.createElement('div');
+    xpGainElement.className = 'xp-gain-popup';
+    xpGainElement.textContent = `+${amount} XP`;
+    xpGainElement.style.position = 'absolute';
+    xpGainElement.style.color = '#22c55e';
+    xpGainElement.style.fontWeight = 'bold';
+    xpGainElement.style.fontSize = '24px';
+    xpGainElement.style.top = '50%';
+    xpGainElement.style.left = '50%';
+    xpGainElement.style.transform = 'translate(-50%, -50%)';
+    xpGainElement.style.zIndex = '1000';
+    xpGainElement.style.pointerEvents = 'none';
+    xpGainElement.style.animation = 'floatUp 2s ease-out forwards';
     
-    // Adjust AI difficulty based on score difference
-    const scoreDiff = vars.rightScore - vars.leftScore;
-    if (scoreDiff > 2) {
-      vars.aiSpeed = Math.max(2, vars.aiSpeed - 0.1); // Make AI slower if it's winning by a lot
-    } else if (scoreDiff < -2) {
-      vars.aiSpeed = Math.min(5, vars.aiSpeed + 0.1); // Make AI faster if it's losing
+    // Add CSS animation if it doesn't exist
+    if (!document.getElementById('xp-animation-styles')) {
+      const style = document.createElement('style');
+      style.id = 'xp-animation-styles';
+      style.textContent = `
+        @keyframes floatUp {
+          0% {
+            opacity: 1;
+            transform: translate(-50%, -50%) translateY(0px);
+          }
+          100% {
+            opacity: 0;
+            transform: translate(-50%, -50%) translateY(-50px);
+          }
+        }
+      `;
+      document.head.appendChild(style);
     }
+    
+    document.body.appendChild(xpGainElement);
+    setTimeout(() => xpGainElement.remove(), 2000);
   };
 
   const savePongScore = async () => {
     try {
+      // Get current user stats first to calculate total XP
+      const statsResponse = await fetch('/api/user/stats', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      let currentTotalXp = 0;
+      if (statsResponse.ok) {
+        const statsData = await statsResponse.json();
+        currentTotalXp = statsData.xp || 0;
+      }
+
+      // Calculate XP based on game result
+      const isWinner = winner.includes('You') || winner.includes('Player 1');
+      const xpEarned = isWinner 
+        ? calculateWinXp(gameVars.current.playerScore, gameVars.current.opponentScore)
+        : calculateLossXp(gameVars.current.playerScore);
+
+      console.log('Saving game:', {
+        mode: gameMode,
+        score: gameVars.current.playerScore,
+        opponentScore: gameVars.current.opponentScore,
+        winner: isWinner ? 'player' : 'opponent',
+        xpEarned: xpEarned
+      });
+
+      // Show XP gain effect
+      showXpGain(xpEarned);
+
+      // Calculate total XP (current + earned this session)
+      const totalXp = currentTotalXp + xpEarned;
+
       const response = await fetch('/api/pong/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
           mode: gameMode,
-          score: gameVars.current.leftScore,
-          opponentScore: gameVars.current.rightScore,
-          winner: winner.includes('You') || winner.includes('Player 1') ? 'player' : 'opponent'
+          score: gameVars.current.playerScore,
+          opponentScore: gameVars.current.opponentScore,
+          winner: isWinner ? 'player' : 'opponent',
+          xpEarned: xpEarned,
+          totalXp: totalXp,
         }),
       });
 
@@ -191,69 +263,61 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       }
 
       const data = await response.json();
-      console.log('Pong score saved successfully:', data);
+      console.log('Score and XP saved successfully:', data);
       
       // Refresh history after saving
-      const historyResponse = await fetch('/api/pong/history', {
-        method: 'GET',
-        credentials: 'include',
-      });
-      
-      if (historyResponse.ok) {
-        const historyData = await historyResponse.json();
-        setHistory(historyData.history);
-      }
+      fetchHistory();
     } catch (err) {
       console.error('Failed to save Pong score:', err);
     }
   };
 
+  const fetchHistory = async () => {
+    try {
+      const response = await fetch('/api/pong/history', {
+        method: 'GET',
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      console.log('🎮 Pong Score History:', data.history);
+      setHistory(data.history);
+    } catch (err) {
+      console.error('Failed to load Pong history:', err);
+    }
+  };
+
   const checkWinCondition = () => {
     const vars = gameVars.current;
-    if (vars.leftScore >= winningScore) {
+    if (vars.playerScore >= WINNING_SCORE) {
       const winnerText = gameMode === 'one-player' ? 'You Win!' : 'Player 1';
       setWinner(winnerText);
       setGameState('gameOver');
       createParticles(200, 250, "#06b6d4");
       createParticles(300, 150, "#06b6d4");
       createParticles(400, 350, "#06b6d4");
-      // Save score immediately when game ends
-      savePongScore();
-    } else if (vars.rightScore >= winningScore) {
+      // Save score when game ends
+      setTimeout(() => savePongScore(), 500); // Small delay to ensure state is updated
+    } else if (vars.opponentScore >= WINNING_SCORE) {
       const winnerText = gameMode === 'one-player' ? 'AI Wins!' : 'Player 2';
       setWinner(winnerText);
       setGameState('gameOver');
       createParticles(600, 250, "#f59e0b");
       createParticles(500, 150, "#f59e0b");
       createParticles(700, 350, "#f59e0b");
-      // Save score immediately when game ends
-      savePongScore();
+      // Save score when game ends
+      setTimeout(() => savePongScore(), 500); // Small delay to ensure state is updated
     }
   };
 
-  // Add useEffect for fetching history on component mount and after each game
+  // Add useEffect for fetching history on component mount
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const response = await fetch('/api/pong/history', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('🎮 Pong Score History:', data.history);
-        setHistory(data.history);
-      } catch (err) {
-        console.error('Failed to load Pong history:', err);
-      }
-    };
-
     fetchHistory();
-  }, [gameState]); // Re-fetch history when game state changes
+  }, []); // Only run once on mount
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -271,6 +335,46 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       s: false,
       up: false,
       down: false
+    };
+
+    // Define drawMenu function inside useEffect where canvas is available
+    const drawMenu = (ctx: CanvasRenderingContext2D) => {
+      if (!canvas) return; // Add safety check
+      
+      ctx.save();
+      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Title
+      ctx.font = "bold 40px 'Courier New', monospace";
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#4338ca";
+      ctx.shadowBlur = 15;
+      ctx.fillText("CYBER PONG", canvas.width / 2, canvas.height / 2 - 80);
+      
+      // Game mode selection
+      ctx.font = "24px 'Courier New', monospace";
+      ctx.fillStyle = "#06b6d4";
+      ctx.shadowColor = "#06b6d4";
+      ctx.shadowBlur = 10;
+      ctx.fillText("SELECT GAME MODE:", canvas.width / 2, canvas.height / 2 - 20);
+      
+      ctx.font = "20px 'Courier New', monospace";
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#4338ca";
+      ctx.shadowBlur = 10;
+      ctx.fillText("Press 1 for Single Player", canvas.width / 2, canvas.height / 2 + 20);
+      ctx.fillText("Press 2 for Two Players", canvas.width / 2, canvas.height / 2 + 50);
+      
+      // Controls reminder
+      ctx.font = "16px 'Courier New', monospace";
+      ctx.fillStyle = "#a855f7";
+      ctx.shadowColor = "#a855f7";
+      ctx.shadowBlur = 10;
+      ctx.fillText("SPACE: Start Game | L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 100);
+      
+      ctx.restore();
     };
 
     const draw = () => {
@@ -320,25 +424,25 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
 		const paddleGradient = context.createLinearGradient(
 			x,
 			y,
-			x + vars.paddleWidth,
-			y + vars.paddleHeight
+			x + 12,
+			y + 100
 		);
 		paddleGradient.addColorStop(0, color1);
 		paddleGradient.addColorStop(1, color2);
 
 		context.fillStyle = paddleGradient;
-		context.fillRect(x, y, vars.paddleWidth, vars.paddleHeight);
+		context.fillRect(x, y, 12, 100);
 
 		// Inner highlight
 		context.shadowBlur = 0;
 		context.fillStyle = "rgba(255, 255, 255, 0.3)";
-		context.fillRect(x + 2, y + 2, 2, vars.paddleHeight - 4);
+		context.fillRect(x + 2, y + 2, 2, 96);
 
 		context.restore();
 	};
 
-      drawPaddle(20, vars.leftPaddleY, "#06b6d4", "#0891b2", "#06b6d4");
-      drawPaddle(canvas.width - 32, vars.rightPaddleY, "#f59e0b", "#d97706", "#f59e0b");
+      drawPaddle(20, vars.paddle1Y, "#06b6d4", "#0891b2", "#06b6d4");
+      drawPaddle(canvas.width - 32, vars.paddle2Y, "#f59e0b", "#d97706", "#f59e0b");
 
       // Draw ball with glow and trail effect
       context.save();
@@ -347,8 +451,8 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       
       // Ball gradient
       const ballGradient = context.createRadialGradient(
-        vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, 0,
-        vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, vars.ballSize
+        vars.ballX + 6, vars.ballY + 6, 0,
+        vars.ballX + 6, vars.ballY + 6, 12
       );
       ballGradient.addColorStop(0, "#fbbf24");
       ballGradient.addColorStop(0.7, "#f59e0b");
@@ -356,14 +460,14 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       
       context.fillStyle = ballGradient;
       context.beginPath();
-      context.arc(vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, vars.ballSize/2, 0, Math.PI * 2);
+      context.arc(vars.ballX + 6, vars.ballY + 6, 6, 0, Math.PI * 2);
       context.fill();
       
       // Inner highlight
       context.shadowBlur = 0;
       context.fillStyle = "rgba(255, 255, 255, 0.6)";
       context.beginPath();
-      context.arc(vars.ballX + vars.ballSize/3, vars.ballY + vars.ballSize/3, vars.ballSize/6, 0, Math.PI * 2);
+      context.arc(vars.ballX + 2, vars.ballY + 2, 2, 0, Math.PI * 2);
       context.fill();
       
       context.restore();
@@ -411,50 +515,19 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       context.shadowColor = "#06b6d4";
       context.shadowBlur = 15;
       context.fillStyle = "#06b6d4";
-      context.fillText(vars.leftScore.toString(), canvas.width / 4, 60);
+      context.fillText(vars.playerScore.toString(), canvas.width / 4, 60);
       
       // Right score
       context.shadowColor = "#f59e0b";
       context.shadowBlur = 15;
       context.fillStyle = "#f59e0b";
-      context.fillText(vars.rightScore.toString(), (canvas.width * 3) / 4, 60);
+      context.fillText(vars.opponentScore.toString(), (canvas.width * 3) / 4, 60);
       
       context.restore();
 
       // Game state overlays
       if (gameState === 'menu') {
-        context.save();
-        context.fillStyle = "rgba(0, 0, 0, 0.8)";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        context.font = "bold 32px 'Courier New', monospace";
-        context.textAlign = "center";
-        context.fillStyle = "#ffffff";
-        context.shadowColor = "#4338ca";
-        context.shadowBlur = 10;
-        context.fillText("CYBER PONG", canvas.width / 2, canvas.height / 2 - 80);
-        
-        context.font = "24px 'Courier New', monospace";
-        context.fillText(`First to ${winningScore} wins!`, canvas.width / 2, canvas.height / 2 - 40);
-        
-        // Game mode selection
-        context.font = "20px 'Courier New', monospace";
-        context.fillStyle = gameMode === 'one-player' ? "#06b6d4" : "#ffffff";
-        context.fillText("1: Single Player", canvas.width / 2, canvas.height / 2 - 10);
-        
-        context.fillStyle = gameMode === 'two-player' ? "#06b6d4" : "#ffffff";
-        context.fillText("2: Two Player", canvas.width / 2, canvas.height / 2 + 15);
-        
-        context.font = "18px 'Courier New', monospace";
-        context.fillStyle = "#ffffff";
-        context.fillText("PRESS SPACE TO START", canvas.width / 2, canvas.height / 2 + 50);
-        
-        context.font = "16px 'Courier New', monospace";
-        const controlText = gameMode === 'one-player' ? "W/S - Your Paddle" : "W/S - Left Paddle | ↑/↓ - Right Paddle";
-        context.fillText(controlText, canvas.width / 2, canvas.height / 2 + 80);
-        context.fillText("1-9: Set winning score | R: Restart | SPACE: Pause/Resume", canvas.width / 2, canvas.height / 2 + 100);
-        context.fillText("ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 120);
-        context.restore();
+        drawMenu(context);
       }
 
       if (gameState === 'paused') {
@@ -497,7 +570,7 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
         context.fillStyle = "#ffffff";
         context.shadowColor = "#4338ca";
         context.shadowBlur = 10;
-        context.fillText(`Final Score: ${vars.leftScore} - ${vars.rightScore}`, canvas.width / 2, canvas.height / 2);
+        context.fillText(`Final Score: ${vars.playerScore} - ${vars.opponentScore}`, canvas.width / 2, canvas.height / 2);
         
         context.font = "18px 'Courier New', monospace";
         context.fillText("PRESS R TO PLAY AGAIN", canvas.width / 2, canvas.height / 2 + 40);
@@ -510,73 +583,83 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       if (gameState !== 'playing') return;
       
       const vars = gameVars.current;
-      const step = 5; // Smaller step for smoother movement
-      
-      // Update paddle positions based on key states
-      if (vars.keys.w) {
-        vars.leftPaddleY = Math.max(0, vars.leftPaddleY - step);
+      const paddleSpeed = 8; // Increased paddle speed
+      const paddleHeight = 100;
+      const canvasHeight = canvasRef.current?.height || 500;
+
+      // Move paddle 1 (left paddle - W/S keys)
+      if (vars.keys.w && vars.paddle1Y > 0) {
+        vars.paddle1Y = Math.max(0, vars.paddle1Y - paddleSpeed);
       }
-      if (vars.keys.s) {
-        vars.leftPaddleY = Math.min(canvas.height - vars.paddleHeight, vars.leftPaddleY + step);
+      if (vars.keys.s && vars.paddle1Y + paddleHeight < canvasHeight) {
+        vars.paddle1Y = Math.min(canvasHeight - paddleHeight, vars.paddle1Y + paddleSpeed);
       }
-      
+
+      // Move paddle 2 (right paddle - Arrow keys or AI)
       if (gameMode === 'two-player') {
-        if (vars.keys.up) {
-          vars.rightPaddleY = Math.max(0, vars.rightPaddleY - step);
+        if (vars.keys.up && vars.paddle2Y > 0) {
+          vars.paddle2Y = Math.max(0, vars.paddle2Y - paddleSpeed);
         }
-        if (vars.keys.down) {
-          vars.rightPaddleY = Math.min(canvas.height - vars.paddleHeight, vars.rightPaddleY + step);
+        if (vars.keys.down && vars.paddle2Y + paddleHeight < canvasHeight) {
+          vars.paddle2Y = Math.min(canvasHeight - paddleHeight, vars.paddle2Y + paddleSpeed);
+        }
+      } else {
+        // AI movement for single player
+        const aiSpeed = 5;
+        const targetY = vars.ballY - paddleHeight / 2;
+        if (vars.paddle2Y < targetY - aiSpeed) {
+          vars.paddle2Y = Math.min(canvasHeight - paddleHeight, vars.paddle2Y + aiSpeed);
+        } else if (vars.paddle2Y > targetY + aiSpeed) {
+          vars.paddle2Y = Math.max(0, vars.paddle2Y - aiSpeed);
         }
       }
-      
-      updateAI(); // Update AI paddle
       
       vars.ballX += vars.ballSpeedX;
       vars.ballY += vars.ballSpeedY;
 
       // Bounce off top/bottom with particles
-      if (vars.ballY <= 0 || vars.ballY + vars.ballSize >= canvas.height) {
+      if (vars.ballY <= 0 || vars.ballY + 12 >= canvas.height) {
         vars.ballSpeedY *= -1;
-        createParticles(vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, "#60a5fa");
+        createParticles(vars.ballX + 6, vars.ballY + 6, "#60a5fa");
       }
 
       // Bounce off left paddle
       if (
         vars.ballX <= 32 &&
-        vars.ballY + vars.ballSize >= vars.leftPaddleY &&
-        vars.ballY <= vars.leftPaddleY + vars.paddleHeight &&
+        vars.ballY + 12 >= vars.paddle1Y &&
+        vars.ballY <= vars.paddle1Y + paddleHeight &&
         vars.ballSpeedX < 0
       ) {
         vars.ballSpeedX *= -1;
         // Add some randomness to prevent boring rallies
         vars.ballSpeedY += (Math.random() - 0.5) * 2;
-        createParticles(vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, "#06b6d4");
+        createParticles(vars.ballX + 6, vars.ballY + 6, "#06b6d4");
       }
 
       // Bounce off right paddle
       if (
-        vars.ballX + vars.ballSize >= canvas.width - 32 &&
-        vars.ballY + vars.ballSize >= vars.rightPaddleY &&
-        vars.ballY <= vars.rightPaddleY + vars.paddleHeight &&
+        vars.ballX + 12 >= canvas.width - 32 &&
+        vars.ballY + 12 >= vars.paddle2Y &&
+        vars.ballY <= vars.paddle2Y + paddleHeight &&
         vars.ballSpeedX > 0
       ) {
         vars.ballSpeedX *= -1;
         vars.ballSpeedY += (Math.random() - 0.5) * 2;
-        createParticles(vars.ballX + vars.ballSize/2, vars.ballY + vars.ballSize/2, "#f59e0b");
+        createParticles(vars.ballX + 6, vars.ballY + 6, "#f59e0b");
       }
 
       // Score and reset
       if (vars.ballX < 0) {
-        vars.rightScore++;
-        setScore(prev => ({ ...prev, right: vars.rightScore }));
+        vars.opponentScore++;
+        setScore(prev => ({ ...prev, right: vars.opponentScore }));
         resetBall();
         createParticles(canvas.width - 100, canvas.height / 2, "#f59e0b");
         setTimeout(checkWinCondition, 100);
       }
       
       if (vars.ballX > canvas.width) {
-        vars.leftScore++;
-        setScore(prev => ({ ...prev, left: vars.leftScore }));
+        vars.playerScore++;
+        setScore(prev => ({ ...prev, left: vars.playerScore }));
         resetBall();
         createParticles(100, canvas.height / 2, "#06b6d4");
         setTimeout(checkWinCondition, 100);
@@ -585,12 +668,21 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       // Limit ball speed
       vars.ballSpeedY = Math.max(-8, Math.min(8, vars.ballSpeedY));
       vars.ballSpeedX = Math.max(-10, Math.min(10, vars.ballSpeedX));
+
+      // Check for winner
+      if (vars.playerScore >= WINNING_SCORE || vars.opponentScore >= WINNING_SCORE) {
+        const winner = vars.playerScore >= WINNING_SCORE ? 'player' : 'opponent';
+        savePongScore();
+        setGameState('gameOver');
+        return;
+      }
     };
 
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (!canvas) return;
+    const handleKeyDown = (e: KeyboardEventWithPrevent) => {
+      console.log('Key pressed:', e.key, 'Game state:', gameState); // Debug log
       
-      if (["ArrowUp", "ArrowDown", "w", "s", " ", "r", "Escape", "1", "2", "l"].includes(e.key.toLowerCase())) {
+      // Only prevent default for movement and control keys
+      if (["ArrowUp", "ArrowDown", "w", "s", " ", "r", "Escape", "l"].includes(e.key.toLowerCase())) {
         e.preventDefault();
       }
 
@@ -599,22 +691,22 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
         handleBackToLobby();
         return;
       }
-      
+
       // Movement keys (only when playing)
       if (gameState === 'playing') {
-        if (e.key.toLowerCase() === "w") {
-          gameVars.current.keys.w = true;
-        }
-        if (e.key.toLowerCase() === "s") {
-          gameVars.current.keys.s = true;
-        }
-        if (gameMode === 'two-player') {
-          if (e.key === "ArrowUp") {
+        switch (e.key.toLowerCase()) {
+          case 'w':
+            gameVars.current.keys.w = true;
+            break;
+          case 's':
+            gameVars.current.keys.s = true;
+            break;
+          case 'arrowup':
             gameVars.current.keys.up = true;
-          }
-          if (e.key === "ArrowDown") {
+            break;
+          case 'arrowdown':
             gameVars.current.keys.down = true;
-          }
+            break;
         }
       }
 
@@ -622,34 +714,24 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       switch (gameState) {
         case 'menu':
           if (e.key === " ") {
-            // Start new game from menu
-            setGameState('playing');
+            console.log('Starting game from menu');
             resetGame();
-          } else if (e.key === '1') {
+            setGameState('playing');
+          } else if (e.key === "1") {
             setGameMode('one-player');
-          } else if (e.key === '2') {
+          } else if (e.key === "2") {
             setGameMode('two-player');
-          } else {
-            // Set winning score (3-9, avoiding 1 and 2 which are used for mode selection)
-            const num = parseInt(e.key);
-            if (num >= 3 && num <= 9) {
-              setWinningScore(num);
-            }
           }
           break;
 
         case 'playing':
           if (e.key === " ") {
-            // Pause game - save score before pausing
-            savePongScore();
             setGameState('paused');
           } else if (e.key === "Escape") {
-            // Return to menu - save score and reset
             savePongScore();
             resetGame();
             setGameState('menu');
           } else if (e.key.toLowerCase() === 'r') {
-            // Restart game - save score and reset
             savePongScore();
             resetGame();
           }
@@ -659,8 +741,6 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
           if (e.key === " ") {
             setGameState('playing');
           } else if (e.key === "Escape") {
-            // Return to menu - save score and reset
-            savePongScore();
             resetGame();
             setGameState('menu');
           }
@@ -668,13 +748,9 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
 
         case 'gameOver':
           if (e.key.toLowerCase() === 'r') {
-            // Restart game - save score and reset
-            savePongScore();
             resetGame();
             setGameState('playing');
           } else if (e.key === ' ') {
-            // Return to menu - save score and reset
-            savePongScore();
             resetGame();
             setGameState('menu');
           }
@@ -683,17 +759,21 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key.toLowerCase() === "w") {
-        gameVars.current.keys.w = false;
-      }
-      if (e.key.toLowerCase() === "s") {
-        gameVars.current.keys.s = false;
-      }
-      if (e.key === "ArrowUp") {
-        gameVars.current.keys.up = false;
-      }
-      if (e.key === "ArrowDown") {
-        gameVars.current.keys.down = false;
+      if (gameState === 'playing') {
+        switch (e.key.toLowerCase()) {
+          case 'w':
+            gameVars.current.keys.w = false;
+            break;
+          case 's':
+            gameVars.current.keys.s = false;
+            break;
+          case 'arrowup':
+            gameVars.current.keys.up = false;
+            break;
+          case 'arrowdown':
+            gameVars.current.keys.down = false;
+            break;
+        }
       }
     };
 
@@ -715,27 +795,24 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
         cancelAnimationFrame(animationFrameRef.current);
       }
     };
-  }, [gameState, winningScore, gameMode]);
+  }, [gameState, gameMode]); // Add gameMode to dependencies
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-8">
       <div className="mb-6">
-        <h1 className="text-4xl font-bold text-white text-center mb-2 font-mono tracking-wider">
+        <h1 className="text-4xl font-bold text-white text-center mb-4 font-mono tracking-wider">
           CYBER PONG
         </h1>
-        <div className="text-center text-sm text-gray-300 font-mono mb-2">
-          {gameMode === 'one-player' ? 'Single Player' : 'Two Player'} Mode
-        </div>
         <div className="flex justify-center space-x-8 text-lg font-mono mb-2">
           <div className="text-cyan-400">
-            {gameMode === 'one-player' ? 'You' : 'Player 1'}: <span className="text-2xl font-bold">{score.left}</span>
+            Score: <span className="text-2xl font-bold">{score.left}</span>
           </div>
           <div className="text-amber-400">
-            {gameMode === 'one-player' ? 'AI' : 'Player 2'}: <span className="text-2xl font-bold">{score.right}</span>
+            vs: <span className="text-2xl font-bold">{score.right}</span>
           </div>
-        </div>
-        <div className="text-center text-sm text-gray-300 font-mono">
-          First to {winningScore} wins
+          <div className="text-purple-400">
+            Mode: <span className="text-2xl font-bold">{gameMode === 'one-player' ? 'Single' : 'Two Player'}</span>
+          </div>
         </div>
       </div>
       
@@ -750,28 +827,17 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
       </div>
       
       <div className="mt-6 text-center text-gray-300 font-mono">
-        {gameMode === 'two-player' ? (
-          <div className="grid grid-cols-2 gap-6 text-sm">
-            <div>
-              <p className="text-cyan-400 font-bold mb-1">Player 1:</p>
-              <p>W/S keys</p>
-            </div>
-            <div>
-              <p className="text-amber-400 font-bold mb-1">Player 2:</p>
-              <p>Arrow keys</p>
-            </div>
-          </div>
-        ) : (
-          <div className="text-sm">
-            <p className="text-cyan-400 font-bold mb-1">Your Controls:</p>
-            <p>W/S keys to move paddle</p>
-          </div>
-        )}
+        <div className="text-sm">
+          <p className="text-cyan-400 font-bold mb-1">Controls:</p>
+          <p>Left: W/S | Right: ↑/↓ (in two-player mode)</p>
+          <p className="text-amber-400 mt-2">SPACE: Pause/Resume | ESC: Back to Menu</p>
+        </div>
         <div className="mt-4 text-xs text-gray-400">
-          <p>SPACE: Pause/Resume | ESC: Back to Menu</p>
-          <p>R: Restart | 1/2: Game Mode | 3-9: Set winning score</p>
+          <p>R: Restart | L: Back to Lobby</p>
+          <p>First to {WINNING_SCORE} points wins!</p>
         </div>
       </div>
+
       {/* Lobby Button - visible when on menu screen */}
       {gameState === 'menu' && (
         <button
@@ -781,8 +847,8 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
           ← BACK TO LOBBY
         </button>
       )}
-      
-      {/* Add history display when in menu state */}
+
+      {/* Game History */}
       {gameState === 'menu' && history.length > 0 && (
         <div className="mt-8 w-full max-w-2xl bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
           <h3 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -795,7 +861,7 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
                 <tr className="bg-purple-900/20">
                   <th className="px-4 py-2 text-left text-gray-300">Date</th>
                   <th className="px-4 py-2 text-left text-gray-300">Mode</th>
-                  <th className="px-4 py-2 text-right text-gray-300">Your Score</th>
+                  <th className="px-4 py-2 text-right text-gray-300">Score</th>
                   <th className="px-4 py-2 text-right text-gray-300">Result</th>
                 </tr>
               </thead>
@@ -809,7 +875,7 @@ const createParticles: CreateParticles = (x, y, color = "#60a5fa") => {
                       {game.mode === 'one-player' ? 'Single Player' : 'Two Player'}
                     </td>
                     <td className="px-4 py-2 text-right text-cyan-400">
-                      {game.score}
+                      {game.score} - {game.opponent_score}
                     </td>
                     <td className="px-4 py-2 text-right">
                       <span className={`font-mono ${

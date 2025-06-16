@@ -158,14 +158,16 @@ async function runMigrations() {
 	-- Pong Matches table
 	DROP TABLE IF EXISTS pong_matches;
 	CREATE TABLE IF NOT EXISTS pong_matches (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	user_id INTEGER NOT NULL,
-	mode TEXT NOT NULL, -- 'one-player' or 'two-player'
-	score INTEGER NOT NULL, -- player's score
-	opponent_score INTEGER NOT NULL, -- opponent's score
-	winner TEXT NOT NULL, -- 'player' or 'opponent'
-	created_at TEXT NOT NULL,
-	FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		user_id INTEGER NOT NULL,
+		mode TEXT NOT NULL, -- 'one-player' or 'two-player'
+		score INTEGER NOT NULL, -- player's score
+		opponent_score INTEGER NOT NULL, -- opponent's score
+		winner TEXT NOT NULL, -- 'player' or 'opponent'
+		xp_earned INTEGER DEFAULT 0, -- XP earned in this match
+		total_xp INTEGER DEFAULT 0, -- Total XP after this match
+		created_at TEXT NOT NULL,
+		FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 	);
   `);
   

@@ -251,18 +251,7 @@ const saveArkanoidScore = async () => {
 	setTimeout(() => levelUpElement.remove(), 2000);
 	};
 
-//   const nextLevel = () => {
-//     gameStateRef.current.currentLevel++;
-//     setLevel(gameStateRef.current.currentLevel);
-//     resetBall();
-//     resetPaddle();
-//     initializeBlocks();
-//     gameStateRef.current.ballSpeedX *= 1.05;
-//     gameStateRef.current.ballSpeedY *= 1.05;
-    
-//     // Save score when completing a level
-//     saveArkanoidScore();
-//   };
+
 	const nextLevel = () => {
 		// Calculate XP earned for completing the level
 		const levelXpEarned = calculateLevelXp(
@@ -295,18 +284,6 @@ const saveArkanoidScore = async () => {
 		setGameState('levelComplete');
 	};
 
-//   const loseLife = () => {
-//     gameStateRef.current.currentLives--;
-//     setLives(gameStateRef.current.currentLives);
-//     if (gameStateRef.current.currentLives <= 0) {
-// 	  saveArkanoidScore();
-//       setGameState('gameOver');
-//       createParticles(400, 250, "#ef4444");
-//     } else {
-//       resetBall();
-//       resetPaddle();
-//     }
-//   };
 	const loseLife = () => {
 		gameStateRef.current.currentLives--;
 		setLives(gameStateRef.current.currentLives);

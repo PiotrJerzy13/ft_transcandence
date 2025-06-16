@@ -7,28 +7,90 @@ export default async function pongRoutes(fastify: FastifyInstance) {
   fastify.post('/score', { preHandler: authenticate }, async (req, reply: FastifyReply) => {
     console.log('[PONG] Received score submission request');
 
-    const { mode, score, opponentScore, winner } = req.body as {
+    const { mode, score, opponentScore, winner, xpEarned, totalXp } = req.body as {
       mode: 'one-player' | 'two-player';
       score: number;
       opponentScore: number;
       winner: 'player' | 'opponent';
+      xpEarned: number;
+      totalXp: number;
     };
     const userId = req.user?.id;
 
-    if (!userId || score == null || opponentScore == null || !winner || !mode) {
+    if (!userId || score == null || opponentScore == null || !winner || !mode || xpEarned == null || totalXp == null) {
       console.log('[PONG] Invalid score submission - missing data');
       return reply.status(400).send({ error: 'Missing required fields' });
     }
 
     try {
       const db = getDb();
+      console.log('[PONG] Saving match with XP:', { userId, mode, score, opponentScore, winner, xpEarned, totalXp });
+
+      // Save the match with XP data
       await db.run(
-        `INSERT INTO pong_matches (user_id, mode, score, opponent_score, winner, created_at)
-         VALUES (?, ?, ?, ?, ?, datetime('now'))`,
-        [userId, mode, score, opponentScore, winner]
+        `INSERT INTO pong_matches (user_id, mode, score, opponent_score, winner, xp_earned, total_xp, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+        [userId, mode, score, opponentScore, winner, xpEarned, totalXp]
       );
-      console.log('[PONG] Score saved successfully');
-      return reply.send({ success: true, message: 'Score saved successfully' });
+
+      // Get current user stats
+      const currentStats = await db.get(
+        `SELECT xp, level FROM user_stats WHERE user_id = ?`,
+        [userId]
+      );
+
+      // Calculate new total XP and level
+      const currentTotalXp = currentStats?.xp || 0;
+      const newTotalXp = currentTotalXp + xpEarned;
+      const newLevel = Math.floor(Math.sqrt(newTotalXp / 100)) + 1;
+
+      // Update user stats with XP
+      await db.run(
+        `INSERT INTO user_stats (user_id, xp, level, total_games, wins, losses, win_streak, best_streak, total_play_time, rank, updated_at)
+         VALUES (?, ?, ?, 1, ?, ?, ?, ?, 0, 'Novice', datetime('now'))
+         ON CONFLICT (user_id) 
+         DO UPDATE SET 
+           xp = ?,
+           level = ?,
+           total_games = total_games + 1,
+           wins = wins + ?,
+           losses = losses + ?,
+           win_streak = CASE 
+             WHEN ? = 'player' THEN win_streak + 1 
+             ELSE 0 
+           END,
+           best_streak = CASE 
+             WHEN ? = 'player' AND win_streak + 1 > best_streak THEN win_streak + 1 
+             ELSE best_streak 
+           END,
+           updated_at = datetime('now')`,
+        [
+          userId, newTotalXp, newLevel,
+          winner === 'player' ? 1 : 0, winner === 'opponent' ? 1 : 0,
+          winner === 'player' ? 1 : 0, winner === 'player' ? 1 : 0,
+          newTotalXp, newLevel,
+          winner === 'player' ? 1 : 0, winner === 'opponent' ? 1 : 0,
+          winner, winner
+        ]
+      );
+
+      const updatedStats = await db.get(
+        `SELECT xp, level FROM user_stats WHERE user_id = ?`,
+        [userId]
+      );
+
+      console.log('[PONG] Score and XP saved successfully:', {
+        userId,
+        xpEarned,
+        totalXp: updatedStats?.xp,
+        level: updatedStats?.level
+      });
+
+      return reply.send({ 
+        success: true, 
+        message: 'Score saved successfully',
+        userStats: updatedStats
+      });
     } catch (error) {
       console.error('[PONG] Error saving score:', error);
       return reply.status(500).send({ error: 'Failed to save score' });
