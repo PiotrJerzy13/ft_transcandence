@@ -7,6 +7,8 @@ interface ArkanoidProps {
 export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [score, setScore] = useState(0);
+  const [xp, setXp] = useState(0);
+  const [xpEarned, setXpEarned] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
   const [gameState, setGameState] = useState('menu');
@@ -54,6 +56,9 @@ export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
     currentScore: number;
     currentLives: number;
     currentLevel: number;
+    currentXp: number;
+    playerLevel: number;
+    totalXp: number;
     blocks: Block[];
     particles: Particle[];
     keys: {
@@ -69,6 +74,9 @@ export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
     currentScore: 0,
     currentLives: 3,
     currentLevel: 1,
+    currentXp: 0,
+    playerLevel: 1,
+    totalXp: 0,
     blocks: [],
     particles: [],
     keys: {
@@ -106,27 +114,48 @@ const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
 };
 
 const saveArkanoidScore = async () => {
-  try {
-    const response = await fetch('/api/arkanoid/score', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({
-        score: gameStateRef.current.currentScore,
-        levelReached: gameStateRef.current.currentLevel,
-      }),
-    });
-
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-
-    const data = await response.json();
-    console.log('Score saved successfully:', data);
-  } catch (err) {
-    console.error('Failed to save Arkanoid score:', err);
-  }
-};
+	try {
+	  // Get current user stats first to calculate total XP
+	  const statsResponse = await fetch('/api/user/stats', {
+		method: 'GET',
+		credentials: 'include',
+	  });
+	  
+	  let currentTotalXp = 0;
+	  if (statsResponse.ok) {
+		const statsData = await statsResponse.json();
+		currentTotalXp = statsData.xp || 0;
+	  }
+  
+	  // Calculate total XP (current + earned this session)
+	  const totalXp = currentTotalXp + xpEarned;
+  
+	  const response = await fetch('/api/arkanoid/score', {
+		method: 'POST',
+		headers: { 'Content-Type': 'application/json' },
+		credentials: 'include',
+		body: JSON.stringify({
+		  score: gameStateRef.current.currentScore,
+		  levelReached: gameStateRef.current.currentLevel,
+		  xpEarned: xpEarned, // XP earned this session
+		  totalXp: totalXp,   // Total XP after this session
+		}),
+	  });
+  
+	  if (!response.ok) {
+		throw new Error(`HTTP error! status: ${response.status}`);
+	  }
+  
+	  const data = await response.json();
+	  console.log('Score and XP saved successfully:', data);
+	  if (data.userStats) {
+		setXp(data.userStats.xp);
+		setLevel(data.userStats.level);
+	  }
+	} catch (err) {
+	  console.error('Failed to save Arkanoid score:', err);
+	}
+  };
 
 
   const initializeBlocks = () => {
@@ -156,6 +185,7 @@ const saveArkanoidScore = async () => {
     setScore(0);
     setLives(3);
     setLevel(1);
+    setXpEarned(0);
     resetBall();
     resetPaddle();
     initializeBlocks();
@@ -172,41 +202,147 @@ const saveArkanoidScore = async () => {
   const resetPaddle = () => {
     gameStateRef.current.paddleX = 340;
   };
+  // Calculate XP for completing a level
+	const calculateLevelXp = (score: number, level: number, lives: number): number => {
+	const baseXp = level * 100; // Base XP scales with level
+	const scoreBonus = Math.floor(score / 10); // 1 XP per 10 points
+	const livesBonus = lives * 25; // Bonus for remaining lives
+	return baseXp + scoreBonus + livesBonus;
+	};
 
-  const nextLevel = () => {
-    gameStateRef.current.currentLevel++;
-    setLevel(gameStateRef.current.currentLevel);
-    resetBall();
-    resetPaddle();
-    initializeBlocks();
-    gameStateRef.current.ballSpeedX *= 1.05;
-    gameStateRef.current.ballSpeedY *= 1.05;
+	// Calculate XP when game ends
+	const calculateGameOverXp = (score: number, level: number): number => {
+	const baseXp = level * 50; // Smaller base for game over
+	const scoreBonus = Math.floor(score / 20); // Less XP per point
+	return baseXp + scoreBonus;
+	};
+
+	// Visual effect for XP gain
+	const showXpGain = (amount: number) => {
+	const xpGainElement = document.createElement('div');
+	xpGainElement.className = 'xp-gain-popup';
+	xpGainElement.textContent = `+${amount} XP`;
+	xpGainElement.style.position = 'absolute';
+	xpGainElement.style.color = '#22c55e';
+	xpGainElement.style.fontWeight = 'bold';
+	xpGainElement.style.animation = 'floatUp 1.5s ease-out forwards';
+	
+	// Add to your game UI container
+	document.getElementById('game-container')?.appendChild(xpGainElement);
+	
+	// Remove after animation
+	setTimeout(() => xpGainElement.remove(), 1500);
+	};
+
+	// Visual effect for level up
+	const showLevelUpNotification = (newLevel: number) => {
+	const levelUpElement = document.createElement('div');
+	levelUpElement.className = 'level-up-notification';
+	levelUpElement.textContent = `LEVEL UP! ${newLevel-1} → ${newLevel}`;
+	levelUpElement.style.position = 'absolute';
+	levelUpElement.style.color = '#f59e0b';
+	levelUpElement.style.fontWeight = 'bold';
+	levelUpElement.style.animation = 'pulse 2s ease-in-out';
+	
+	// Position appropriately
+	document.getElementById('game-container')?.appendChild(levelUpElement);
+	
+	// Remove after animation
+	setTimeout(() => levelUpElement.remove(), 2000);
+	};
+
+//   const nextLevel = () => {
+//     gameStateRef.current.currentLevel++;
+//     setLevel(gameStateRef.current.currentLevel);
+//     resetBall();
+//     resetPaddle();
+//     initializeBlocks();
+//     gameStateRef.current.ballSpeedX *= 1.05;
+//     gameStateRef.current.ballSpeedY *= 1.05;
     
-    // Save score when completing a level
-    saveArkanoidScore();
-  };
+//     // Save score when completing a level
+//     saveArkanoidScore();
+//   };
+	const nextLevel = () => {
+		// Calculate XP earned for completing the level
+		const levelXpEarned = calculateLevelXp(
+		gameStateRef.current.currentScore,
+		gameStateRef.current.currentLevel,
+		gameStateRef.current.currentLives
+		);
+		
+		// Add to session XP total
+		setXpEarned(prev => prev + levelXpEarned);
+		
+		// Update game state
+		gameStateRef.current.currentLevel++;
+		setLevel(gameStateRef.current.currentLevel);
+		
+		resetBall();
+		resetPaddle();
+		initializeBlocks();
+		
+		// Increase difficulty
+		gameStateRef.current.ballSpeedX *= 1.05;
+		gameStateRef.current.ballSpeedY *= 1.05;
+		
+		// Save score and XP
+		saveArkanoidScore();
+		
+		// Show XP gain effect
+		showXpGain(levelXpEarned);
+		createParticles(400, 250, "#22c55e");
+		setGameState('levelComplete');
+	};
 
-  const loseLife = () => {
-    gameStateRef.current.currentLives--;
-    setLives(gameStateRef.current.currentLives);
-    if (gameStateRef.current.currentLives <= 0) {
-	  saveArkanoidScore();
-      setGameState('gameOver');
-      createParticles(400, 250, "#ef4444");
-    } else {
-      resetBall();
-      resetPaddle();
-    }
-  };
+//   const loseLife = () => {
+//     gameStateRef.current.currentLives--;
+//     setLives(gameStateRef.current.currentLives);
+//     if (gameStateRef.current.currentLives <= 0) {
+// 	  saveArkanoidScore();
+//       setGameState('gameOver');
+//       createParticles(400, 250, "#ef4444");
+//     } else {
+//       resetBall();
+//       resetPaddle();
+//     }
+//   };
+	const loseLife = () => {
+		gameStateRef.current.currentLives--;
+		setLives(gameStateRef.current.currentLives);
+		
+		if (gameStateRef.current.currentLives <= 0) {
+		// Calculate final XP when game ends
+		const gameOverXp = calculateGameOverXp(
+			gameStateRef.current.currentScore,
+			gameStateRef.current.currentLevel
+		);
+		
+		// Add game over XP to existing XP earned
+		setXpEarned(prev => prev + gameOverXp);
+		
+		// Save score and XP
+		saveArkanoidScore();
+		
+		// Show effects
+		showXpGain(gameOverXp);
+		createParticles(400, 250, "#ef4444");
+		setGameState('gameOver');
+		} else {
+		resetBall();
+		resetPaddle();
+		createParticles(400, 250, "#f59e0b");
+		}
+	};
 
-  const handleBackToLobby = () => {
-    if (onNavigateToLobby) {
-      onNavigateToLobby();
-    } else {
-      // Fallback if no navigation function is provided
-      console.log('Navigate to lobby');
-    }
-  };
+	const handleBackToLobby = () => {
+		if (onNavigateToLobby) {
+		onNavigateToLobby();
+		} else {
+		// Fallback if no navigation function is provided
+		console.log('Navigate to lobby');
+		}
+	};
 
   useEffect(() => {
     const canvas = canvasRef.current;
