@@ -7,6 +7,7 @@ import dotenv from 'dotenv';
 import type { FastifyInstance } from 'fastify';
 import pongRoutes from './routes/pongRoutes.js';
 import arkanoidRoutes from './routes/arkanoidRoutes.js';
+import leaderboardRoutes from './routes/leaderboardRoutes.js';
 
 // Import database
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -81,6 +82,7 @@ const start = async () => {
     });
 	await app.register(pongRoutes, { prefix: '/api/pong' });
 	await app.register(arkanoidRoutes, { prefix: '/api/arkanoid' });
+    await app.register(leaderboardRoutes, { prefix: '/api' });
     await app.register(cookie);
     
     // Register routes

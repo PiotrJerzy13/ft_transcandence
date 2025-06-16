@@ -6,6 +6,7 @@ import GameWithRouter from "../components/GameWithRouter";
 import Game2WithRouter from "../components/Game2WithRouter";
 import Lobby from "../pages/Lobby";
 import ProtectedRoute from "../components/ProtectedRoute";
+import Leaderboard from '../pages/Leaderboard';
 
 export default function AppRouter() {
   return (
@@ -17,6 +18,7 @@ export default function AppRouter() {
         <Route path="/lobby" element={<ProtectedRoute><Lobby /></ProtectedRoute>} />
         <Route path="/game" element={<ProtectedRoute><GameWithRouter /></ProtectedRoute>} />
 		<Route path="/game2" element={<ProtectedRoute><Game2WithRouter /></ProtectedRoute>} />
+		<Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );
