@@ -1,198 +1,105 @@
-# 🏓 Pong Tournament Backend
+# 🏓 ft_transcendence – Multiplayer Pong Platform (WIP)
 
-A robust REST API backend for managing Pong tournaments, built with Fastify, TypeScript, and SQLite.
+A Dockerized single-page web platform for playing real-time Pong, built with **React**, **Fastify**, and **SQLite**, developed as part of the 42 curriculum. Includes authentication, game logic, and tournament planning (in progress).
 
-## 🚀 Features
+---
 
-- **User Authentication** - JWT-based auth with secure cookie sessions
-- **Tournament Management** - Create, join, and manage tournaments
-- **Match System** - Track match scores and results
-- **Real-time Status** - Online/offline user status tracking
-- **Secure API** - Input validation, CORS, and authentication middleware
+## ✅ Current Progress Overview
 
-## 🛠️ Tech Stack
+| Feature                                    | Status            |
+|-------------------------------------------|-------------------|
+| SPA Architecture                          | ✅ Implemented    |
+| Dockerized setup                          | ✅ Implemented    |
+| Fastify backend (Framework module)        | ✅ Implemented    |
+| SQLite database (Database module)         | ✅ Implemented    |
+| Pong local 2-player game                  | ✅ Implemented    |
+| Secure password hashing                   | ✅ Implemented    |
+| JWT Authentication                        | ✅ Implemented    |
+| Server-side form validation               | ✅ Implemented    |
+| Tournament system                         | ❌ Not implemented|
+| Matchmaking                               | ❌ Not implemented|
+| Tournament aliases                        | ❌ Not implemented|
+| HTTPS / WSS                               | ❌ Not implemented|
+| Remote multiplayer                        | ❌ Not implemented|
+| Live Chat                                 | ❌ Not implemented|
+| AI opponent                               | ⚠️ Basic, needs improvement |
+| Game #2 (Arkanoid + history)              | ⚠️ Partial         |
+| Google Auth                               | ❌ Not implemented|
+| 2FA                                       | ❌ Not implemented|
+| WAF / Vault / Log infra / Monitoring      | ❌ Not implemented|
+| Responsive design / mobile support        | ❌ Not implemented|
+| Frontend framework (Tailwind)             | ⚠️ Partial         |
 
-- **Runtime**: Node.js 18+
-- **Framework**: Fastify
-- **Language**: TypeScript
-- **Database**: SQLite with sqlite3
-- **Authentication**: JWT + bcrypt
-- **Validation**: Fastify JSON Schema
+---
 
-## 📋 Prerequisites
+## 🧩 Modules Summary
 
-- Node.js 18 or higher
-- npm or yarn
-- Git
+You need **7 major modules** for full credit. Current estimated count: **2.5 majors**
 
-## 📁 Project Structure
+| Category             | Module                                 | Status        | Points |
+|----------------------|----------------------------------------|---------------|--------|
+| ✅ Web               | Backend with Fastify                   | Done          | 1.0    |
+| ✅ Web               | SQLite for backend                     | Done          | 1.0    |
+| ⚠️ Web               | Tailwind for frontend                  | Partial       | 0.5    |
+| ⚠️ Gameplay          | Add 2nd game + user history            | Partial       | ~0.5   |
+| ⚠️ AI-Algo           | AI Opponent                            | Basic         | ~0.5   |
+| ⚠️ User Management   | Standard user management               | Partial       | ~0.5   |
+| ❌ Tournament        | Tournament + matchmaking system        | Missing       | 0      |
+| ❌ Remote Players    | Play from two devices                  | Missing       | 0      |
+| ❌ Security          | WAF / Vault                            | Missing       | 0      |
+| ❌ Cybersecurity     | 2FA                                    | Missing       | 0      |
+| ❌ Graphics          | 3D with Babylon.js                     | Missing       | 0      |
 
-```
-src/
-├── controllers/          # Route handlers
-│   └── authController.js
-├── db/                   # Database setup and migrations
-│   └── index.ts
-├── middleware/           # Custom middleware
-│   └── auth.mts
-├── repositories/         # Data access layer
-│   └── userRepository.js
-├── routes/              # API routes
-│   ├── auth.mjs
-│   ├── index.mjs
-│   └── tournament.mjs
-└── server.mts           # Main server file
-```
+> **💡 To reach 100%**, prioritize:  
+> – Tournament logic  
+> – Matchmaking  
+> – Google OAuth / 2FA  
+> – Remote play  
+> – At least one more major module (e.g., live chat or CLI play)
 
-## 🌐 API Endpoints
+---
 
-### Authentication
-- `POST /api/auth/register` - Register new user
-- `POST /api/auth/login` - User login
-- `POST /api/auth/logout` - User logout
+## 🛠️ Stack
 
-### Tournaments
-- `GET /api/tournaments` - List all tournaments
-- `GET /api/tournaments/:id` - Get tournament details
-- `POST /api/tournaments` - Create new tournament (auth required)
-- `POST /api/tournaments/:id/join` - Join tournament (auth required)
-- `GET /api/tournaments/:id/matches` - Get tournament matches
+- **Frontend**: React + TypeScript (SPA)
+- **Backend**: Node.js + Fastify
+- **Database**: SQLite
+- **Auth**: JWT (bcrypt, cookies)
+- **Realtime**: WebSocket (local only for now)
+- **DevOps**: Docker Compose (multi-service)
+- **Testing DB**: SQLite Web (via `coleifer/sqlite-web`)
 
-### Matches
-- `GET /api/matches/:id` - Get match details
-- `PUT /api/matches/:id/score` - Update match score (auth required)
+---
 
-### Utility
-- `GET /` - Welcome message
-- `GET /ping` - Health check
-- `GET /health` - Detailed health status
+## 🔐 Security
 
-## 📊 Database Schema
+- Passwords hashed using bcrypt
+- JWT stored in cookies
+- Basic whitelist input sanitation
+- SQLi/XSS partially mitigated (tournaments/chat still need work)
+- HTTPS not enabled yet (WSS missing)
 
-### Users
-```sql
-CREATE TABLE users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  username TEXT UNIQUE NOT NULL,
-  email TEXT UNIQUE NOT NULL,
-  password_hash TEXT NOT NULL,
-  avatar_url TEXT,
-  status TEXT DEFAULT 'offline',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+---
 
-### Tournaments
-```sql
-CREATE TABLE tournaments (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  name TEXT NOT NULL,
-  description TEXT,
-  start_date TIMESTAMP,
-  end_date TIMESTAMP,
-  status TEXT DEFAULT 'pending',
-  created_by INTEGER,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  FOREIGN KEY (created_by) REFERENCES users(id)
-);
-```
+## 📋 Missing Features
 
-### Matches
-```sql
-CREATE TABLE matches (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
-  tournament_id INTEGER,
-  player1_id INTEGER NOT NULL,
-  player2_id INTEGER NOT NULL,
-  player1_score INTEGER DEFAULT 0,
-  player2_score INTEGER DEFAULT 0,
-  status TEXT DEFAULT 'pending',
-  played_at TIMESTAMP,
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-```
+- ❌ Tournament bracket management
+- ❌ Real matchmaking queue
+- ❌ Google login
+- ❌ HTTPS / WSS
+- ❌ 2FA setup
+- ❌ Live chat with invites/block
+- ❌ Responsive/mobile support
+- ❌ Server-side rendering or multi-language
 
-## 🧪 Testing the API
-
-### Register a new user
-```bash
-curl -X POST http://localhost:3000/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "player1",
-    "email": "player1@example.com",
-    "password": "password123"
-  }'
-```
-
-### Login
-```bash
-curl -X POST http://localhost:3000/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "username": "player1",
-    "password": "password123"
-  }'
-```
-
-### Create a tournament
-```bash
-curl -X POST http://localhost:3000/api/tournaments \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer YOUR_JWT_TOKEN" \
-  -d '{
-    "name": "Summer Championship",
-    "startDate": "2024-06-01T10:00:00Z",
-    "maxParticipants": 8,
-    "description": "Annual summer tournament"
-  }'
-```
+---
 
 ## 🚀 Development
 
-### Available Scripts
+Run backend and frontend via Docker:
 
-- `npm run dev` - Start development server with hot reload
-- `npm run build` - Build TypeScript to JavaScript
-- `npm start` - Start production server
-- `npm run lint` - Run ESLint
-- `npm test` - Run tests (when implemented)
-
-### Development Setup
-
-1. **Install development dependencies**
 ```bash
-npm install --save-dev @types/node tsx nodemon
+docker compose up --build
 ```
 
-2. **Run in development mode**
-```bash
-npm run dev
-```
-
-The server will automatically restart when you make changes.
-
-## 🔐 Authentication
-
-The API uses JWT tokens for authentication. Tokens are returned in:
-- Response body (for programmatic access)
-- HTTP-only cookies (for web browsers)
-
-Protected endpoints require either:
-- `Authorization: Bearer <token>` header
-- Valid JWT cookie
-
-
-## 🔮 Roadmap
-
-### Short Term
-- [ ] Add comprehensive input validation
-- [ ] Implement tournament bracket generation
-- [ ] Add user statistics and leaderboard
-- [ ] Real-time updates with WebSocket
-
-### Long Term
-- [ ] Add PostgreSQL support
-- [ ] Implement Redis caching
-- [ ] Add comprehensive test suite
-- [ ] API documentation with Swagger
+Access DB visually at [http://localhost:8086](http://localhost:8086)
