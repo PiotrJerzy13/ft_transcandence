@@ -1,8 +1,50 @@
 import { useState, useEffect } from "react";
-import { User, Trophy, Target, Zap, Crown, Star, Users, Bot, BarChart3, Award, Clock, TrendingUp } from "lucide-react";
+import { User, Trophy, Target, Zap, Crown, Star, Users, BarChart3, Award, Clock, TrendingUp } from "lucide-react";
+
+// Type definition for Arkanoid score history entries
+type ArkanoidScore = {
+  score: number;
+  level_reached: number;
+  created_at: string;
+};
+
+// Type definition for Pong game history entries
+type PongGame = {
+  created_at: string;
+  mode: string;
+  left_score: number;
+  right_score: number;
+  winner: string;
+};
+
+// Type definition for player stats
+type PlayerStats = {
+  level: number;
+  xp: number;
+  xpToNext: number;
+  rank: string;
+  wins: number;
+  losses: number;
+  totalGames: number;
+  winStreak: number;
+  bestStreak: number;
+  totalPlayTime: string;
+};
+
+// Type definition for achievements
+type Achievement = {
+  id: number;
+  name: string;
+  description: string;
+  icon: string;
+  unlocked: boolean;
+  progress: number;
+  maxProgress: number;
+  date?: string;
+};
 
 // Icon mapping for achievements
-const iconMap = {
+const iconMap: Record<string, React.ComponentType<any>> = {
   Trophy,
   Zap,
   Target,
@@ -12,7 +54,7 @@ const iconMap = {
 };
 
 // Default achievements structure
-const defaultAchievements = [
+const defaultAchievements: Achievement[] = [
   {
     id: 1,
     name: "First Victory",
@@ -70,21 +112,20 @@ const defaultAchievements = [
 ];
 
 export default function GameLobby() {
-  const [playerStats, setPlayerStats] = useState(null);
-  const [achievements, setAchievements] = useState(defaultAchievements);
-  const [selectedMode, setSelectedMode] = useState(null);
+  const [playerStats, setPlayerStats] = useState<PlayerStats | null>(null);
+  const [achievements, setAchievements] = useState<Achievement[]>(defaultAchievements);
   const [showStats, setShowStats] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
   const [arkanoidStats, setArkanoidStats] = useState({
     highScore: 0,
     highestLevel: 1,
-    recentScores: []
+    recentScores: [] as ArkanoidScore[]
   });
   const [pongStats, setPongStats] = useState({
     totalGames: 0,
     wins: 0,
-    recentGames: []
+    recentGames: [] as PongGame[]
   });
 
   useEffect(() => {
@@ -129,8 +170,8 @@ export default function GameLobby() {
           console.log('🔍 [DEBUG] Arkanoid history:', arkanoidData);
           
           if (arkanoidData.history && arkanoidData.history.length > 0) {
-            const highScore = Math.max(...arkanoidData.history.map(score => score.score));
-            const highestLevel = Math.max(...arkanoidData.history.map(score => score.level_reached));
+			const highScore = Math.max(...arkanoidData.history.map((score: ArkanoidScore) => score.score));
+			const highestLevel = Math.max(...arkanoidData.history.map((score: ArkanoidScore) => score.level_reached));
             const recentScores = arkanoidData.history.slice(0, 5); // Get last 5 scores
             
             setArkanoidStats({
@@ -147,9 +188,9 @@ export default function GameLobby() {
           console.log('🔍 [DEBUG] Pong history:', pongData);
           
           if (pongData.history && pongData.history.length > 0) {
-            const wins = pongData.history.filter(game => 
-              game.winner.includes('You') || game.winner.includes('Player 1')
-            ).length;
+			const wins = pongData.history.filter((game: PongGame) => 
+			  game.winner.includes('You') || game.winner.includes('Player 1')
+			).length;
             
             setPongStats({
               totalGames: pongData.history.length,
@@ -189,8 +230,8 @@ export default function GameLobby() {
         
       } catch (err) {
         console.error('❌ Error loading profile:', err);
-        console.error('❌ Error details:', err.message);
-        setError(err.message || 'Failed to load profile data');
+        console.error('❌ Error details:', (err as any)?.message);
+        setError((err as any)?.message || 'Failed to load profile data');
       } finally {
         setLoading(false);
       }
@@ -199,14 +240,18 @@ export default function GameLobby() {
     fetchData();
   }, []);
 
-  const handleGameModeSelect = (mode) => {
-    if (mode === 'pong') {
-      // Replace with your actual navigation logic
-      window.location.href = '/game';
-    } else if (mode === 'arkanoid') {
-      window.location.href = '/game2';
-    }
-  };
+interface GameMode {
+	mode: 'pong' | 'arkanoid';
+}
+
+const handleGameModeSelect = (mode: GameMode['mode']): void => {
+	if (mode === 'pong') {
+		// Replace with your actual navigation logic
+		window.location.href = '/game';
+	} else if (mode === 'arkanoid') {
+		window.location.href = '/game2';
+	}
+};
 
   const handleLogout = async () => {
     try {
@@ -225,8 +270,9 @@ export default function GameLobby() {
     }
   };
 
-  const getRankColor = (rank) => {
-    const colors = {
+//   type Rank = 'Novice' | 'Amateur' | 'Pro' | 'Elite' | 'Master' | 'Legend';
+  const getRankColor = (rank: string) => {
+    const colors: Record<string, string> = {
       'Novice': 'text-gray-400',
       'Amateur': 'text-green-400',
       'Pro': 'text-blue-400',
@@ -644,13 +690,13 @@ export default function GameLobby() {
           </button>
         </div>
 
-        {/* Debug Info - Remove this in production */}
+        {/* Debug Info - Remove this in production
         <div className="mt-8 bg-black/60 border border-gray-600 rounded-lg p-4">
           <h4 className="text-white font-bold mb-2">Debug Info:</h4>
           <pre className="text-xs text-gray-300 overflow-auto">
             {JSON.stringify({ playerStats, error, loading }, null, 2)}
           </pre>
-        </div>
+        </div> */}
 
       </div>
     </div>

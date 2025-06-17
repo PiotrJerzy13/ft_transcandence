@@ -7,7 +7,7 @@ interface ArkanoidProps {
 export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [score, setScore] = useState(0);
-  const [xp, setXp] = useState(0);
+  const [_xp, setXp] = useState(0);
   const [xpEarned, setXpEarned] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
@@ -232,23 +232,6 @@ const saveArkanoidScore = async () => {
 	
 	// Remove after animation
 	setTimeout(() => xpGainElement.remove(), 1500);
-	};
-
-	// Visual effect for level up
-	const showLevelUpNotification = (newLevel: number) => {
-	const levelUpElement = document.createElement('div');
-	levelUpElement.className = 'level-up-notification';
-	levelUpElement.textContent = `LEVEL UP! ${newLevel-1} → ${newLevel}`;
-	levelUpElement.style.position = 'absolute';
-	levelUpElement.style.color = '#f59e0b';
-	levelUpElement.style.fontWeight = 'bold';
-	levelUpElement.style.animation = 'pulse 2s ease-in-out';
-	
-	// Position appropriately
-	document.getElementById('game-container')?.appendChild(levelUpElement);
-	
-	// Remove after animation
-	setTimeout(() => levelUpElement.remove(), 2000);
 	};
 
 

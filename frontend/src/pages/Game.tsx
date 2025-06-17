@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Trophy } from "lucide-react";
 
-// Add at the top of the file, after imports
 interface Particle {
   x: number;
   y: number;
@@ -123,39 +122,6 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     }
   };
 	
-  const updateAI = () => {
-    if (gameMode !== 'one-player' || gameState !== 'playing') return;
-    
-    const vars = gameVars.current;
-    // AI controls the right paddle
-    const paddleCenter = vars.paddle2Y + 100 / 2;
-    
-    // Only react when ball is moving towards AI paddle
-    if (vars.ballSpeedX > 0) {
-      // Predict where ball will be when it reaches paddle
-      const timeToReachPaddle = (760 - vars.ballX) / vars.ballSpeedX;
-      const predictedBallY = vars.ballY + (vars.ballSpeedY * timeToReachPaddle);
-      
-      // Add some imperfection to make AI beatable
-      const imperfection = (Math.random() - 0.5) * 40; // Random offset
-      vars.paddle2Y = predictedBallY + imperfection;
-    } else {
-      // When ball is moving away, move towards center
-      vars.paddle2Y = 250;
-    }
-    
-    // Move AI paddle towards target with some smoothing
-    const difference = vars.paddle2Y - paddleCenter;
-    
-    if (Math.abs(difference) > 5) {
-      if (difference > 0) {
-        vars.paddle2Y = Math.min(500 - 100, vars.paddle2Y + 5);
-      } else {
-        vars.paddle2Y = Math.max(0, vars.paddle2Y - 5);
-      }
-    }
-  };
-
   // Calculate XP for winning a game
   const calculateWinXp = (score: number, opponentScore: number): number => {
     const baseXp = 100; // Base XP for winning
@@ -671,7 +637,6 @@ export default function Game({ onNavigateToLobby }: GameProps) {
 
       // Check for winner
       if (vars.playerScore >= WINNING_SCORE || vars.opponentScore >= WINNING_SCORE) {
-        const winner = vars.playerScore >= WINNING_SCORE ? 'player' : 'opponent';
         savePongScore();
         setGameState('gameOver');
         return;
