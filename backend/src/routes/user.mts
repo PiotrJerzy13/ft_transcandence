@@ -13,4 +13,13 @@ export default async function userRoutes(fastify: FastifyInstance) {
     preHandler: authenticate,
     schema: gameResultSchema
   }, userController.updateGameResult);
+
+  fastify.get('/me', {
+    preHandler: authenticate
+  }, async (request, _reply) => {
+    return {
+      id: request.user!.id,
+      username: request.user!.username
+    };
+  });
 }
