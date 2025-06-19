@@ -34,7 +34,7 @@ A Dockerized single-page web platform for playing real-time Pong, built with **R
 
 ## 🧩 Modules Summary
 
-You need **7 major modules** for full credit. Current estimated count: **2.5 majors**
+You need **7 major modules** for full credit. Current estimated count: **3.0 majors**
 
 | Category             | Module                                 | Status        | Points |
 |----------------------|----------------------------------------|---------------|--------|
@@ -44,7 +44,7 @@ You need **7 major modules** for full credit. Current estimated count: **2.5 maj
 | ⚠️ Gameplay          | Add 2nd game + user history            | Partial       | ~0.5   |
 | ⚠️ AI-Algo           | AI Opponent                            | Basic         | ~0.5   |
 | ⚠️ User Management   | Standard user management               | Partial       | ~0.5   |
-| ❌ Tournament        | Tournament + matchmaking system        | Missing       | 0      |
+| ✅ Prometheus + Grafa| Monitoring                             | Done          | 0,5    |
 | ❌ Remote Players    | Play from two devices                  | Missing       | 0      |
 | ❌ Security          | WAF / Vault                            | Missing       | 0      |
 | ❌ Cybersecurity     | 2FA                                    | Missing       | 0      |
@@ -93,13 +93,20 @@ You need **7 major modules** for full credit. Current estimated count: **2.5 maj
 - ❌ Server-side rendering or multi-language
 
 ---
+| Service    | URL / Port                                     | Description                             |
+| ---------- | ---------------------------------------------- | --------------------------------------- |
+| Frontend   | [http://localhost:5173](http://localhost:5173) | React SPA (dev server)                  |
+| Backend    | [http://localhost:3000](http://localhost:3000) | Fastify API + `/metrics` for Prometheus |
+| SQLite Web | [http://localhost:8086](http://localhost:8086) | Visual DB viewer (coleifer/sqlite-web)  |
+| Prometheus | [http://localhost:9090](http://localhost:9090) | Metrics scraping and query engine       |
+| Grafana    | [http://localhost:3001](http://localhost:3001) | Monitoring dashboard (admin/admin)      |
+
 
 ## 🚀 Development
 
 Run backend and frontend via Docker:
 
 ```bash
-docker compose up --build
+make up
 ```
 
-Access DB visually at [http://localhost:8086](http://localhost:8086)
