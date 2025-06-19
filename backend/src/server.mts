@@ -8,6 +8,7 @@ import type { FastifyInstance } from 'fastify';
 import pongRoutes from './routes/pongRoutes.js';
 import arkanoidRoutes from './routes/arkanoidRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
+import { register, collectDefaultMetrics } from 'prom-client';
 
 // Import database
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -26,7 +27,7 @@ const start = async () => {
   try {
     // Initialize database
     await initializeDatabase();
-    
+    collectDefaultMetrics();
     // Register Swagger - pass options as the second parameter
 	// Errors if Swagger is not installed or configured correctly
 	// Only present locally in development environment is correct
@@ -90,7 +91,11 @@ const start = async () => {
     await app.register(authRoutes, { prefix: '/api/auth' });
     await app.register(userRoutes, { prefix: '/api/user' });
     await app.register(tournamentRoutes, { prefix: '/api' });
-
+	// Prometheus metrics endpoint
+	app.get('/metrics', async (_request, reply) => {
+	reply.header('Content-Type', register.contentType);
+	reply.send(await register.metrics());
+	});
     // Graceful shutdown
     const closeGracefully = async (signal: NodeJS.Signals) => {
       app.log.info(`Received signal to terminate: ${signal}`);

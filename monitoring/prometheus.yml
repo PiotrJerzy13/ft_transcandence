@@ -1,0 +1,7 @@
+global:
+  scrape_interval: 10s
+
+scrape_configs:
+  - job_name: 'ft_backend'
+    static_configs:
+      - targets: ['ft_backend:3000']
