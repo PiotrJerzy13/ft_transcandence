@@ -14,6 +14,10 @@ services:
       - ./data:/app/data
     working_dir: /app
     restart: unless-stopped
+    depends_on:
+      - logstash
+    networks:
+      - elk
 
   frontend:
     build:
@@ -28,6 +32,8 @@ services:
     working_dir: /app
     command: npm run dev
     restart: unless-stopped
+    networks:
+      - elk
 
   sqlite-web:
     image: coleifer/sqlite-web
@@ -41,6 +47,8 @@ services:
     depends_on:
       - backend
     restart: unless-stopped
+    networks:
+      - elk
 
   prometheus:
     image: prom/prometheus
@@ -51,6 +59,8 @@ services:
       - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml
     depends_on:
       - backend
+    networks:
+      - elk
 
   grafana:
     image: grafana/grafana
@@ -61,6 +71,78 @@ services:
       - grafana_data:/var/lib/grafana
     depends_on:
       - prometheus
+    networks:
+      - elk
+
+  # ELK Stack Services
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - node.name=elasticsearch
+      - cluster.name=elk-cluster
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    restart: unless-stopped
+    networks:
+      - elk
+
+  logstash:
+    image: docker.elastic.co/logstash/logstash:8.11.0
+    container_name: logstash
+    volumes:
+      - ./elk/logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./elk/logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5044:5044"
+      - "5001:5001/tcp"
+      - "5002:5002/udp"
+      - "9600:9600"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9600"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+    networks:
+      - elk
+
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.11.0
+    container_name: kibana
+    ports:
+      - "5601:5601"
+    environment:
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_HOSTS: '["http://elasticsearch:9200"]'
+      
+    depends_on:
+      - elasticsearch
+    restart: unless-stopped
+
+    networks:
+      - elk
 
 volumes:
   grafana_data:
+  elasticsearch_data:
+
+networks:
+  elk:
