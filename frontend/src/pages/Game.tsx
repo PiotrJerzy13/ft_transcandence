@@ -27,8 +27,14 @@ export default function Game({ onNavigateToLobby }: GameProps) {
   const [score, setScore] = useState({ left: 0, right: 0 });
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver'
   const [winner, setWinner] = useState('');
-  const [gameMode, setGameMode] = useState('two-player'); // 'one-player', 'two-player'
+  const [gameMode, setGameMode] = useState('one-player'); // 'one-player', 'two-player'
   const [history, setHistory] = useState<{ mode: string; score: number; opponent_score: number; winner: string; created_at: string }[]>([]);
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 500 });
+  const [isMobile, setIsMobile] = useState(false);
+
+  const scaleRef = useRef(1);
+  const baseWidth = 800;
+  const baseHeight = 500;
   
   // Add a ref to track if the current game has been saved
   const gameScoreSaved = useRef(false);
@@ -53,12 +59,12 @@ export default function Game({ onNavigateToLobby }: GameProps) {
   }>({
     playerScore: 0,
     opponentScore: 0,
-    ballX: 400,
-    ballY: 250,
+    ballX: canvasSize.width / 2,
+    ballY: canvasSize.height / 2,
     ballSpeedX: 4,
     ballSpeedY: 4,
-    paddle1Y: 200,
-    paddle2Y: 200,
+    paddle1Y: canvasSize.height / 2 - 50,
+    paddle2Y: canvasSize.height / 2 - 50,
     particles: [],
     keys: {
       w: false,
@@ -102,15 +108,17 @@ export default function Game({ onNavigateToLobby }: GameProps) {
   };
 
   const resetBall = () => {
-    gameVars.current.ballX = 400;
-    gameVars.current.ballY = 250;
-    gameVars.current.ballSpeedX = gameVars.current.ballSpeedX > 0 ? -4 : 4;
-    gameVars.current.ballSpeedY = (Math.random() - 0.5) * 4;
+    gameVars.current.ballX = canvasSize.width / 2;
+    gameVars.current.ballY = canvasSize.height / 2;
+    const speed = 4 * scaleRef.current;
+    gameVars.current.ballSpeedX = gameVars.current.ballSpeedX > 0 ? -speed : speed;
+    gameVars.current.ballSpeedY = (Math.random() - 0.5) * speed;
   };
 
   const resetPaddles = () => {
-    gameVars.current.paddle1Y = 200;
-    gameVars.current.paddle2Y = 200;
+    const scale = scaleRef.current;
+    gameVars.current.paddle1Y = canvasSize.height / 2 - (100 * scale) / 2;
+    gameVars.current.paddle2Y = canvasSize.height / 2 - (100 * scale) / 2;
   };
 
     const handleBackToLobby = () => {
@@ -267,7 +275,7 @@ export default function Game({ onNavigateToLobby }: GameProps) {
       createParticles(300, 150, "#06b6d4");
       createParticles(400, 350, "#06b6d4");
       // Save score when game ends
-      setTimeout(() => savePongScore(), 500); // Small delay to ensure state is updated
+      setTimeout(() => savePongScore(), 500);
     } else if (vars.opponentScore >= WINNING_SCORE) {
       const winnerText = gameMode === 'one-player' ? 'AI Wins!' : 'Player 2';
       setWinner(winnerText);
@@ -276,579 +284,442 @@ export default function Game({ onNavigateToLobby }: GameProps) {
       createParticles(500, 150, "#f59e0b");
       createParticles(700, 350, "#f59e0b");
       // Save score when game ends
-      setTimeout(() => savePongScore(), 500); // Small delay to ensure state is updated
+      setTimeout(() => savePongScore(), 500);
     }
   };
 
-  // Add useEffect for fetching history on component mount
   useEffect(() => {
     fetchHistory();
-  }, []); // Only run once on mount
+
+    const checkDeviceType = () => {
+      setIsMobile(window.innerWidth < 768); // Threshold for mobile devices
+    };
+
+    checkDeviceType();
+    window.addEventListener('resize', checkDeviceType);
+
+    return () => {
+      window.removeEventListener('resize', checkDeviceType);
+    };
+  }, []);
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
+    if (!canvas) return;
 
-    // Clean up previous animation frame
+    const handleResize = () => {
+      const container = canvas.parentElement;
+      if (container) {
+        const { width } = container.getBoundingClientRect();
+        const newWidth = Math.min(width, baseWidth);
+        const newHeight = (newWidth / baseWidth) * baseHeight;
+        
+        setCanvasSize({ width: newWidth, height: newHeight });
+        scaleRef.current = newWidth / baseWidth;
+        
+        resetPaddles();
+        resetBall();
+      }
+    };
+
+    handleResize();
+    window.addEventListener('resize', handleResize);
+
+    return () => {
+      window.removeEventListener('resize', handleResize);
+    };
+  }, []);
+
+  // Main game loop effect
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (!canvas || !ctx) return;
+
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
 
-    // Clear key states on game state change
-    gameVars.current.keys = {
-      w: false,
-      s: false,
-      up: false,
-      down: false
-    };
-
-    // Define drawMenu function inside useEffect where canvas is available
-    const drawMenu = (ctx: CanvasRenderingContext2D) => {
-      if (!canvas) return; // Add safety check
-      
+    // Reset keys on state change
+    gameVars.current.keys = { w: false, s: false, up: false, down: false };
+    
+    // Define scaled dimensions here to be available in the entire scope
+    const paddleWidth = 15 * scaleRef.current;
+    const paddleHeight = 100 * scaleRef.current;
+    const ballSize = 10 * scaleRef.current;
+    
+    const drawPaddle = (
+      x: number,
+      y: number,
+      color1: string,
+      color2: string,
+      shadowColor: string
+    ) => {
       ctx.save();
-      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Title
-      ctx.font = "bold 40px 'Courier New', monospace";
-      ctx.textAlign = "center";
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "#4338ca";
+      ctx.shadowColor = shadowColor;
       ctx.shadowBlur = 15;
-      ctx.fillText("CYBER PONG", canvas.width / 2, canvas.height / 2 - 80);
       
-      // Game mode selection
-      ctx.font = "24px 'Courier New', monospace";
-      ctx.fillStyle = "#06b6d4";
-      ctx.shadowColor = "#06b6d4";
-      ctx.shadowBlur = 10;
-      ctx.fillText("SELECT GAME MODE:", canvas.width / 2, canvas.height / 2 - 20);
+      const gradient = ctx.createLinearGradient(x, y, x, y + paddleHeight);
+      gradient.addColorStop(0, color1);
+      gradient.addColorStop(1, color2);
       
-      ctx.font = "20px 'Courier New', monospace";
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "#4338ca";
-      ctx.shadowBlur = 10;
-      ctx.fillText("Press 1 for Single Player", canvas.width / 2, canvas.height / 2 + 20);
-      ctx.fillText("Press 2 for Two Players", canvas.width / 2, canvas.height / 2 + 50);
+      ctx.fillStyle = gradient;
+      ctx.fillRect(x, y, paddleWidth, paddleHeight);
       
-      // Controls reminder
-      ctx.font = "16px 'Courier New', monospace";
-      ctx.fillStyle = "#a855f7";
-      ctx.shadowColor = "#a855f7";
-      ctx.shadowBlur = 10;
-      ctx.fillText("SPACE: Start Game | L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 100);
+      ctx.shadowBlur = 0;
+      ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.fillRect(x + 2, y + 2, paddleWidth - 4, 3);
       
       ctx.restore();
     };
 
     const draw = () => {
-      const vars = gameVars.current;
-      
-      // Create gradient background
-      const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
+      // Background
+      const gradient = ctx.createLinearGradient(0, 0, canvasSize.width, canvasSize.height);
       gradient.addColorStop(0, "#0f0f23");
       gradient.addColorStop(0.5, "#1a1a3e");
       gradient.addColorStop(1, "#0f0f23");
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
       
-      context.fillStyle = gradient;
-      context.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw center line with glow effect
-      context.save();
-      context.strokeStyle = "#4338ca";
-      context.lineWidth = 3;
-      context.shadowColor = "#4338ca";
-      context.shadowBlur = 10;
-      context.setLineDash([15, 15]);
-      context.beginPath();
-      context.moveTo(canvas.width / 2, 0);
-      context.lineTo(canvas.width / 2, canvas.height);
-      context.stroke();
-      context.restore();
-
-      // Draw paddles with gradient and glow
-	interface DrawPaddle {
-		(
-			x: number,
-			y: number,
-			color1: string,
-			color2: string,
-			shadowColor: string
-		): void;
-	}
-
-	const drawPaddle: DrawPaddle = (x, y, color1, color2, shadowColor) => {
-		context.save();
-
-		// Glow effect
-		context.shadowColor = shadowColor;
-		context.shadowBlur = 15;
-
-		// Gradient fill
-		const paddleGradient = context.createLinearGradient(
-			x,
-			y,
-			x + 12,
-			y + 100
-		);
-		paddleGradient.addColorStop(0, color1);
-		paddleGradient.addColorStop(1, color2);
-
-		context.fillStyle = paddleGradient;
-		context.fillRect(x, y, 12, 100);
-
-		// Inner highlight
-		context.shadowBlur = 0;
-		context.fillStyle = "rgba(255, 255, 255, 0.3)";
-		context.fillRect(x + 2, y + 2, 2, 96);
-
-		context.restore();
-	};
-
-      drawPaddle(20, vars.paddle1Y, "#06b6d4", "#0891b2", "#06b6d4");
-      drawPaddle(canvas.width - 32, vars.paddle2Y, "#f59e0b", "#d97706", "#f59e0b");
-
-      // Draw ball with glow and trail effect
-      context.save();
-      context.shadowColor = "#ef4444";
-      context.shadowBlur = 20;
+      // Dashed line
+      ctx.strokeStyle = "#4338ca";
+      ctx.lineWidth = 4 * scaleRef.current;
+      ctx.setLineDash([10 * scaleRef.current, 10 * scaleRef.current]);
+      ctx.beginPath();
+      ctx.moveTo(canvasSize.width / 2, 0);
+      ctx.lineTo(canvasSize.width / 2, canvasSize.height);
+      ctx.stroke();
+      ctx.setLineDash([]);
       
-      // Ball gradient
-      const ballGradient = context.createRadialGradient(
-        vars.ballX + 6, vars.ballY + 6, 0,
-        vars.ballX + 6, vars.ballY + 6, 12
+      // Paddles
+      drawPaddle(30 * scaleRef.current, gameVars.current.paddle1Y, "#06b6d4", "#0891b2", "#06b6d4");
+      drawPaddle(canvasSize.width - (30 * scaleRef.current) - paddleWidth, gameVars.current.paddle2Y, "#a855f7", "#9333ea", "#a855f7");
+      
+      // Ball
+      ctx.save();
+      ctx.shadowColor = "#ef4444";
+      ctx.shadowBlur = 20;
+      const ballGradient = ctx.createRadialGradient(
+        gameVars.current.ballX, gameVars.current.ballY, 0,
+        gameVars.current.ballX, gameVars.current.ballY, ballSize
       );
       ballGradient.addColorStop(0, "#fbbf24");
       ballGradient.addColorStop(0.7, "#f59e0b");
       ballGradient.addColorStop(1, "#dc2626");
-      
-      context.fillStyle = ballGradient;
-      context.beginPath();
-      context.arc(vars.ballX + 6, vars.ballY + 6, 6, 0, Math.PI * 2);
-      context.fill();
-      
-      // Inner highlight
-      context.shadowBlur = 0;
-      context.fillStyle = "rgba(255, 255, 255, 0.6)";
-      context.beginPath();
-      context.arc(vars.ballX + 2, vars.ballY + 2, 2, 0, Math.PI * 2);
-      context.fill();
-      
-      context.restore();
+      ctx.fillStyle = ballGradient;
+      ctx.beginPath();
+      ctx.arc(gameVars.current.ballX, gameVars.current.ballY, ballSize, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
 
-      // Draw and update particles
-      if (gameState === 'playing') {
-        vars.particles = vars.particles.filter(particle => {
-          particle.x += particle.vx;
-          particle.y += particle.vy;
-          particle.life--;
-          particle.vx *= 0.98; // Slow down over time
-          particle.vy *= 0.98;
-          
-          const alpha = particle.life / particle.maxLife;
-          context.save();
-          context.globalAlpha = alpha;
-          context.fillStyle = particle.color;
-          context.beginPath();
-          context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
-          context.fill();
-          context.restore();
-          
-          return particle.life > 0;
-        });
-      } else {
-        // Still draw particles even when paused, but don't update them
-        vars.particles.forEach(particle => {
-          const alpha = particle.life / particle.maxLife;
-          context.save();
-          context.globalAlpha = alpha;
-          context.fillStyle = particle.color;
-          context.beginPath();
-          context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
-          context.fill();
-          context.restore();
-        });
-      }
+      // Scores
+      ctx.fillStyle = "#ffffff";
+      ctx.font = `bold ${48 * scaleRef.current}px 'Courier New', monospace`;
+      ctx.textAlign = 'center';
+      ctx.fillText(String(score.left), canvasSize.width / 2 - 60 * scaleRef.current, 60 * scaleRef.current);
+      ctx.fillText(String(score.right), canvasSize.width / 2 + 60 * scaleRef.current, 60 * scaleRef.current);
 
-      // Draw scores with glow
-      context.save();
-      context.font = "bold 48px 'Courier New', monospace";
-      context.textAlign = "center";
-      
-      // Left score
-      context.shadowColor = "#06b6d4";
-      context.shadowBlur = 15;
-      context.fillStyle = "#06b6d4";
-      context.fillText(vars.playerScore.toString(), canvas.width / 4, 60);
-      
-      // Right score
-      context.shadowColor = "#f59e0b";
-      context.shadowBlur = 15;
-      context.fillStyle = "#f59e0b";
-      context.fillText(vars.opponentScore.toString(), (canvas.width * 3) / 4, 60);
-      
-      context.restore();
+      // Particles
+      gameVars.current.particles = gameVars.current.particles.filter(p => {
+        p.x += p.vx;
+        p.y += p.vy;
+        p.life--;
+        ctx.save();
+        ctx.globalAlpha = p.life / p.maxLife;
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 2 * scaleRef.current, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+        return p.life > 0;
+      });
 
       // Game state overlays
-      if (gameState === 'menu') {
-        drawMenu(context);
-      }
-
       if (gameState === 'paused') {
-        context.save();
-        context.fillStyle = "rgba(0, 0, 0, 0.7)";
-        context.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+        ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
         
-        context.font = "bold 36px 'Courier New', monospace";
-        context.textAlign = "center";
-        context.fillStyle = "#f59e0b";
-        context.shadowColor = "#f59e0b";
-        context.shadowBlur = 15;
-        context.fillText("PAUSED", canvas.width / 2, canvas.height / 2 - 20);
+        ctx.font = `bold ${36 * scaleRef.current}px 'Courier New', monospace`;
+        ctx.textAlign = "center";
+        ctx.fillStyle = "#f59e0b";
+        ctx.shadowColor = "#f59e0b";
+        ctx.shadowBlur = 15;
+        ctx.fillText("PAUSED", canvasSize.width / 2, canvasSize.height / 2 - 20 * scaleRef.current);
         
-        context.font = "18px 'Courier New', monospace";
-        context.fillStyle = "#ffffff";
-        context.shadowColor = "#4338ca";
-        context.shadowBlur = 10;
-        context.fillText("PRESS SPACE TO RESUME", canvas.width / 2, canvas.height / 2 + 20);
-        context.fillText("ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 45);
-        context.restore();
+        ctx.font = `${18 * scaleRef.current}px 'Courier New', monospace`;
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#4338ca";
+        ctx.shadowBlur = 10;
+        ctx.fillText("PRESS SPACE TO RESUME", canvasSize.width / 2, canvasSize.height / 2 + 20 * scaleRef.current);
+        ctx.restore();
       }
 
       if (gameState === 'gameOver') {
-        context.save();
-        context.fillStyle = "rgba(0, 0, 0, 0.8)";
-        context.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.save();
+        ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+        ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
         
-        context.font = "bold 36px 'Courier New', monospace";
-        context.textAlign = "center";
+        ctx.font = `bold ${36 * scaleRef.current}px 'Courier New', monospace`;
+        ctx.textAlign = "center";
         
-        // Winner announcement with appropriate color
         const winnerColor = winner.includes('You') || winner.includes('Player 1') ? '#06b6d4' : '#f59e0b';
-        context.fillStyle = winnerColor;
-        context.shadowColor = winnerColor;
-        context.shadowBlur = 15;
-        context.fillText(winner, canvas.width / 2, canvas.height / 2 - 40);
+        ctx.fillStyle = winnerColor;
+        ctx.shadowColor = winnerColor;
+        ctx.shadowBlur = 15;
+        ctx.fillText(winner, canvasSize.width / 2, canvasSize.height / 2 - 40 * scaleRef.current);
         
-        context.font = "20px 'Courier New', monospace";
-        context.fillStyle = "#ffffff";
-        context.shadowColor = "#4338ca";
-        context.shadowBlur = 10;
-        context.fillText(`Final Score: ${vars.playerScore} - ${vars.opponentScore}`, canvas.width / 2, canvas.height / 2);
+        ctx.font = `${20 * scaleRef.current}px 'Courier New', monospace`;
+        ctx.fillStyle = "#ffffff";
+        ctx.shadowColor = "#4338ca";
+        ctx.shadowBlur = 10;
+        ctx.fillText(`Final Score: ${score.left} - ${score.right}`, canvasSize.width / 2, canvasSize.height / 2);
         
-        context.font = "18px 'Courier New', monospace";
-        context.fillText("PRESS R TO PLAY AGAIN", canvas.width / 2, canvas.height / 2 + 40);
-        context.fillText("PRESS SPACE FOR MENU", canvas.width / 2, canvas.height / 2 + 70);
-        context.restore();
+        ctx.font = `${18 * scaleRef.current}px 'Courier New', monospace`;
+        ctx.fillText("PRESS R TO PLAY AGAIN", canvasSize.width / 2, canvasSize.height / 2 + 40 * scaleRef.current);
+        ctx.restore();
       }
     };
 
     const update = () => {
       if (gameState !== 'playing') return;
-      
-      const vars = gameVars.current;
-      const paddleSpeed = 8; // Increased paddle speed
-      const paddleHeight = 100;
-      const canvasHeight = canvasRef.current?.height || 500;
 
-      // Move paddle 1 (left paddle - W/S keys)
-      if (vars.keys.w && vars.paddle1Y > 0) {
-        vars.paddle1Y = Math.max(0, vars.paddle1Y - paddleSpeed);
+      const paddleSpeed = 6 * scaleRef.current;
+
+      // Player 1 movement
+      if (gameVars.current.keys.w && gameVars.current.paddle1Y > 0) {
+        gameVars.current.paddle1Y -= paddleSpeed;
       }
-      if (vars.keys.s && vars.paddle1Y + paddleHeight < canvasHeight) {
-        vars.paddle1Y = Math.min(canvasHeight - paddleHeight, vars.paddle1Y + paddleSpeed);
+      if (gameVars.current.keys.s && gameVars.current.paddle1Y < canvasSize.height - paddleHeight) {
+        gameVars.current.paddle1Y += paddleSpeed;
       }
 
-      // Move paddle 2 (right paddle - Arrow keys or AI)
+      // Player 2 / AI movement
       if (gameMode === 'two-player') {
-        if (vars.keys.up && vars.paddle2Y > 0) {
-          vars.paddle2Y = Math.max(0, vars.paddle2Y - paddleSpeed);
+        if (gameVars.current.keys.up && gameVars.current.paddle2Y > 0) {
+          gameVars.current.paddle2Y -= paddleSpeed;
         }
-        if (vars.keys.down && vars.paddle2Y + paddleHeight < canvasHeight) {
-          vars.paddle2Y = Math.min(canvasHeight - paddleHeight, vars.paddle2Y + paddleSpeed);
+        if (gameVars.current.keys.down && gameVars.current.paddle2Y < canvasSize.height - paddleHeight) {
+          gameVars.current.paddle2Y += paddleSpeed;
         }
-      } else {
-        // AI movement for single player
-        const aiSpeed = 5;
-        const targetY = vars.ballY - paddleHeight / 2;
-        if (vars.paddle2Y < targetY - aiSpeed) {
-          vars.paddle2Y = Math.min(canvasHeight - paddleHeight, vars.paddle2Y + aiSpeed);
-        } else if (vars.paddle2Y > targetY + aiSpeed) {
-          vars.paddle2Y = Math.max(0, vars.paddle2Y - aiSpeed);
+      } else { // AI logic
+        const paddle2Center = gameVars.current.paddle2Y + paddleHeight / 2;
+        if (paddle2Center < gameVars.current.ballY - 35) {
+          gameVars.current.paddle2Y += paddleSpeed * 0.8;
+        } else if (paddle2Center > gameVars.current.ballY + 35) {
+          gameVars.current.paddle2Y -= paddleSpeed * 0.8;
         }
       }
-      
-      vars.ballX += vars.ballSpeedX;
-      vars.ballY += vars.ballSpeedY;
 
-      // Bounce off top/bottom with particles
-      if (vars.ballY <= 0 || vars.ballY + 12 >= canvas.height) {
-        vars.ballSpeedY *= -1;
-        createParticles(vars.ballX + 6, vars.ballY + 6, "#60a5fa");
+      // Ball movement
+      gameVars.current.ballX += gameVars.current.ballSpeedX;
+      gameVars.current.ballY += gameVars.current.ballSpeedY;
+
+      // Ball collision with top/bottom walls
+      if (gameVars.current.ballY < ballSize || gameVars.current.ballY > canvasSize.height - ballSize) {
+        gameVars.current.ballSpeedY *= -1;
       }
 
-      // Bounce off left paddle
-      if (
-        vars.ballX <= 32 &&
-        vars.ballY + 12 >= vars.paddle1Y &&
-        vars.ballY <= vars.paddle1Y + paddleHeight &&
-        vars.ballSpeedX < 0
-      ) {
-        vars.ballSpeedX *= -1;
-        // Add some randomness to prevent boring rallies
-        vars.ballSpeedY += (Math.random() - 0.5) * 2;
-        createParticles(vars.ballX + 6, vars.ballY + 6, "#06b6d4");
+      // Ball collision with paddles
+      const paddle1X = 30 * scaleRef.current;
+      const paddle2X = canvasSize.width - (30 * scaleRef.current) - paddleWidth;
+      // Left paddle
+      if (gameVars.current.ballX - ballSize < paddle1X + paddleWidth &&
+          gameVars.current.ballY > gameVars.current.paddle1Y &&
+          gameVars.current.ballY < gameVars.current.paddle1Y + paddleHeight) {
+        if (gameVars.current.ballSpeedX < 0) {
+          gameVars.current.ballSpeedX *= -1.1; // Increase speed on hit
+          createParticles(gameVars.current.ballX, gameVars.current.ballY, "#06b6d4");
+        }
+      }
+      // Right paddle
+      if (gameVars.current.ballX + ballSize > paddle2X &&
+          gameVars.current.ballY > gameVars.current.paddle2Y &&
+          gameVars.current.ballY < gameVars.current.paddle2Y + paddleHeight) {
+        if (gameVars.current.ballSpeedX > 0) {
+          gameVars.current.ballSpeedX *= -1.1; // Increase speed on hit
+          createParticles(gameVars.current.ballX, gameVars.current.ballY, "#a855f7");
+        }
       }
 
-      // Bounce off right paddle
-      if (
-        vars.ballX + 12 >= canvas.width - 32 &&
-        vars.ballY + 12 >= vars.paddle2Y &&
-        vars.ballY <= vars.paddle2Y + paddleHeight &&
-        vars.ballSpeedX > 0
-      ) {
-        vars.ballSpeedX *= -1;
-        vars.ballSpeedY += (Math.random() - 0.5) * 2;
-        createParticles(vars.ballX + 6, vars.ballY + 6, "#f59e0b");
-      }
-
-      // Score and reset
-      if (vars.ballX < 0) {
-        vars.opponentScore++;
-        setScore(prev => ({ ...prev, right: vars.opponentScore }));
+      // Scoring
+      if (gameVars.current.ballX < 0) {
+        gameVars.current.opponentScore++;
+        setScore({ left: gameVars.current.playerScore, right: gameVars.current.opponentScore });
         resetBall();
-        createParticles(canvas.width - 100, canvas.height / 2, "#f59e0b");
-        setTimeout(checkWinCondition, 100);
-      }
-      
-      if (vars.ballX > canvas.width) {
-        vars.playerScore++;
-        setScore(prev => ({ ...prev, left: vars.playerScore }));
+      } else if (gameVars.current.ballX > canvasSize.width) {
+        gameVars.current.playerScore++;
+        setScore({ left: gameVars.current.playerScore, right: gameVars.current.opponentScore });
         resetBall();
-        createParticles(100, canvas.height / 2, "#06b6d4");
-        setTimeout(checkWinCondition, 100);
       }
-
-      // Limit ball speed
-      vars.ballSpeedY = Math.max(-8, Math.min(8, vars.ballSpeedY));
-      vars.ballSpeedX = Math.max(-10, Math.min(10, vars.ballSpeedX));
-
-      // Check for winner
-      if (vars.playerScore >= WINNING_SCORE || vars.opponentScore >= WINNING_SCORE) {
-        savePongScore();
-        setGameState('gameOver');
-        return;
-      }
+      checkWinCondition();
     };
 
-    const handleKeyDown = (e: KeyboardEventWithPrevent) => {
-      console.log('Key pressed:', e.key, 'Game state:', gameState); // Debug log
-      
-      // Only prevent default for movement and control keys
-      if (["ArrowUp", "ArrowDown", "w", "s", " ", "r", "Escape", "l"].includes(e.key.toLowerCase())) {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Movement keys are always tracked
+      if (e.key === 'w' || e.key === 'W') gameVars.current.keys.w = true;
+      if (e.key === 's' || e.key === 'S') gameVars.current.keys.s = true;
+      if (e.key === 'ArrowUp') gameVars.current.keys.up = true;
+      if (e.key === 'ArrowDown') gameVars.current.keys.down = true;
+
+      // Game state controls
+      if (e.code === 'Space') {
         e.preventDefault();
-      }
-
-      // Back to lobby key (L)
-      if (e.key.toLowerCase() === 'l') {
-        handleBackToLobby();
-        return;
-      }
-
-      // Movement keys (only when playing)
-      if (gameState === 'playing') {
-        switch (e.key.toLowerCase()) {
-          case 'w':
-            gameVars.current.keys.w = true;
-            break;
-          case 's':
-            gameVars.current.keys.s = true;
-            break;
-          case 'arrowup':
-            gameVars.current.keys.up = true;
-            break;
-          case 'arrowdown':
-            gameVars.current.keys.down = true;
-            break;
+        if (gameState === 'playing') {
+          setGameState('paused');
+        } else if (gameState === 'paused') {
+          setGameState('playing');
         }
       }
 
-      // Game state controls
-      switch (gameState) {
-        case 'menu':
-          if (e.key === " ") {
-            console.log('Starting game from menu');
-            resetGame();
-            setGameState('playing');
-          } else if (e.key === "1") {
-            setGameMode('one-player');
-          } else if (e.key === "2") {
-            setGameMode('two-player');
-          }
-          break;
-
-        case 'playing':
-          if (e.key === " ") {
-            setGameState('paused');
-          } else if (e.key === "Escape") {
-            savePongScore();
-            resetGame();
-            setGameState('menu');
-          } else if (e.key.toLowerCase() === 'r') {
-            savePongScore();
-            resetGame();
-          }
-          break;
-
-        case 'paused':
-          if (e.key === " ") {
-            setGameState('playing');
-          } else if (e.key === "Escape") {
-            resetGame();
-            setGameState('menu');
-          }
-          break;
-
-        case 'gameOver':
-          if (e.key.toLowerCase() === 'r') {
-            resetGame();
-            setGameState('playing');
-          } else if (e.key === ' ') {
-            resetGame();
-            setGameState('menu');
-          }
-          break;
+      if (gameState === 'gameOver' && (e.key === 'r' || e.key === 'R')) {
+        resetGame();
+        setGameState('playing');
       }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (gameState === 'playing') {
-        switch (e.key.toLowerCase()) {
-          case 'w':
-            gameVars.current.keys.w = false;
-            break;
-          case 's':
-            gameVars.current.keys.s = false;
-            break;
-          case 'arrowup':
-            gameVars.current.keys.up = false;
-            break;
-          case 'arrowdown':
-            gameVars.current.keys.down = false;
-            break;
-        }
-      }
+      if (e.key === 'w' || e.key === 'W') gameVars.current.keys.w = false;
+      if (e.key === 's' || e.key === 'S') gameVars.current.keys.s = false;
+      if (e.key === 'ArrowUp') gameVars.current.keys.up = false;
+      if (e.key === 'ArrowDown') gameVars.current.keys.down = false;
     };
+    
+    const handleTouchMove = (e: TouchEvent) => {
+      e.preventDefault();
+      if (gameState !== 'playing') return;
 
-    window.addEventListener("keydown", handleKeyDown);
-    window.addEventListener("keyup", handleKeyUp);
+      const canvasRect = canvas.getBoundingClientRect();
+      
+      Array.from(e.touches).forEach(touch => {
+        const touchX = touch.clientX - canvasRect.left;
+        const touchY = touch.clientY - canvasRect.top;
+        
+        if (touchX < canvasSize.width / 2) { // Left half
+          let newY = touchY - paddleHeight / 2;
+          if (newY < 0) newY = 0;
+          if (newY > canvasSize.height - paddleHeight) newY = canvasSize.height - paddleHeight;
+          gameVars.current.paddle1Y = newY;
+        } else { // Right half
+          if (gameMode === 'two-player') {
+            let newY = touchY - paddleHeight / 2;
+            if (newY < 0) newY = 0;
+            if (newY > canvasSize.height - paddleHeight) newY = canvasSize.height - paddleHeight;
+            gameVars.current.paddle2Y = newY;
+          }
+        }
+      });
+    };
 
     const gameLoop = () => {
-      update();
-      draw();
+      if (gameState === 'playing') {
+        update();
+      }
+      if (gameState !== 'menu') {
+        draw();
+      }
       animationFrameRef.current = requestAnimationFrame(gameLoop);
     };
-
+    
+    window.addEventListener("keydown", handleKeyDown);
+    window.addEventListener("keyup", handleKeyUp);
+    canvas.addEventListener('touchstart', handleTouchMove, { passive: false });
+    canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+    
     gameLoop();
 
     return () => {
-      window.removeEventListener("keydown", handleKeyDown);
-      window.removeEventListener("keyup", handleKeyUp);
       if (animationFrameRef.current) {
         cancelAnimationFrame(animationFrameRef.current);
       }
+      window.removeEventListener("keydown", handleKeyDown);
+      window.removeEventListener("keyup", handleKeyUp);
+      canvas.removeEventListener('touchstart', handleTouchMove);
+      canvas.removeEventListener('touchmove', handleTouchMove);
     };
-  }, [gameState, gameMode]); // Add gameMode to dependencies
+  }, [gameState, gameMode, canvasSize, score, winner]);
+
+  const startGame = (mode: 'one-player' | 'two-player') => {
+    setGameMode(mode);
+    resetGame();
+    setGameState('playing');
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-8">
-      <div className="mb-6">
-        <h1 className="text-4xl font-bold text-white text-center mb-4 font-mono tracking-wider">
-          CYBER PONG
-        </h1>
-        <div className="flex justify-center space-x-8 text-lg font-mono mb-2">
-          <div className="text-cyan-400">
-            Score: <span className="text-2xl font-bold">{score.left}</span>
+    <div className="flex flex-col items-center justify-center min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4">
+      <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4 font-mono tracking-wider">
+        CYBER PONG
+      </h1>
+      <div className="relative w-full max-w-4xl aspect-[16/10] bg-black rounded-lg shadow-2xl shadow-purple-500/50 border-2 border-purple-500/50">
+        {gameState === 'menu' && (
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/80">
+            <h2 className="text-4xl sm:text-5xl font-bold text-white font-mono tracking-wider mb-8 animate-pulse">
+              CYBER PONG
+            </h2>
+            <div className="flex flex-col sm:flex-row gap-4">
+              <button
+                onClick={() => startGame('one-player')}
+                className="px-8 py-4 bg-cyan-600 text-white rounded-lg font-semibold hover:bg-cyan-700 transition-all duration-300 font-mono"
+              >
+                1 Player
+              </button>
+              {!isMobile && (
+                <button
+                  onClick={() => startGame('two-player')}
+                  className="px-8 py-4 bg-purple-600 text-white rounded-lg font-semibold hover:bg-purple-700 transition-all duration-300 font-mono"
+                >
+                  2 Players
+                </button>
+              )}
+            </div>
+            {isMobile && (
+              <p className="mt-4 text-sm text-gray-400 font-mono">
+                Two-player mode is available on larger screens.
+              </p>
+            )}
           </div>
-          <div className="text-amber-400">
-            vs: <span className="text-2xl font-bold">{score.right}</span>
-          </div>
-          <div className="text-purple-400">
-            Mode: <span className="text-2xl font-bold">{gameMode === 'one-player' ? 'Single' : 'Two Player'}</span>
-          </div>
-        </div>
-      </div>
-      
-      <div className="relative">
+        )}
         <canvas 
           ref={canvasRef} 
-          width={800} 
-          height={500} 
-          className="border-2 border-purple-500 rounded-lg shadow-2xl shadow-purple-500/50 bg-black"
+          width={canvasSize.width} 
+          height={canvasSize.height}
+          className="w-full h-full rounded-lg"
+          style={{ display: gameState === 'menu' ? 'none' : 'block' }}
         />
-        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-amber-500 rounded-lg blur opacity-20"></div>
+      </div>
+      <div className="flex justify-between w-full max-w-4xl mt-4 text-lg px-2">
+        <div className="text-cyan-400">P1: <span className="font-bold">{score.left}</span></div>
+        <div className="text-purple-400">P2: <span className="font-bold">{score.right}</span></div>
       </div>
       
-      <div className="mt-6 text-center text-gray-300 font-mono">
-        <div className="text-sm">
-          <p className="text-cyan-400 font-bold mb-1">Controls:</p>
-          <p>Left: W/S | Right: ↑/↓ (in two-player mode)</p>
-          <p className="text-amber-400 mt-2">SPACE: Pause/Resume | ESC: Back to Menu</p>
-        </div>
-        <div className="mt-4 text-xs text-gray-400">
-          <p>R: Restart | L: Back to Lobby</p>
-          <p>First to {WINNING_SCORE} points wins!</p>
-        </div>
-      </div>
+      <button
+        onClick={handleBackToLobby}
+        className="mt-4 px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors font-mono text-sm"
+      >
+        Back to Lobby
+      </button>
 
-      {/* Lobby Button - visible when on menu screen */}
-      {gameState === 'menu' && (
-        <button
-          onClick={handleBackToLobby}
-          className="mt-4 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 font-mono"
-        >
-          ← BACK TO LOBBY
-        </button>
-      )}
-
-      {/* Game History */}
-      {gameState === 'menu' && history.length > 0 && (
-        <div className="mt-8 w-full max-w-2xl bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
-          <h3 className="text-xl font-bold text-white mb-4 flex items-center">
-            <Trophy className="w-5 h-5 mr-2 text-purple-400" />
-            Recent Games
-          </h3>
-          <div className="bg-black/20 rounded-lg overflow-hidden">
-            <table className="w-full text-sm">
+      {history.length > 0 && (
+        <div className="mt-6 text-left text-sm text-gray-300 font-mono w-full max-w-2xl">
+          <h2 className="text-lg sm:text-xl text-cyan-400 font-bold mb-2">Your Pong History</h2>
+          <div className="max-h-32 overflow-y-auto">
+            <table className="w-full table-auto border-collapse">
               <thead>
-                <tr className="bg-purple-900/20">
-                  <th className="px-4 py-2 text-left text-gray-300">Date</th>
-                  <th className="px-4 py-2 text-left text-gray-300">Mode</th>
-                  <th className="px-4 py-2 text-right text-gray-300">Score</th>
-                  <th className="px-4 py-2 text-right text-gray-300">Result</th>
+                <tr className="text-left border-b border-gray-500">
+                  <th className="pb-1 px-1">Date</th>
+                  <th className="pb-1 px-1">Mode</th>
+                  <th className="pb-1 px-1">Score</th>
+                  <th className="pb-1 px-1">Winner</th>
                 </tr>
               </thead>
               <tbody>
-                {history.slice(0, 5).map((game, index) => (
-                  <tr key={index} className="border-t border-purple-500/10">
-                    <td className="px-4 py-2 text-gray-400">
-                      {new Date(game.created_at).toLocaleDateString()}
-                    </td>
-                    <td className="px-4 py-2 text-gray-400">
-                      {game.mode === 'one-player' ? 'Single Player' : 'Two Player'}
-                    </td>
-                    <td className="px-4 py-2 text-right text-cyan-400">
-                      {game.score} - {game.opponent_score}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      <span className={`font-mono ${
-                        game.winner === 'player' ? 'text-cyan-400' : 'text-amber-400'
-                      }`}>
-                        {game.winner === 'player' ? 'Victory' : 'Defeat'}
-                      </span>
-                    </td>
+                {history.map((entry, index) => (
+                  <tr key={index} className="border-b border-gray-700">
+                    <td className="py-2 px-1">{new Date(entry.created_at).toLocaleDateString()}</td>
+                    <td className="py-2 px-1">{entry.mode}</td>
+                    <td className="py-2 px-1">{entry.score} - {entry.opponent_score}</td>
+                    <td className="py-2 px-1">{entry.winner}</td>
                   </tr>
                 ))}
               </tbody>

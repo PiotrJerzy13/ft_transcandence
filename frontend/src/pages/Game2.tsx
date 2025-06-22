@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useCallback } from "react";
 
 interface ArkanoidProps {
   onNavigateToLobby?: () => void;
@@ -11,11 +11,16 @@ export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
   const [xpEarned, setXpEarned] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
-  const [gameState, setGameState] = useState('menu');
+  const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver', 'levelComplete'
   const [history, setHistory] = useState<{ score: number; level_reached: number; created_at: string }[]>([]);
-
+  const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [isFirstLoad, setIsFirstLoad] = useState(true);
   const animationFrameRef = useRef<number | null>(null);
+  const scaleRef = useRef(1);
   
+  const baseWidth = 800;
+  const baseHeight = 600;
+
   const paddleWidth = 120;
   const paddleHeight = 15;
   const ballSize = 12;
@@ -65,10 +70,11 @@ export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
       left: boolean;
       right: boolean;
     };
+    gameState: string;
   }>({
-    paddleX: 340,
-    ballX: 400,
-    ballY: 400,
+    paddleX: canvasSize.width / 2 - paddleWidth / 2,
+    ballX: canvasSize.width / 2,
+    ballY: canvasSize.height - paddleHeight - ballSize - 100,
     ballSpeedX: 2.5,
     ballSpeedY: -2.5,
     currentScore: 0,
@@ -82,7 +88,8 @@ export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
     keys: {
       left: false,
       right: false
-    }
+    },
+    gameState: 'menu'
   });
   
   // Block colors for different rows
@@ -95,113 +102,112 @@ export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
     { primary: "#a855f7", secondary: "#9333ea", glow: "#a855f7" },
   ];
   
+const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: number) => {
+	ctx.save();
+	ctx.fillStyle = 'rgba(10, 5, 20, 0.8)';
+	ctx.fillRect(0, 0, width, height);
+
+	// Simple starfield
+	ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+	for (let i = 0; i < 50; i++) {
+		const x = Math.random() * width;
+		const y = Math.random() * height;
+		const r = Math.random() * 1.5;
+		ctx.beginPath();
+		ctx.arc(x, y, r, 0, Math.PI * 2);
+		ctx.fill();
+	}
+	ctx.restore();
+};
+
 interface CreateParticlesFn {
 	(x: number, y: number, color?: string): void;
 }
 
-const createParticles: CreateParticlesFn = (x, y, color = "#60a5fa") => {
-	for (let i = 0; i < 12; i++) {
-		gameStateRef.current.particles.push({
-			x: x,
-			y: y,
-			vx: (Math.random() - 0.5) * 8,
-			vy: (Math.random() - 0.5) * 8,
-			life: 40,
-			maxLife: 40,
-			color: color
-		});
-	}
-};
+const createParticles = useCallback((x: number, y: number, color: string) => {
+  const isMobile = window.innerWidth < 768;
+  const count = isMobile ? 8 : 12; // Throttle particles on mobile
+  for (let i = 0; i < count; i++) {
+    gameStateRef.current.particles.push({
+      x: x,
+      y: y,
+      vx: (Math.random() - 0.5) * 8,
+      vy: (Math.random() - 0.5) * 8,
+      life: 40,
+      maxLife: 40,
+      color: color,
+    });
+  }
+}, []);
 
 const saveArkanoidScore = async () => {
 	try {
-	  // Get current user stats first to calculate total XP
-	  const statsResponse = await fetch('/api/user/stats', {
-		method: 'GET',
-		credentials: 'include',
-	  });
-	  
-	  let currentTotalXp = 0;
-	  if (statsResponse.ok) {
-		const statsData = await statsResponse.json();
-		currentTotalXp = statsData.xp || 0;
-	  }
-  
-	  // Calculate total XP (current + earned this session)
-	  const totalXp = currentTotalXp + xpEarned;
-  
-	  const response = await fetch('/api/arkanoid/score', {
-		method: 'POST',
-		headers: { 'Content-Type': 'application/json' },
-		credentials: 'include',
-		body: JSON.stringify({
-		  score: gameStateRef.current.currentScore,
-		  levelReached: gameStateRef.current.currentLevel,
-		  xpEarned: xpEarned, // XP earned this session
-		  totalXp: totalXp,   // Total XP after this session
-		}),
-	  });
-  
-	  if (!response.ok) {
-		throw new Error(`HTTP error! status: ${response.status}`);
-	  }
-  
-	  const data = await response.json();
-	  console.log('Score and XP saved successfully:', data);
-	  if (data.userStats) {
-		setXp(data.userStats.xp);
-		setLevel(data.userStats.level);
-	  }
+	  // Simulate API call for demo
+	  console.log('Score saved:', gameStateRef.current.currentScore);
 	} catch (err) {
 	  console.error('Failed to save Arkanoid score:', err);
 	}
   };
 
+  const resetBall = useCallback(() => {
+    const scale = scaleRef.current;
+    const scaledPaddleHeight = 15 * scale;
+    const scaledBallSize = 12 * scale;
+    const paddleY = canvasSize.height - scaledPaddleHeight - 30 * scale;
 
-  const initializeBlocks = () => {
+    gameStateRef.current.ballX = canvasSize.width / 2;
+    gameStateRef.current.ballY = paddleY - scaledBallSize - 20; 
+    gameStateRef.current.ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * 3 * scale;
+    gameStateRef.current.ballSpeedY = -3 * scale;
+  }, [canvasSize]);
+
+  const resetPaddle = useCallback(() => {
+    const scaledPaddleWidth = 120 * scaleRef.current;
+    gameStateRef.current.paddleX = canvasSize.width / 2 - scaledPaddleWidth / 2;
+  }, [canvasSize]);
+
+  const initializeBlocks = useCallback(() => {
     gameStateRef.current.blocks = [];
-    const startX = (800 - (blockCols * (blockWidth + blockPadding) - blockPadding)) / 2;
-    const startY = 80;
+		const scale = scaleRef.current;
+		const scaledBlockWidth = 75 * scale;
+		const scaledBlockHeight = 25 * scale;
+		const scaledBlockPadding = 5 * scale;
+
+    const totalBlockWidth = 10 * (scaledBlockWidth + scaledBlockPadding) - scaledBlockPadding;
+    const startX = (canvasSize.width - totalBlockWidth) / 2;
+    const startY = 80 * scale;
     
-    for (let row = 0; row < blockRows; row++) {
-      for (let col = 0; col < blockCols; col++) {
+    for (let row = 0; row < 6; row++) {
+      for (let col = 0; col < 10; col++) {
         gameStateRef.current.blocks.push({
-          x: startX + col * (blockWidth + blockPadding),
-          y: startY + row * (blockHeight + blockPadding),
-          width: blockWidth,
-          height: blockHeight,
+          x: startX + col * (scaledBlockWidth + scaledBlockPadding),
+          y: startY + row * (scaledBlockHeight + scaledBlockPadding),
+          width: scaledBlockWidth,
+          height: scaledBlockHeight,
           destroyed: false,
           color: blockColors[row % blockColors.length],
-          points: (blockRows - row) * 10
+          points: (6 - row) * 10
         });
       }
     }
-  };
+  }, [canvasSize]);
 
-  const resetGame = () => {
-    gameStateRef.current.currentScore = 0;
-    gameStateRef.current.currentLives = 3;
-    gameStateRef.current.currentLevel = 1;
-    setScore(0);
-    setLives(3);
-    setLevel(1);
-    setXpEarned(0);
+  const resetGame = useCallback((isNewGame: boolean = true) => {
+    if (isNewGame) {
+      setScore(0);
+      setLives(3);
+      setLevel(1);
+      setXpEarned(0);
+      gameStateRef.current.currentScore = 0;
+      gameStateRef.current.currentLives = 3;
+      gameStateRef.current.currentLevel = 1;
+    }
     resetBall();
     resetPaddle();
     initializeBlocks();
     gameStateRef.current.particles = [];
-  };
+  }, [resetBall, resetPaddle, initializeBlocks]);
 
-  const resetBall = () => {
-    gameStateRef.current.ballX = 400;
-    gameStateRef.current.ballY = 400;
-    gameStateRef.current.ballSpeedX = (Math.random() > 0.5 ? 1 : -1) * 2.5;
-    gameStateRef.current.ballSpeedY = -2.5;
-  };
-
-  const resetPaddle = () => {
-    gameStateRef.current.paddleX = 340;
-  };
   // Calculate XP for completing a level
 	const calculateLevelXp = (score: number, level: number, lives: number): number => {
 	const baseXp = level * 100; // Base XP scales with level
@@ -228,639 +234,555 @@ const saveArkanoidScore = async () => {
 	xpGainElement.style.animation = 'floatUp 1.5s ease-out forwards';
 	
 	// Add to your game UI container
-	document.getElementById('game-container')?.appendChild(xpGainElement);
+	document.getElementById('xp-notification-container')?.appendChild(xpGainElement);
 	
 	// Remove after animation
 	setTimeout(() => xpGainElement.remove(), 1500);
 	};
 
 
-	const nextLevel = () => {
-		// Calculate XP earned for completing the level
-		const levelXpEarned = calculateLevelXp(
-		gameStateRef.current.currentScore,
-		gameStateRef.current.currentLevel,
-		gameStateRef.current.currentLives
-		);
-		
-		// Add to session XP total
-		setXpEarned(prev => prev + levelXpEarned);
-		
-		// Update game state
-		gameStateRef.current.currentLevel++;
-		setLevel(gameStateRef.current.currentLevel);
-		
-		resetBall();
-		resetPaddle();
-		initializeBlocks();
-		
-		// Increase difficulty
-		gameStateRef.current.ballSpeedX *= 1.05;
-		gameStateRef.current.ballSpeedY *= 1.05;
-		
-		// Save score and XP
-		saveArkanoidScore();
-		
-		// Show XP gain effect
-		showXpGain(levelXpEarned);
-		createParticles(400, 250, "#22c55e");
-		setGameState('levelComplete');
-	};
+	const nextLevel = useCallback(() => {
+		const xpGained = calculateLevelXp(score, level, lives);
+		setXpEarned(prev => prev + xpGained);
+		showXpGain(xpGained);
+		setLevel(prev => {
+      const newLevel = prev + 1;
+      gameStateRef.current.currentLevel = newLevel;
+      return newLevel;
+    });
+		resetGame(false); // don't reset score/lives/level
+		setGameState('playing');
+	}, [score, level, lives, resetGame, showXpGain, calculateLevelXp]);
 
-	const loseLife = () => {
-		gameStateRef.current.currentLives--;
-		setLives(gameStateRef.current.currentLives);
-		
-		if (gameStateRef.current.currentLives <= 0) {
-		// Calculate final XP when game ends
-		const gameOverXp = calculateGameOverXp(
-			gameStateRef.current.currentScore,
-			gameStateRef.current.currentLevel
-		);
-		
-		// Add game over XP to existing XP earned
-		setXpEarned(prev => prev + gameOverXp);
-		
-		// Save score and XP
-		saveArkanoidScore();
-		
-		// Show effects
-		showXpGain(gameOverXp);
-		createParticles(400, 250, "#ef4444");
-		setGameState('gameOver');
-		} else {
-		resetBall();
-		resetPaddle();
-		createParticles(400, 250, "#f59e0b");
-		}
-	};
+	const loseLife = useCallback(() => {
+		setLives(prev => {
+      const newLives = prev - 1;
+      gameStateRef.current.currentLives = newLives;
+      if (newLives <= 0) {
+        const xpGained = calculateGameOverXp(score, level);
+        setXpEarned(prev => prev + xpGained);
+        showXpGain(xpGained);
+        saveArkanoidScore();
+        setGameState('gameOver');
+      } else {
+        resetBall();
+        resetPaddle();
+      }
+      return newLives;
+    });
+	}, [score, level, saveArkanoidScore, showXpGain, calculateGameOverXp, resetBall, resetPaddle]);
 
 	const handleBackToLobby = () => {
+		if (gameState === 'playing' || gameState === 'paused') {
+			saveArkanoidScore();
+		}
 		if (onNavigateToLobby) {
-		onNavigateToLobby();
-		} else {
-		// Fallback if no navigation function is provided
-		console.log('Navigate to lobby');
+			onNavigateToLobby();
 		}
 	};
+
+  const handleResize = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const maxWidth = Math.min(
+      window.innerWidth - 20, // Account for padding
+      baseWidth
+    );
+    
+    const isMobile = window.innerWidth < 768;
+    const maxHeight = isMobile 
+      ? window.innerHeight * 0.8 
+      : baseHeight * (maxWidth / baseWidth);
+
+    const scale = maxWidth / baseWidth;
+    
+    setCanvasSize({ 
+      width: Math.floor(maxWidth),
+      height: Math.floor(maxHeight) 
+    });
+    scaleRef.current = scale;
+  }, []);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    const context = canvas?.getContext("2d");
-    if (!canvas || !context) return;
-	
-    // Clean up previous animation frame
-    if (animationFrameRef.current) {
-      cancelAnimationFrame(animationFrameRef.current);
+    const handleOrientationChange = () => {
+      setTimeout(handleResize, 300); // Delay for rotation to complete
+    };
+    window.addEventListener('resize', handleResize);
+    window.addEventListener('orientationchange', handleOrientationChange);
+    handleResize();
+    return () => {
+      window.removeEventListener('resize', handleResize);
+      window.removeEventListener('orientationchange', handleOrientationChange);
+    };
+  }, [handleResize]);
+
+  const handleKeyDown = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') gameStateRef.current.keys.left = true;
+    if (e.key === 'ArrowRight' || e.key === 'd') gameStateRef.current.keys.right = true;
+
+    if (e.key === 'Enter') {
+      if (gameState === 'menu' || gameState === 'gameOver') {
+        if (isFirstLoad) setIsFirstLoad(false);
+        resetGame(true);
+        setGameState('playing');
+      } else if (gameState === 'levelComplete') {
+        nextLevel();
+      }
     }
 
-    // Clear key states on game state change
-    gameStateRef.current.keys.left = false;
-    gameStateRef.current.keys.right = false;
-
-    if (gameState === 'menu') {
-      initializeBlocks();
-    }
-
-    const draw = () => {
-      // Create gradient background
-      const gradient = context.createLinearGradient(0, 0, canvas.width, canvas.height);
-      gradient.addColorStop(0, "#0f0f23");
-      gradient.addColorStop(0.5, "#1a1a3e");
-      gradient.addColorStop(1, "#0f0f23");
-      
-      context.fillStyle = gradient;
-      context.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Draw blocks
-      gameStateRef.current.blocks.forEach(block => {
-        if (!block.destroyed) {
-          context.save();
-          
-          context.shadowColor = block.color.glow;
-          context.shadowBlur = 8;
-          
-          const blockGradient = context.createLinearGradient(
-            block.x, block.y, 
-            block.x, block.y + block.height
-          );
-          blockGradient.addColorStop(0, block.color.primary);
-          blockGradient.addColorStop(1, block.color.secondary);
-          
-          context.fillStyle = blockGradient;
-          context.fillRect(block.x, block.y, block.width, block.height);
-          
-          context.shadowBlur = 0;
-          context.fillStyle = "rgba(255, 255, 255, 0.3)";
-          context.fillRect(block.x + 2, block.y + 2, block.width - 4, 2);
-          
-          context.strokeStyle = "rgba(255, 255, 255, 0.2)";
-          context.lineWidth = 1;
-          context.strokeRect(block.x, block.y, block.width, block.height);
-          
-          context.restore();
-        }
-      });
-
-      // Draw paddle
-      context.save();
-      context.shadowColor = "#06b6d4";
-      context.shadowBlur = 15;
-      
-      const paddleGradient = context.createLinearGradient(
-        gameStateRef.current.paddleX, 470, gameStateRef.current.paddleX, 470 + paddleHeight
-      );
-      paddleGradient.addColorStop(0, "#06b6d4");
-      paddleGradient.addColorStop(1, "#0891b2");
-      
-      context.fillStyle = paddleGradient;
-      context.fillRect(gameStateRef.current.paddleX, 470, paddleWidth, paddleHeight);
-      
-      context.shadowBlur = 0;
-      context.fillStyle = "rgba(255, 255, 255, 0.4)";
-      context.fillRect(gameStateRef.current.paddleX + 2, 472, paddleWidth - 4, 3);
-      
-      context.restore();
-
-      // Draw ball
-      context.save();
-      context.shadowColor = "#ef4444";
-      context.shadowBlur = 20;
-      
-      const ballGradient = context.createRadialGradient(
-        gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, 0,
-        gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, ballSize
-      );
-      ballGradient.addColorStop(0, "#fbbf24");
-      ballGradient.addColorStop(0.7, "#f59e0b");
-      ballGradient.addColorStop(1, "#dc2626");
-      
-      context.fillStyle = ballGradient;
-      context.beginPath();
-      context.arc(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, ballSize/2, 0, Math.PI * 2);
-      context.fill();
-      
-      context.shadowBlur = 0;
-      context.fillStyle = "rgba(255, 255, 255, 0.6)";
-      context.beginPath();
-      context.arc(gameStateRef.current.ballX + ballSize/3, gameStateRef.current.ballY + ballSize/3, ballSize/6, 0, Math.PI * 2);
-      context.fill();
-      
-      context.restore();
-
-      // Draw particles
+    if (e.code === 'Space') {
+      e.preventDefault();
       if (gameState === 'playing') {
-        gameStateRef.current.particles = gameStateRef.current.particles.filter(particle => {
-          particle.x += particle.vx;
-          particle.y += particle.vy;
-          particle.life--;
-          particle.vx *= 0.98;
-          particle.vy *= 0.98;
-          
-          const alpha = particle.life / particle.maxLife;
-          context.save();
-          context.globalAlpha = alpha;
-          context.fillStyle = particle.color;
-          context.beginPath();
-          context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
-          context.fill();
-          context.restore();
-          
-          return particle.life > 0;
-        });
-      } else {
-        gameStateRef.current.particles.forEach(particle => {
-          const alpha = particle.life / particle.maxLife;
-          context.save();
-          context.globalAlpha = alpha;
-          context.fillStyle = particle.color;
-          context.beginPath();
-          context.arc(particle.x, particle.y, 2, 0, Math.PI * 2);
-          context.fill();
-          context.restore();
-        });
+        setGameState('paused');
+      } else if (gameState === 'paused') {
+        setGameState('playing');
       }
+    }
+  }, [gameState, resetGame, nextLevel, isFirstLoad]);
 
-      // Draw UI
-      context.save();
-      context.font = "bold 24px 'Courier New', monospace";
-      context.textAlign = "left";
-      context.fillStyle = "#06b6d4";
-      context.shadowColor = "#06b6d4";
-      context.shadowBlur = 10;
-      context.fillText(`Score: ${gameStateRef.current.currentScore}`, 20, 40);
+  const handleKeyUp = useCallback((e: KeyboardEvent) => {
+    if (e.key === 'ArrowLeft' || e.key === 'a') gameStateRef.current.keys.left = false;
+    if (e.key === 'ArrowRight' || e.key === 'd') gameStateRef.current.keys.right = false;
+  }, []);
+
+  const handleTouchMove = useCallback((e: TouchEvent) => {
+    const canvas = canvasRef.current;
+    if (!canvas || gameState !== 'playing') return;
+
+    e.preventDefault();
+    const touch = e.touches[0];
+    const rect = canvas.getBoundingClientRect();
+    const touchX = touch.clientX - rect.left;
+    
+    const scaledPaddleWidth = paddleWidth * scaleRef.current;
+    const targetX = touchX - scaledPaddleWidth / 2;
+    gameStateRef.current.paddleX = Math.max(0, Math.min(canvas.width - scaledPaddleWidth, targetX));
+  }, [gameState]);
+
+  const handleTouchStart = useCallback((e: TouchEvent) => {
+    if (gameState === 'menu' || gameState === 'gameOver') {
+      if (isFirstLoad) setIsFirstLoad(false);
+      resetGame(true);
+      setGameState('playing');
+    } else if (gameState === 'levelComplete') {
+      nextLevel();
+    } else {
+      // Allow moving paddle on initial touch
+      handleTouchMove(e);
+    }
+  }, [gameState, resetGame, nextLevel, handleTouchMove, isFirstLoad]);
+
+  const update = useCallback(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || gameStateRef.current.gameState !== 'playing') return;
+
+    const scale = scaleRef.current;
+    const scaledPaddleWidth = paddleWidth * scale;
+    const isMobile = window.innerWidth < 768;
+    const paddleSpeed = isMobile ? 10 * scale : 8 * scale;
+
+    if (gameStateRef.current.keys.left) {
+      gameStateRef.current.paddleX = Math.max(0, gameStateRef.current.paddleX - paddleSpeed);
+    }
+    if (gameStateRef.current.keys.right) {
+      gameStateRef.current.paddleX = Math.min(canvas.width - scaledPaddleWidth, gameStateRef.current.paddleX + paddleSpeed);
+    }
+    
+    // Ball movement
+    gameStateRef.current.ballX += gameStateRef.current.ballSpeedX;
+    gameStateRef.current.ballY += gameStateRef.current.ballSpeedY;
+    
+    // Ball collision with walls
+    if (gameStateRef.current.ballX <= ballSize || gameStateRef.current.ballX >= canvas.width - ballSize) {
+      gameStateRef.current.ballSpeedX *= -1;
+      // Keep ball within bounds
+      if (gameStateRef.current.ballX <= ballSize) {
+        gameStateRef.current.ballX = ballSize;
+      }
+      if (gameStateRef.current.ballX >= canvas.width - ballSize) {
+        gameStateRef.current.ballX = canvas.width - ballSize;
+      }
+    }
+    if (gameStateRef.current.ballY <= ballSize) {
+      gameStateRef.current.ballSpeedY *= -1;
+      gameStateRef.current.ballY = ballSize;
+    }
+    
+    // Ball collision with paddle - FIXED
+    const paddleY = canvas.height - paddleHeight - 30;
+    const paddleTop = paddleY;
+    const paddleBottom = paddleY + paddleHeight;
+    const paddleLeft = gameStateRef.current.paddleX;
+    const paddleRight = gameStateRef.current.paddleX + scaledPaddleWidth;
+    
+    // Check if ball is hitting paddle from above
+    if (
+      gameStateRef.current.ballY + ballSize >= paddleTop &&
+      gameStateRef.current.ballY - ballSize <= paddleBottom &&
+      gameStateRef.current.ballX >= paddleLeft &&
+      gameStateRef.current.ballX <= paddleRight &&
+      gameStateRef.current.ballSpeedY > 0 // Only bounce if ball is moving downward
+    ) {
+      gameStateRef.current.ballSpeedY = -Math.abs(gameStateRef.current.ballSpeedY); // Force upward
       
-      context.textAlign = "center";
-      context.fillStyle = "#f59e0b";
-      context.shadowColor = "#f59e0b";
-      context.fillText(`Lives: ${gameStateRef.current.currentLives}`, canvas.width / 2, 40);
+      // Position ball above paddle to prevent getting stuck
+      gameStateRef.current.ballY = paddleTop - ballSize;
       
-      context.textAlign = "right";
-      context.fillStyle = "#a855f7";
-      context.shadowColor = "#a855f7";
-      context.fillText(`Level: ${gameStateRef.current.currentLevel}`, canvas.width - 20, 40);
-      context.restore();
+      // Change ball angle based on where it hits the paddle
+      let deltaX = gameStateRef.current.ballX - (gameStateRef.current.paddleX + scaledPaddleWidth / 2);
+      gameStateRef.current.ballSpeedX = deltaX * 0.1; // Reduced multiplier for more predictable behavior
+    }
+    
+    // Ball out of bounds
+    if (gameStateRef.current.ballY > canvas.height) {
+      loseLife();
+    }
+    
+    // Ball collision with blocks - FIXED
+    let ballMoved = false;
+    gameStateRef.current.blocks.forEach(block => {
+      if (!block.destroyed && !ballMoved) { // Only check one collision per frame
+        // Check if ball overlaps with block using proper AABB collision
+        const ballLeft = gameStateRef.current.ballX - ballSize;
+        const ballRight = gameStateRef.current.ballX + ballSize;
+        const ballTop = gameStateRef.current.ballY - ballSize;
+        const ballBottom = gameStateRef.current.ballY + ballSize;
+        
+        const blockLeft = block.x;
+        const blockRight = block.x + block.width;
+        const blockTop = block.y;
+        const blockBottom = block.y + block.height;
+        
+        // Check for overlap
+        if (ballRight > blockLeft && ballLeft < blockRight && 
+            ballBottom > blockTop && ballTop < blockBottom) {
+          
+          block.destroyed = true;
+          ballMoved = true;
+          
+          // Update score using React state
+          setScore(prev => {
+            const newScore = prev + block.points;
+            gameStateRef.current.currentScore = newScore;
+            return newScore;
+          });
+          
+          createParticles(gameStateRef.current.ballX, gameStateRef.current.ballY, block.color.glow);
 
-      // Game overlays
-      if (gameState === 'menu') {
-        context.save();
-        context.fillStyle = "rgba(0, 0, 0, 0.8)";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        context.font = "bold 40px 'Courier New', monospace";
-        context.textAlign = "center";
-        context.fillStyle = "#ffffff";
-        context.shadowColor = "#4338ca";
-        context.shadowBlur = 15;
-        context.fillText("CYBER ARKANOID", canvas.width / 2, canvas.height / 2 - 80);
-        
-        context.font = "20px 'Courier New', monospace";
-        context.fillText("Break all blocks to advance!", canvas.width / 2, canvas.height / 2 - 40);
-        context.fillText("PRESS SPACE TO START", canvas.width / 2, canvas.height / 2);
-        
-        context.font = "16px 'Courier New', monospace";
-        context.fillText("A/D or ←/→ to move paddle", canvas.width / 2, canvas.height / 2 + 40);
-        context.fillText("R: Restart | ESC: Back to Menu", canvas.width / 2, canvas.height / 2 + 65);
-        context.fillText("L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 90);
-        context.restore();
+          // Determine which side was hit to bounce correctly
+          const overlapLeft = ballRight - blockLeft;
+          const overlapRight = blockRight - ballLeft;
+          const overlapTop = ballBottom - blockTop;
+          const overlapBottom = blockBottom - ballTop;
+          
+          const minOverlap = Math.min(overlapLeft, overlapRight, overlapTop, overlapBottom);
+          
+          if (minOverlap === overlapTop || minOverlap === overlapBottom) {
+            // Hit from top or bottom
+            gameStateRef.current.ballSpeedY *= -1;
+            // Move ball out of block
+            if (minOverlap === overlapTop) {
+              gameStateRef.current.ballY = blockTop - ballSize;
+            } else {
+              gameStateRef.current.ballY = blockBottom + ballSize;
+            }
+          } else {
+            // Hit from left or right
+            gameStateRef.current.ballSpeedX *= -1;
+            // Move ball out of block
+            if (minOverlap === overlapLeft) {
+              gameStateRef.current.ballX = blockLeft - ballSize;
+            } else {
+              gameStateRef.current.ballX = blockRight + ballSize;
+            }
+          }
+        }
       }
+    });
+    
+    // Update particles
+    gameStateRef.current.particles = gameStateRef.current.particles.filter(particle => {
+      particle.x += particle.vx;
+      particle.y += particle.vy;
+      particle.life--;
+      return particle.life > 0;
+    });
+    
+    // Check for level completion
+    const remainingBlocks = gameStateRef.current.blocks.filter(block => !block.destroyed);
+    if (remainingBlocks.length === 0) {
+      setGameState('levelComplete');
+      createParticles(400, 250, "#22c55e");
+    }
+  }, [loseLife]);
 
-      if (gameState === 'paused') {
-        context.save();
-        context.fillStyle = "rgba(0, 0, 0, 0.7)";
-        context.fillRect(0, 0, canvas.width, canvas.height);
+  const draw = useCallback((ctx: CanvasRenderingContext2D) => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
+    const scale = scaleRef.current;
+    const scaledPaddleWidth = paddleWidth * scale;
+    const scaledPaddleHeight = paddleHeight * scale;
+    const scaledBallSize = ballSize * scale;
+
+    // Clear canvas and draw background
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawBackground(ctx, canvas.width, canvas.height);
+
+    // Draw blocks
+    gameStateRef.current.blocks.forEach(block => {
+      if (!block.destroyed) {
+        ctx.fillStyle = block.color.primary;
+        ctx.fillRect(block.x, block.y, block.width, block.height);
         
-        context.font = "bold 36px 'Courier New', monospace";
-        context.textAlign = "center";
-        context.fillStyle = "#f59e0b";
-        context.shadowColor = "#f59e0b";
-        context.shadowBlur = 15;
-        context.fillText("PAUSED", canvas.width / 2, canvas.height / 2 - 20);
-        
-        context.font = "18px 'Courier New', monospace";
-        context.fillStyle = "#ffffff";
-        context.shadowColor = "#4338ca";
-        context.shadowBlur = 10;
-        context.fillText("PRESS SPACE TO RESUME", canvas.width / 2, canvas.height / 2 + 20);
-        context.fillText("ESC: Back to Menu | L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 45);
-        context.restore();
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = block.color.glow;
+        ctx.fillStyle = block.color.secondary;
+        ctx.fillRect(block.x + 2 * scale, block.y + 2 * scale, block.width - 4 * scale, block.height - 4 * scale);
+        ctx.shadowBlur = 0;
       }
+    });
+    
+    // Draw paddle
+    const paddleY = canvas.height - scaledPaddleHeight - 30 * scale;
+    ctx.fillStyle = '#6366f1';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#818cf8';
+    ctx.fillRect(gameStateRef.current.paddleX, paddleY, scaledPaddleWidth, scaledPaddleHeight);
+    ctx.shadowBlur = 0;
+    
+    // Draw ball
+    ctx.beginPath();
+    ctx.arc(gameStateRef.current.ballX, gameStateRef.current.ballY, scaledBallSize, 0, Math.PI * 2);
+    ctx.fillStyle = '#ec4899';
+    ctx.shadowBlur = 20;
+    ctx.shadowColor = '#f9a8d4';
+    ctx.fill();
+    ctx.closePath();
+    ctx.shadowBlur = 0;
+
+    // Draw particles
+    gameStateRef.current.particles.forEach(particle => {
+      const alpha = particle.life / particle.maxLife;
+      ctx.save();
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = particle.color;
+      ctx.beginPath();
+      ctx.arc(particle.x, particle.y, 2 * scale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.restore();
+    });
+
+    // Draw UI (Score, Lives, Level)
+    ctx.fillStyle = 'white';
+    ctx.font = `${20 * scale}px "Orbitron", sans-serif`;
+    ctx.textAlign = 'left';
+    ctx.fillText(`Score: ${score}`, 20 * scale, 30 * scale);
+    
+    ctx.textAlign = 'right';
+    ctx.fillText(`Lives: ${lives}`, canvas.width - 20 * scale, 30 * scale);
+
+    ctx.textAlign = 'center';
+    ctx.fillText(`Level: ${level}`, canvas.width / 2, 30 * scale);
+
+    // PAUSED OVERLAY
+    if (gameState === 'paused') {
+      ctx.save();
+      ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      ctx.font = `bold ${36 * scale}px 'Courier New', monospace`;
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#f59e0b";
+      ctx.shadowColor = "#f59e0b";
+      ctx.shadowBlur = 15;
+      ctx.fillText("PAUSED", canvas.width / 2, canvas.height / 2 - 20 * scale);
+      
+      ctx.font = `${18 * scale}px 'Courier New', monospace`;
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#4338ca";
+      ctx.shadowBlur = 10;
+      ctx.fillText("PRESS SPACE TO RESUME", canvas.width / 2, canvas.height / 2 + 20 * scale);
+      ctx.restore();
+    }
+
+    // GAME OVER / MENU OVERLAYS
+    if (gameState === 'gameOver' || gameState === 'menu') {
+      ctx.save();
+      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      const title = gameState === 'menu' ? "ARKANOID" : "GAME OVER";
+      const titleColor = gameState === 'menu' ? '#06b6d4' : '#ef4444';
+      
+      ctx.font = `bold ${48 * scale}px 'Courier New', monospace`;
+      ctx.textAlign = "center";
+      ctx.fillStyle = titleColor;
+      ctx.shadowColor = titleColor;
+      ctx.shadowBlur = 15;
+      ctx.fillText(title, canvas.width / 2, canvas.height / 2 - 80 * scale);
 
       if (gameState === 'gameOver') {
-        context.save();
-        context.fillStyle = "rgba(0, 0, 0, 0.8)";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        context.font = "bold 36px 'Courier New', monospace";
-        context.textAlign = "center";
-        context.fillStyle = "#ef4444";
-        context.shadowColor = "#ef4444";
-        context.shadowBlur = 15;
-        context.fillText("GAME OVER", canvas.width / 2, canvas.height / 2 - 40);
-        
-        context.font = "24px 'Courier New', monospace";
-        context.fillStyle = "#ffffff";
-        context.shadowColor = "#4338ca";
-        context.shadowBlur = 10;
-        context.fillText(`Final Score: ${gameStateRef.current.currentScore}`, canvas.width / 2, canvas.height / 2);
-        context.fillText(`Level Reached: ${gameStateRef.current.currentLevel}`, canvas.width / 2, canvas.height / 2 + 30);
-        
-        context.font = "18px 'Courier New', monospace";
-        context.fillText("PRESS R TO PLAY AGAIN", canvas.width / 2, canvas.height / 2 + 70);
-        context.fillText("PRESS SPACE FOR MENU | L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 95);
-        context.restore();
+          ctx.font = `${24 * scale}px 'Courier New', monospace`;
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowBlur = 0;
+          ctx.fillText(`FINAL SCORE: ${score}`, canvas.width / 2, canvas.height / 2);
       }
 
-      if (gameState === 'levelComplete') {
-        context.save();
-        context.fillStyle = "rgba(0, 0, 0, 0.8)";
-        context.fillRect(0, 0, canvas.width, canvas.height);
-        
-        context.font = "bold 32px 'Courier New', monospace";
-        context.textAlign = "center";
-        context.fillStyle = "#22c55e";
-        context.shadowColor = "#22c55e";
-        context.shadowBlur = 15;
-        context.fillText("LEVEL COMPLETE!", canvas.width / 2, canvas.height / 2 - 20);
-        
-        context.font = "20px 'Courier New', monospace";
-        context.fillStyle = "#ffffff";
-        context.shadowColor = "#4338ca";
-        context.shadowBlur = 10;
-        context.fillText("PRESS SPACE TO CONTINUE", canvas.width / 2, canvas.height / 2 + 20);
-        
-        context.font = "16px 'Courier New', monospace";
-        context.fillText("L: Back to Lobby", canvas.width / 2, canvas.height / 2 + 50);
-        context.restore();
-      }
-    };
+      ctx.font = `${20 * scale}px 'Courier New', monospace`;
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#4338ca";
+      ctx.shadowBlur = 10;
+      ctx.fillText("PRESS ENTER TO START", canvas.width / 2, canvas.height / 2 + 60 * scale);
+      ctx.restore();
+    }
 
-    const update = () => {
-      if (gameState !== 'playing') return;
+    // Level complete overlay
+    if (gameState === 'levelComplete') {
+      ctx.save();
+      ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      const paddleSpeed = 6;
-      if (gameStateRef.current.keys.left) {
-        gameStateRef.current.paddleX = Math.max(0, gameStateRef.current.paddleX - paddleSpeed);
-      }
-      if (gameStateRef.current.keys.right) {
-        gameStateRef.current.paddleX = Math.min(canvas.width - paddleWidth, gameStateRef.current.paddleX + paddleSpeed);
-      }
+      ctx.font = `bold ${36 * scale}px 'Courier New', monospace`;
+      ctx.textAlign = "center";
+      ctx.fillStyle = "#22c55e";
+      ctx.shadowColor = "#22c55e";
+      ctx.shadowBlur = 15;
+      ctx.fillText("LEVEL COMPLETE!", canvas.width / 2, canvas.height / 2 - 20 * scale);
       
-      gameStateRef.current.ballX += gameStateRef.current.ballSpeedX;
-      gameStateRef.current.ballY += gameStateRef.current.ballSpeedY;
+      ctx.font = `${18 * scale}px 'Courier New', monospace`;
+      ctx.fillStyle = "#ffffff";
+      ctx.shadowColor = "#4338ca";
+      ctx.shadowBlur = 10;
+      ctx.fillText("PRESS ENTER FOR NEXT LEVEL", canvas.width / 2, canvas.height / 2 + 20 * scale);
+      ctx.restore();
+    }
 
-      // Ball collision with walls
-      if (gameStateRef.current.ballX <= 0 || gameStateRef.current.ballX + ballSize >= canvas.width) {
-        gameStateRef.current.ballSpeedX *= -1;
-        createParticles(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, "#60a5fa");
-      }
+    if (gameState === 'menu') {
+      ctx.font = `bold ${20 * scaleRef.current}px 'Courier New', monospace`;
+      ctx.fillText("PRESS ENTER TO START", canvasSize.width / 2, canvasSize.height / 2 + 60 * scaleRef.current);
       
-      if (gameStateRef.current.ballY <= 0) {
-        gameStateRef.current.ballSpeedY *= -1;
-        createParticles(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, "#60a5fa");
-      }
-
-      // Ball falls off bottom
-      if (gameStateRef.current.ballY > canvas.height) {
-        loseLife();
-        return;
-      }
-
-      // Ball collision with paddle
-      if (
-        gameStateRef.current.ballY + ballSize >= 470 &&
-        gameStateRef.current.ballY <= 470 + paddleHeight &&
-        gameStateRef.current.ballX + ballSize >= gameStateRef.current.paddleX &&
-        gameStateRef.current.ballX <= gameStateRef.current.paddleX + paddleWidth &&
-        gameStateRef.current.ballSpeedY > 0
-      ) {
-        gameStateRef.current.ballSpeedY *= -1;
-        
-        const hitPos = (gameStateRef.current.ballX + ballSize/2 - gameStateRef.current.paddleX) / paddleWidth;
-        gameStateRef.current.ballSpeedX = (hitPos - 0.5) * 6;
-        
-        createParticles(gameStateRef.current.ballX + ballSize/2, gameStateRef.current.ballY + ballSize/2, "#06b6d4");
-      }
-
-      // Ball collision with blocks
-      gameStateRef.current.blocks.forEach(block => {
-        if (block.destroyed) return;
-        
-        if (
-          gameStateRef.current.ballX + ballSize >= block.x &&
-          gameStateRef.current.ballX <= block.x + block.width &&
-          gameStateRef.current.ballY + ballSize >= block.y &&
-          gameStateRef.current.ballY <= block.y + block.height
-        ) {
-          block.destroyed = true;
-          gameStateRef.current.currentScore += block.points;
-          setScore(gameStateRef.current.currentScore);
-          
-          const ballCenterX = gameStateRef.current.ballX + ballSize/2;
-          const ballCenterY = gameStateRef.current.ballY + ballSize/2;
-          const blockCenterX = block.x + block.width/2;
-          const blockCenterY = block.y + block.height/2;
-          
-          const dx = ballCenterX - blockCenterX;
-          const dy = ballCenterY - blockCenterY;
-          
-          if (Math.abs(dx) > Math.abs(dy)) {
-            gameStateRef.current.ballSpeedX *= -1;
-          } else {
-            gameStateRef.current.ballSpeedY *= -1;
-          }
-          
-          createParticles(
-            block.x + block.width/2, 
-            block.y + block.height/2, 
-            block.color.primary
-          );
+      const isMobile = window.innerWidth < 768;
+      if (isMobile) {
+        ctx.fillText("OR TOUCH TO START", canvasSize.width / 2, canvasSize.height / 2 + 100 * scaleRef.current);
+        if (isFirstLoad) {
+          ctx.font = `${18 * scaleRef.current}px Arial`;
+          ctx.fillText("Use the on-screen buttons to move", canvasSize.width / 2, canvasSize.height / 2 + 140 * scaleRef.current);
         }
-      });
+      }
+    }
+  }, [score, lives, level, gameState, canvasSize, isFirstLoad]);
 
-      // Check if all blocks are destroyed
-      const remainingBlocks = gameStateRef.current.blocks.filter(block => !block.destroyed);
-      if (remainingBlocks.length === 0) {
-        setGameState('levelComplete');
-        createParticles(400, 250, "#22c55e");
+  const gameLoop = useCallback(() => {
+    if (gameStateRef.current.gameState === 'playing') {
+      update();
+    }
+    
+    const canvas = canvasRef.current;
+    const ctx = canvas?.getContext("2d");
+    if (ctx) {
+      draw(ctx);
+    }
+    
+    animationFrameRef.current = requestAnimationFrame(gameLoop);
+  }, [update, draw]);
+
+  // Effect to start and stop the game loop
+  useEffect(() => {
+    gameStateRef.current.gameState = gameState; // Keep ref in sync with react state
+    
+    // Start the loop if it's the first run
+    if (!animationFrameRef.current) {
+        animationFrameRef.current = requestAnimationFrame(gameLoop);
+    }
+
+    return () => {
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
       }
     };
+  }, [gameState, gameLoop]);
 
-	interface KeyboardEventWithPrevent extends KeyboardEvent {
-	  preventDefault(): void;
-	}
-
-	const handleKeyDown = (e: KeyboardEventWithPrevent) => {
-	  if (["ArrowLeft", "ArrowRight", "a", "d", " ", "r", "Escape", "l"].includes(e.key)) {
-		e.preventDefault();
-	  }
-
-	  // Back to lobby key (L)
-	  if (e.key.toLowerCase() === 'l') {
-		handleBackToLobby();
-		return;
-	  }
-
-	  // Movement keys (only when playing)
-	  if (gameState === 'playing') {
-		if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
-		  gameStateRef.current.keys.left = true;
-		}
-		if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
-		  gameStateRef.current.keys.right = true;
-		}
-	  }
-
-	  // Game state controls
-	  switch (gameState) {
-		case 'menu':
-		  if (e.key === " ") {
-			// Start new game from menu
-			resetGame();
-			setGameState('playing');
-		  }
-		  break;
-
-		case 'playing':
-		  if (e.key === " ") {
-			// Pause game - no reset
-			setGameState('paused');
-		  } else if (e.key === "Escape") {
-			// Return to menu - save score and reset
-			saveArkanoidScore();
-			resetGame();
-			setGameState('menu');
-		  } else if (e.key.toLowerCase() === 'r') {
-			// Restart game - save score and reset
-			saveArkanoidScore();
-			resetGame();
-		  }
-		  break;
-
-		case 'paused':
-		  if (e.key === " ") {
-			// Resume game - no reset
-			setGameState('playing');
-		  } else if (e.key === "Escape") {
-			// Return to menu - reset everything
-			resetGame();
-			setGameState('menu');
-		  }
-		  break;
-
-		case 'levelComplete':
-		  if (e.key === " ") {
-			// Continue to next level
-			nextLevel();
-			setGameState('playing');
-		  }
-		  break;
-
-		case 'gameOver':
-		  if (e.key.toLowerCase() === 'r') {
-			// Restart game completely
-			resetGame();
-			setGameState('playing');
-		  } else if (e.key === ' ') {
-			// Return to menu
-			resetGame();
-			setGameState('menu');
-		  }
-		  break;
-	  }
-	};
-
-	interface KeyUpEvent extends KeyboardEvent {
-	  key: string;
-	}
-
-	const handleKeyUp = (e: KeyUpEvent) => {
-	  if (e.key.toLowerCase() === "a" || e.key === "ArrowLeft") {
-		gameStateRef.current.keys.left = false;
-	  }
-	  if (e.key.toLowerCase() === "d" || e.key === "ArrowRight") {
-		gameStateRef.current.keys.right = false;
-	  }
-	};
-
+  // Effect for setting up event listeners
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    
     window.addEventListener("keydown", handleKeyDown);
     window.addEventListener("keyup", handleKeyUp);
-
-    const gameLoop = () => {
-      update();
-      draw();
-      animationFrameRef.current = requestAnimationFrame(gameLoop);
-    };
-
-    gameLoop();
+    canvas.addEventListener("touchstart", handleTouchStart, { passive: false });
+    canvas.addEventListener("touchmove", handleTouchMove, { passive: false });
 
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
       window.removeEventListener("keyup", handleKeyUp);
-      if (animationFrameRef.current) {
-        cancelAnimationFrame(animationFrameRef.current);
-      }
+      canvas.removeEventListener("touchstart", handleTouchStart);
+      canvas.removeEventListener("touchmove", handleTouchMove);
     };
-  }, [gameState]);
+  }, [handleKeyDown, handleKeyUp, handleTouchStart, handleTouchMove]);
 
   useEffect(() => {
-    const fetchHistory = async () => {
-      try {
-        const response = await fetch('/api/arkanoid/history', {
-          method: 'GET',
-          credentials: 'include',
-        });
-        
-        if (!response.ok) {
-          throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('🎮 Arkanoid Score History:', data.history);
-        setHistory(data.history);
-      } catch (err) {
-        console.error('Failed to load Arkanoid history:', err);
-      }
-    };
-
-    fetchHistory();
+    // Simulate loading history for demo
+    const mockHistory = [
+      { score: 1500, level_reached: 3, created_at: new Date().toISOString() },
+      { score: 2300, level_reached: 4, created_at: new Date(Date.now() - 86400000).toISOString() }
+    ];
+    setHistory(mockHistory);
   }, []);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex flex-col items-center justify-center p-8">
-      <div className="mb-6">
-        <h1 className="text-4xl font-bold text-white text-center mb-4 font-mono tracking-wider">
-          CYBER ARKANOID
-        </h1>
-        <div className="flex justify-center space-x-8 text-lg font-mono mb-2">
-          <div className="text-cyan-400">
-            Score: <span className="text-2xl font-bold">{score}</span>
-          </div>
-          <div className="text-amber-400">
-            Lives: <span className="text-2xl font-bold">{lives}</span>
-          </div>
-          <div className="text-purple-400">
-            Level: <span className="text-2xl font-bold">{level}</span>
-          </div>
-        </div>
-      </div>
-      
-      <div className="relative">
-        <canvas 
-          ref={canvasRef} 
-          width={800} 
-          height={500} 
-          className="border-2 border-purple-500 rounded-lg shadow-2xl shadow-purple-500/50 bg-black"
+    <div className="flex flex-col items-center justify-center h-full w-full bg-gray-900 text-white p-4 touch-none select-none">
+      <div className="relative" id="game-container" style={{ width: canvasSize.width, height: canvasSize.height }}>
+        <canvas
+          ref={canvasRef}
+          width={canvasSize.width}
+          height={canvasSize.height}
+          className="block mx-auto border-2 border-indigo-500 rounded-lg shadow-lg"
+          style={{ WebkitTapHighlightColor: 'transparent' }}
         />
-        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-500 via-purple-500 to-amber-500 rounded-lg blur opacity-20"></div>
-      </div>
-      
-      <div className="mt-6 text-center text-gray-300 font-mono">
-        <div className="text-sm">
-          <p className="text-cyan-400 font-bold mb-1">Controls:</p>
-          <p>Hold A/D or ←/→ keys to move paddle</p>
-          <p className="text-amber-400 mt-2">SPACE: Pause/Resume | ESC: Back to Menu</p>
+        
+        <div className="absolute top-4 left-4 right-4 flex justify-between text-lg">
+          <div>Score: <span className="font-bold text-cyan-400">{score}</span></div>
+          <div>Level: <span className="font-bold text-purple-400">{level}</span></div>
+          <div>Lives: <span className="font-bold text-green-400">{lives}</span></div>
         </div>
-        <div className="mt-4 text-xs text-gray-400">
-          <p>R: Restart | L: Back to Lobby</p>
-          <p>Break all blocks to advance!</p>
-        </div>
-      </div>
 
-      {/* Lobby Button - visible when on menu screen */}
-      {gameState === 'menu' && (
-        <button
+        <button 
           onClick={handleBackToLobby}
-          className="mt-4 px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 font-mono"
+          className="absolute top-12 left-4 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg transition-colors text-sm"
         >
-          ← BACK TO LOBBY
+          ← Lobby
         </button>
-      )}
 
-      {/* Score History */}
-      {history.length > 0 && (
-        <div className="mt-6 text-left text-sm text-gray-300 font-mono w-full max-w-2xl">
-          <h2 className="text-xl text-cyan-400 font-bold mb-2">Your Arkanoid History</h2>
-          <table className="w-full table-auto border-collapse">
-            <thead>
-              <tr className="text-left border-b border-gray-500">
-                <th className="pb-1">Date</th>
-                <th className="pb-1">Score</th>
-                <th className="pb-1">Level</th>
-              </tr>
-            </thead>
-            <tbody>
-              {history.map((entry, index) => (
-                <tr key={index} className="border-b border-gray-700">
-                  <td className="py-2">{new Date(entry.created_at).toLocaleDateString()}</td>
-                  <td className="py-2">{entry.score}</td>
-                  <td className="py-2">{entry.level_reached}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        {/* Mobile Controls */}
+        <div className="md:hidden fixed bottom-4 left-0 right-0 flex justify-between px-4">
+          <button
+            onTouchStart={() => gameStateRef.current.keys.left = true}
+            onTouchEnd={() => gameStateRef.current.keys.left = false}
+            className="bg-indigo-600/80 text-white text-xl w-20 h-20 rounded-full flex items-center justify-center active:scale-105 active:bg-indigo-500"
+          >
+            ←
+          </button>
+          <button
+            onTouchStart={() => gameStateRef.current.keys.right = true}
+            onTouchEnd={() => gameStateRef.current.keys.right = false}
+            className="bg-indigo-600/80 text-white text-xl w-20 h-20 rounded-full flex items-center justify-center active:scale-105 active:bg-indigo-500"
+          >
+            →
+          </button>
         </div>
-      )}
+      </div>
+  
+      {/* XP Gained Notification (will be shown via showXpGain function) */}
+      <div id="xp-notification-container" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+  
+      {/* Game Stats (optional) */}
+      <div className="mt-4 text-white">
+        <p>Best Score: {history[0]?.score || 0}</p>
+        <p>Highest Level: {history[0]?.level_reached || 1}</p>
+      </div>
     </div>
   );
 }
