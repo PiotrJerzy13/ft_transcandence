@@ -19,19 +19,75 @@ import authRoutes from './routes/auth.mjs';
 import userRoutes from './routes/user.mjs';
 import tournamentRoutes from './routes/tournament.mjs';
 
+// Import ELK logger
+import { elkLogger } from './utils/elkLogger.js';
+
 dotenv.config();
 
-const app: FastifyInstance = fastify({ logger: true });
+// Enhanced logger configuration
+const loggerConfig = {
+  level: process.env.LOG_LEVEL || 'info',
+  formatters: {
+    log: (object: any) => {
+      // Send logs to ELK in addition to console
+      if (object.msg) {
+        elkLogger[object.level] || elkLogger.info(object.msg, {
+          ...object,
+          pid: process.pid,
+          hostname: process.env.HOSTNAME || 'localhost'
+        }).catch(console.error);
+      }
+      return object;
+    }
+  },
+  serializers: {
+    req: (request: any) => ({
+      method: request.method,
+      url: request.url,
+      hostname: request.hostname,
+      remoteAddress: request.ip,
+      userAgent: request.headers['user-agent']
+    }),
+    res: (reply: any) => ({
+      statusCode: reply.statusCode,
+      responseTime: reply.responseTime
+    })
+  }
+};
+
+const app: FastifyInstance = fastify({ 
+  logger: loggerConfig 
+});
+
+// Add request logging hook
+app.addHook('preHandler', async (request, _reply) => {
+  request.log.info({
+    msg: 'Incoming request',
+    req: request
+  });
+});
+
+app.addHook('onResponse', async (request, reply) => {
+  request.log.info({
+    msg: 'Request completed',
+    req: request,
+    res: reply,
+    responseTime: reply.getResponseTime()
+  });
+});
 
 const start = async () => {
   try {
+    app.log.info('Starting ft_transcendence server...');
+    
     // Initialize database
     await initializeDatabase();
+    app.log.info('Database initialized successfully');
+    
     collectDefaultMetrics();
-    // Register Swagger - pass options as the second parameter
-	// Errors if Swagger is not installed or configured correctly
-	// Only present locally in development environment is correct
-	// To check if installed, run: docker exec -it ft_backend npm ls @fastify/swagger @fastify/swagger-ui
+    app.log.info('Prometheus metrics collection started');
+    
+    // Register Swagger
     await app.register(swagger, {
       openapi: {
         openapi: '3.0.0',
@@ -76,29 +132,69 @@ const start = async () => {
       transformSpecificationClone: true,
     });
     
+    app.log.info('Swagger documentation registered');
+    
     // Register plugins
     await app.register(cors, {
       origin: true,
       credentials: true,
     });
-	await app.register(pongRoutes, { prefix: '/api/pong' });
-	await app.register(arkanoidRoutes, { prefix: '/api/arkanoid' });
+    await app.register(pongRoutes, { prefix: '/api/pong' });
+    await app.register(arkanoidRoutes, { prefix: '/api/arkanoid' });
     await app.register(leaderboardRoutes, { prefix: '/api' });
     await app.register(cookie);
+    
+    app.log.info('Plugins registered successfully');
     
     // Register routes
     await app.register(indexRoutes);
     await app.register(authRoutes, { prefix: '/api/auth' });
     await app.register(userRoutes, { prefix: '/api/user' });
     await app.register(tournamentRoutes, { prefix: '/api' });
-	// Prometheus metrics endpoint
-	app.get('/metrics', async (_request, reply) => {
-	reply.header('Content-Type', register.contentType);
-	reply.send(await register.metrics());
-	});
+    
+    app.log.info('Routes registered successfully');
+    
+    // Prometheus metrics endpoint
+    app.get('/metrics', async (_request, reply) => {
+      reply.header('Content-Type', register.contentType);
+      reply.send(await register.metrics());
+    });
+
+    // Health check endpoint
+    app.get('/health', async (_request, reply) => {
+      app.log.info('Health check requested');
+      reply.send({ 
+        status: 'healthy', 
+        timestamp: new Date().toISOString(),
+        service: 'ft_transcendence'
+      });
+    });
+    
+    // Error handler with ELK logging
+    app.setErrorHandler(async (error, request, reply) => {
+      app.log.error({
+        msg: 'Unhandled error',
+        error: {
+          message: error.message,
+          stack: error.stack,
+          statusCode: error.statusCode || 500
+        },
+        req: request
+      });
+      
+      reply.status(error.statusCode || 500).send({
+        error: 'Internal Server Error',
+        message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+      });
+    });
+    
     // Graceful shutdown
     const closeGracefully = async (signal: NodeJS.Signals) => {
       app.log.info(`Received signal to terminate: ${signal}`);
+      
+      elkLogger.info('Server shutting down gracefully', { signal }).catch(err => {
+        app.log.warn('Failed to send shutdown log to ELK:', err);
+      });
     
       await app.close();
       app.log.info('Fastify server closed');
@@ -113,7 +209,10 @@ const start = async () => {
     process.on('SIGTERM', closeGracefully);
 
     app.ready(err => {
-      if (err) throw err;
+      if (err) {
+        app.log.error('Error during server startup', err);
+        throw err;
+      }
       app.printRoutes(); // Debug: logs all registered routes to console
     });
     
@@ -122,10 +221,23 @@ const start = async () => {
       port: Number(process.env.PORT) || 3000, 
       host: '0.0.0.0' 
     });
-    console.log(`Server running on port ${Number(process.env.PORT) || 3000}`);
-    console.log(`Swagger documentation available at http://localhost:${Number(process.env.PORT) || 3000}/documentation`);
+    
+    const port = Number(process.env.PORT) || 3000;
+    app.log.info(`Server running on port ${port}`);
+    app.log.info(`Swagger documentation available at http://localhost:${port}/documentation`);
+    
+    // Send startup log to ELK
+    elkLogger.info('ft_transcendence server started successfully', {
+      port,
+      nodeEnv: process.env.NODE_ENV || 'development',
+      pid: process.pid
+    }).catch(err => {
+      app.log.warn('Failed to send startup log to ELK:', err);
+    });
+    
   } catch (err) {
-    app.log.error(err);
+    app.log.error('Server startup failed', err);
+    await elkLogger.error('Server startup failed', { error: err });
     await closeDatabase();
     process.exit(1);
   }

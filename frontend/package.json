@@ -10,8 +10,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@fastify/swagger": "^9.5.1",
-    "@fastify/swagger-ui": "^5.2.3",
     "bcrypt": "^6.0.0",
     "lucide-react": "^0.511.0",
     "react": "^19.1.0",
