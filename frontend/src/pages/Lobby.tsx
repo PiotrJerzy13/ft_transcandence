@@ -335,13 +335,13 @@ const handleGameModeSelect = (mode: GameMode['mode']): void => {
     ((playerStats.xp % 1000) / 1000) * 100 : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 sm:p-6">
       <div className="max-w-7xl mx-auto">
         
         {/* Header */}
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-4xl font-bold text-white font-mono tracking-wider mb-2">
+            <h1 className="text-3xl sm:text-4xl font-bold text-white font-mono tracking-wider mb-2">
               CYBER PONG ARENA
             </h1>
             <p className="text-gray-300">Choose your battle, champion</p>
@@ -359,7 +359,7 @@ const handleGameModeSelect = (mode: GameMode['mode']): void => {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
           
           {/* Game Mode Selection */}
           <div className="lg:col-span-2 space-y-6">
@@ -431,7 +431,7 @@ const handleGameModeSelect = (mode: GameMode['mode']): void => {
               </div>
 
               {/* Game Stats Section */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mt-8">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8 mt-6 md:mt-8">
                 {/* Arkanoid Stats */}
                 <div className="bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
                   <h3 className="text-xl font-bold text-white mb-4 flex items-center">
@@ -452,6 +452,7 @@ const handleGameModeSelect = (mode: GameMode['mode']): void => {
                     <div className="mt-4">
                       <h4 className="text-sm font-semibold text-gray-300 mb-2">Recent Scores</h4>
                       <div className="bg-black/20 rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="bg-purple-900/20">
@@ -472,6 +473,7 @@ const handleGameModeSelect = (mode: GameMode['mode']): void => {
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -497,6 +499,7 @@ const handleGameModeSelect = (mode: GameMode['mode']): void => {
                     <div className="mt-4">
                       <h4 className="text-sm font-semibold text-gray-300 mb-2">Recent Games</h4>
                       <div className="bg-black/20 rounded-lg overflow-hidden">
+                        <div className="overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead>
                             <tr className="bg-purple-900/20">
@@ -533,6 +536,7 @@ const handleGameModeSelect = (mode: GameMode['mode']): void => {
                             ))}
                           </tbody>
                         </table>
+                        </div>
                       </div>
                     </div>
                   )}

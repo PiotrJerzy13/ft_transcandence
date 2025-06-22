@@ -46,7 +46,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
       {/* Animated Background & Grid */}
       <div className="absolute inset-0 overflow-hidden opacity-20">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500 rounded-full blur-xl animate-pulse"></div>
@@ -58,7 +58,7 @@ export default function Login() {
       {/* Login Form */}
       <div className="relative z-10 w-full max-w-md">
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white font-mono tracking-wider mb-2 drop-shadow-2xl">
+          <h1 className="text-4xl sm:text-5xl font-bold text-white font-mono tracking-wider mb-2 drop-shadow-2xl">
             <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-amber-400 bg-clip-text text-transparent animate-pulse">
               CYBER PONG
             </span>
@@ -69,7 +69,7 @@ export default function Login() {
           </div> */}
         </div>
 
-        <div className="relative bg-black/80 backdrop-blur-sm border-2 border-cyan-500/50 p-8 rounded-lg shadow-2xl shadow-cyan-500/25">
+        <div className="relative bg-black/80 backdrop-blur-sm border-2 border-cyan-500/50 p-6 sm:p-8 rounded-lg shadow-2xl shadow-cyan-500/25">
           {error && (
             <div className="mb-6 p-3 bg-red-900/50 border border-red-500/50 rounded-lg">
               <p className="text-sm text-red-300 text-center font-mono">&gt; ERROR: {error} &lt;</p>

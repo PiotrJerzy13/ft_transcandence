@@ -72,7 +72,7 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-4">
+    <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
       {/* Cyber Grid Background */}
       <div className="absolute inset-0 opacity-20">
         <div className="absolute inset-0" style={{
@@ -125,7 +125,7 @@ export default function Register() {
       <div className="relative z-10 w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-8">
-          <h1 className="text-5xl font-bold text-white font-mono tracking-wider mb-2 drop-shadow-2xl">
+          <h1 className="text-4xl sm:text-5xl font-bold text-white font-mono tracking-wider mb-2 drop-shadow-2xl">
             <span className="bg-gradient-to-r from-cyan-400 via-purple-400 to-amber-400 bg-clip-text text-transparent animate-pulse">
               CYBER PONG
             </span>
@@ -140,9 +140,9 @@ export default function Register() {
           
           <form
             onSubmit={handleSubmit}
-            className="relative bg-black/80 backdrop-blur-sm border-2 border-cyan-500/50 p-8 rounded-lg shadow-2xl shadow-cyan-500/25 before:absolute before:inset-0 before:bg-gradient-to-br before:from-cyan-500/10 before:to-purple-500/10 before:rounded-lg before:-z-10"
+            className="relative bg-black/80 backdrop-blur-sm border-2 border-cyan-500/50 p-6 sm:p-8 rounded-lg shadow-2xl shadow-cyan-500/25 before:absolute before:inset-0 before:bg-gradient-to-br before:from-cyan-500/10 before:to-purple-500/10 before:rounded-lg before:-z-10"
           >
-            <h2 className="text-3xl font-bold mb-8 text-center font-mono tracking-wide">
+            <h2 className="text-2xl sm:text-3xl font-bold mb-8 text-center font-mono tracking-wide">
               <span className="bg-gradient-to-r from-cyan-400 to-purple-400 bg-clip-text text-transparent">
                 REGISTER USER
               </span>

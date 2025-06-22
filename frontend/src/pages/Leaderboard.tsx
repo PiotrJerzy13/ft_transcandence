@@ -69,38 +69,40 @@ export default function Leaderboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8 text-white">
-      <h1 className="text-3xl font-bold mb-6">🏆 Leaderboard</h1>
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 sm:p-8 text-white">
+      <h1 className="text-2xl sm:text-3xl font-bold mb-6">🏆 Leaderboard</h1>
 
       {leaderboard.length > 0 ? (
         <div className="bg-black/50 rounded-xl p-6 mt-6 border border-purple-500/30">
           <h2 className="text-xl font-bold text-white mb-4">Top Players</h2>
-          <table className="w-full text-sm text-gray-300">
-            <thead className="text-left border-b border-gray-500">
-              <tr>
-                <th className="py-2">#</th>
-                <th className="py-2">Player</th>
-                <th className="py-2">Level</th>
-                <th className="py-2">Rank</th>
-                <th className="py-2">XP</th>
-                <th className="py-2">Win Rate</th>
-                <th className="py-2">Best Streak</th>
-              </tr>
-            </thead>
-            <tbody>
-              {leaderboard.map((player, idx) => (
-                <tr key={player.id} className="border-b border-gray-700">
-                  <td className="py-2">{idx + 1}</td>
-                  <td className="py-2 text-cyan-300 font-mono">{player.username}</td>
-                  <td className="py-2">{player.level}</td>
-                  <td className="py-2">{player.rank}</td>
-                  <td className="py-2">{player.xp}</td>
-                  <td className="py-2">{typeof player.win_rate === 'number' ? player.win_rate.toFixed(1) : '0.0'}%</td>
-                  <td className="py-2">{player.best_streak}</td>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm text-gray-300">
+              <thead className="text-left border-b border-gray-500">
+                <tr>
+                  <th className="py-2 px-2">#</th>
+                  <th className="py-2 px-2">Player</th>
+                  <th className="py-2 px-2">Level</th>
+                  <th className="py-2 px-2">Rank</th>
+                  <th className="py-2 px-2">XP</th>
+                  <th className="py-2 px-2">Win Rate</th>
+                  <th className="py-2 px-2">Best Streak</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {leaderboard.map((player, idx) => (
+                  <tr key={player.id} className="border-b border-gray-700">
+                    <td className="py-2 px-2">{idx + 1}</td>
+                    <td className="py-2 px-2 text-cyan-300 font-mono">{player.username}</td>
+                    <td className="py-2 px-2">{player.level}</td>
+                    <td className="py-2 px-2">{player.rank}</td>
+                    <td className="py-2 px-2">{player.xp}</td>
+                    <td className="py-2 px-2">{typeof player.win_rate === 'number' ? player.win_rate.toFixed(1) : '0.0'}%</td>
+                    <td className="py-2 px-2">{player.best_streak}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <p className="text-gray-400 mt-4">No leaderboard data available.</p>
