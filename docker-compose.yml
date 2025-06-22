@@ -26,7 +26,6 @@ services:
     networks:
       - app_network
       - elk_network
-    # user: "1000:1000"
     deploy:
       resources:
         limits:
@@ -56,7 +55,6 @@ services:
           memory: 256M
           cpus: '0.3'
 
-  # ELK Stack Services - Modified to fix startup issues
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
     container_name: elasticsearch
@@ -162,9 +160,6 @@ services:
         condition: service_healthy
     networks:
         - elk_network
-
-# Other services remain the same as in your original file...
-# [Previous definitions for sqlite-web, prometheus, grafana, security_monitor]
   sqlite-web:
     image: coleifer/sqlite-web
     platform: linux/amd64
@@ -206,17 +201,6 @@ services:
       - app_network
       - elk_network
 
-  # security_monitor:
-  #   image: security-monitor
-  #   container_name: security_monitor
-  #   ports:
-  #     - "8087:8080"
-  #   volumes:
-  #     - ./monitoring/security_monitor.yml:/app/config.yml
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - monitoring_network
 volumes:
   grafana_data:
     driver: local
