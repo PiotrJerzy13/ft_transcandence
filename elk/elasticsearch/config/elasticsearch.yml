@@ -1,0 +1,50 @@
+# Elasticsearch configuration
+cluster.name: elk-cluster
+node.name: elasticsearch
+
+# Network settings
+network.host: 0.0.0.0
+http.port: 9200
+
+# Security settings
+xpack.security.enabled: true
+xpack.security.enrollment.enabled: false
+xpack.security.http.ssl.enabled: false
+xpack.security.transport.ssl.enabled: false
+
+# Memory settings
+bootstrap.memory_lock: true
+
+# Discovery settings
+discovery.type: single-node
+
+# Path settings
+path.data: /usr/share/elasticsearch/data
+path.logs: /usr/share/elasticsearch/logs
+
+# Monitoring
+xpack.monitoring.enabled: true
+xpack.monitoring.elasticsearch.hosts: ["http://elasticsearch:9200"]
+xpack.monitoring.elasticsearch.username: "logstash_system"
+xpack.monitoring.elasticsearch.password: "${LOGSTASH_PASSWORD}"
+
+# Pipeline settings
+path.config: /usr/share/logstash/pipeline
+pipeline.workers: 2
+pipeline.batch.size: 125
+pipeline.batch.delay: 50
+pipeline.unsafe_shutdown: false
+
+# Queue settings for reliability
+queue.type: persisted
+path.queue: /usr/share/logstash/data/queue
+queue.max_events: 0
+queue.max_bytes: 1gb
+
+# Security
+api.http.host: "0.0.0.0"
+api.http.port: 9600
+api.ssl.enabled: false
+api.auth.type: basic
+api.auth.basic.username: "logstash"
+api.auth.basic.password: "${LOGSTASH_PASSWORD}"

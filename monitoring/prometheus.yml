@@ -1,7 +1,21 @@
 global:
-  scrape_interval: 10s
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: 'elk-monitor'
+
+rule_files:
+  # Add alerting rules here
 
 scrape_configs:
-  - job_name: 'ft_backend'
+  - job_name: 'prometheus'
     static_configs:
-      - targets: ['ft_backend:3000']
+      - targets: ['localhost:9090']
+    scrape_interval: 30s
+    
+  - job_name: 'backend'
+    static_configs:
+      - targets: ['backend:3000']
+    metrics_path: '/metrics'
+    scrape_interval: 30s
+    scrape_timeout: 10s 
