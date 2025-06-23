@@ -1,0 +1,20 @@
+groups:
+  - name: backend_alerts
+    rules:
+      - alert: BackendDown
+        expr: up{job="backend"} == 0
+        for: 30s
+        labels:
+          severity: critical
+        annotations:
+          summary: "Backend is down"
+          description: "The backend service has not responded for 30 seconds."
+
+      - alert: HighMemoryUsage
+        expr: process_resident_memory_bytes{job="backend"} > 400000000
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High memory usage"
+          description: "Backend memory usage exceeded 400MB for 1 minute."

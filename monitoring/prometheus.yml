@@ -5,7 +5,7 @@ global:
     monitor: 'elk-monitor'
 
 rule_files:
-  # Add alerting rules here
+  - alerts.yml
 
 scrape_configs:
   - job_name: 'prometheus'
