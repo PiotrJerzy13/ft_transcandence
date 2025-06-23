@@ -7,8 +7,8 @@ interface ArkanoidProps {
 export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [score, setScore] = useState(0);
-  const [_xp, setXp] = useState(0);
-  const [xpEarned, setXpEarned] = useState(0);
+  const [_xp, _setXp] = useState(0);
+  const [_xpEarned, setXpEarned] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver', 'levelComplete'
@@ -24,11 +24,6 @@ export default function Arkanoid({ onNavigateToLobby }: ArkanoidProps) {
   const paddleWidth = 120;
   const paddleHeight = 15;
   const ballSize = 12;
-  const blockWidth = 75;
-  const blockHeight = 25;
-  const blockRows = 6;
-  const blockCols = 10;
-  const blockPadding = 5;
   
   // Particle and Block types
   type Particle = {
@@ -120,9 +115,6 @@ const drawBackground = (ctx: CanvasRenderingContext2D, width: number, height: nu
 	ctx.restore();
 };
 
-interface CreateParticlesFn {
-	(x: number, y: number, color?: string): void;
-}
 
 const createParticles = useCallback((x: number, y: number, color: string) => {
   const isMobile = window.innerWidth < 768;

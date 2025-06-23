@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { Trophy } from "lucide-react";
 
 interface Particle {
   x: number;
@@ -11,9 +10,6 @@ interface Particle {
   color: string;
 }
 
-interface KeyboardEventWithPrevent extends KeyboardEvent {
-  preventDefault(): void;
-}
 
 const WINNING_SCORE = 5;
 
