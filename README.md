@@ -27,14 +27,14 @@ A Dockerized single-page web platform for playing real-time Pong, built with **R
 | Google Auth                               | ❌ Not implemented|
 | 2FA                                       | ❌ Not implemented|
 | WAF / Vault / Log infra / Monitoring      | ❌ Not implemented|
-| Responsive design / mobile support        | ❌ Not implemented|
+| Responsive design / mobile support        | ✅ Implemented 
 | Frontend framework (Tailwind)             | ⚠️ Partial         |
 
 ---
 
 ## 🧩 Modules Summary
 
-You need **7 major modules** for full credit. Current estimated count: **3.0 majors**
+You need **7 major modules** for full credit. Current estimated count: **5.0 majors**
 
 | Category             | Module                                 | Status        | Points |
 |----------------------|----------------------------------------|---------------|--------|
@@ -45,10 +45,10 @@ You need **7 major modules** for full credit. Current estimated count: **3.0 maj
 | ⚠️ AI-Algo           | AI Opponent                            | Basic         | ~0.5   |
 | ⚠️ User Management   | Standard user management               | Partial       | ~0.5   |
 | ✅ Prometheus + Grafa| Monitoring                             | Done          | 0,5    |
-| ❌ Remote Players    | Play from two devices                  | Missing       | 0      |
+| ✅ WEB               | Responsive design Mobile               | Done          | 1      |
 | ❌ Security          | WAF / Vault                            | Missing       | 0      |
 | ❌ Cybersecurity     | 2FA                                    | Missing       | 0      |
-| ❌ Graphics          | 3D with Babylon.js                     | Missing       | 0      |
+| ✅ Web               | ELK                                    | Done          | 1      |
 
 > **💡 To reach 100%**, prioritize:  
 > – Tournament logic  
@@ -89,17 +89,19 @@ You need **7 major modules** for full credit. Current estimated count: **3.0 maj
 - ❌ HTTPS / WSS
 - ❌ 2FA setup
 - ❌ Live chat with invites/block
-- ❌ Responsive/mobile support
 - ❌ Server-side rendering or multi-language
 
----
-| Service    | URL / Port                                     | Description                             |
-| ---------- | ---------------------------------------------- | --------------------------------------- |
-| Frontend   | [http://localhost:5173](http://localhost:5173) | React SPA (dev server)                  |
-| Backend    | [http://localhost:3000](http://localhost:3000) | Fastify API + `/metrics` for Prometheus |
-| SQLite Web | [http://localhost:8086](http://localhost:8086) | Visual DB viewer (coleifer/sqlite-web)  |
-| Prometheus | [http://localhost:9090](http://localhost:9090) | Metrics scraping and query engine       |
-| Grafana    | [http://localhost:3001](http://localhost:3001) | Monitoring dashboard (admin/admin)      |
+| Service           | URL / Port                                     | Description                                     |
+| ----------------- | ---------------------------------------------- | ----------------------------------------------- |
+| **Frontend**      | [http://localhost:5173](http://localhost:5173) | React SPA (Vite dev server + Tailwind CSS)      |
+| **Backend**       | [http://localhost:3000](http://localhost:3000) | Fastify API with SQLite + Prometheus `/metrics` |
+| **SQLite Web**    | [http://localhost:8086](http://localhost:8086) | Visual DB viewer (`coleifer/sqlite-web`)        |
+| **Prometheus**    | [http://localhost:9090](http://localhost:9090) | System metrics collection and query interface   |
+| **Grafana**       | [http://localhost:3001](http://localhost:3001) | Monitoring dashboards (`admin` / `admin`)       |
+| **Kibana**        | [http://localhost:5601](http://localhost:5601) | ELK stack dashboard for logs (local only)       |
+| **Elasticsearch** | [http://localhost:9200](http://localhost:9200) | Search engine & log storage (local only)        |
+| **Logstash**      | `tcp://localhost:5001` / `5044`                | Log processor (ingests from backend to ES)      |
+
 
 
 ## 🚀 Development
