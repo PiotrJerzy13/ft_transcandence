@@ -34,17 +34,17 @@ A Dockerized single-page web platform for playing real-time Pong, built with **R
 
 ## 🧩 Modules Summary
 
-You need **7 major modules** for full credit. Current estimated count: **5.0 majors**
+You need **7 major modules** for full credit. Current estimated count: **2.5 majors**
 
 | Category             | Module                                 | Status        | Points |
 |----------------------|----------------------------------------|---------------|--------|
 | ✅ Web               | Backend with Fastify                   | Done          | 1.0    |
 | ✅ Web               | SQLite for backend                     | Done          | 1.0    |
-| ⚠️ Web               | Tailwind for frontend                  | Partial       | 0.5    |
+| ✅ Monitor           | Prometheus + Grafana                   | Done          | 0.5    |
 | ⚠️ Gameplay          | Add 2nd game + user history            | Partial       | ~0.5   |
 | ⚠️ AI-Algo           | AI Opponent                            | Basic         | ~0.5   |
 | ⚠️ User Management   | Standard user management               | Partial       | ~0.5   |
-| ✅ Prometheus + Grafa| Monitoring                             | Done          | 0,5    |
+| ❌ Web               | Monitoring                             | Done          | 0,5    |
 | ✅ WEB               | Responsive design Mobile               | Done          | 1      |
 | ❌ Security          | WAF / Vault                            | Missing       | 0      |
 | ❌ Cybersecurity     | 2FA                                    | Missing       | 0      |
