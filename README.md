@@ -6,7 +6,7 @@ A Dockerized single-page web platform for playing real-time Pong, built with **R
 
 ## ✅ Current Progress Overview
 
-| Feature                                    | Status            |
+| Feature                                   | Status            |
 |-------------------------------------------|-------------------|
 | SPA Architecture                          | ✅ Implemented    |
 | Dockerized setup                          | ✅ Implemented    |
@@ -20,35 +20,31 @@ A Dockerized single-page web platform for playing real-time Pong, built with **R
 | Matchmaking                               | ❌ Not implemented|
 | Tournament aliases                        | ❌ Not implemented|
 | HTTPS / WSS                               | ❌ Not implemented|
-| Remote multiplayer                        | ❌ Not implemented|
-| Live Chat                                 | ❌ Not implemented|
-| AI opponent                               | ⚠️ Basic, needs improvement |
-| Game #2 (Arkanoid + history)              | ⚠️ Partial         |
-| Google Auth                               | ❌ Not implemented|
+| AI opponent                               | ⚠️ Basic          |
+| Game #2 (Arkanoid + history)              | ⚠️ Partial        |
 | 2FA                                       | ❌ Not implemented|
-| WAF / Vault / Log infra / Monitoring      | ❌ Not implemented|
-| Responsive design / mobile support        | ✅ Implemented 
-| Frontend framework (Tailwind)             | ⚠️ Partial         |
+| Responsive design / mobile support        | ✅ Implemented    |
 
 ---
 
 ## 🧩 Modules Summary
 
-You need **7 major modules** for full credit. Current estimated count: **2.5 majors**
+You need **7 major modules** for full credit. Current estimated count: **4.5/9.5 majors**
 
 | Category             | Module                                 | Status        | Points |
 |----------------------|----------------------------------------|---------------|--------|
 | ✅ Web               | Backend with Fastify                   | Done          | 1.0    |
 | ✅ Web               | SQLite for backend                     | Done          | 1.0    |
-| ✅ Monitor           | Prometheus + Grafana                   | Done          | 0.5    |
-| ⚠️ Gameplay          | Add 2nd game + user history            | Partial       | ~0.5   |
-| ⚠️ AI-Algo           | AI Opponent                            | Basic         | ~0.5   |
-| ⚠️ User Management   | Standard user management               | Partial       | ~0.5   |
-| ❌ Web               | Monitoring                             | Done          | 0,5    |
-| ✅ WEB               | Responsive design Mobile               | Done          | 1      |
-| ❌ Security          | WAF / Vault                            | Missing       | 0      |
-| ❌ Cybersecurity     | 2FA                                    | Missing       | 0      |
-| ✅ Web               | ELK                                    | Done          | 1      |
+| ✅ Devops            | ELK                                    | Done          | 1.0    |
+| ✅ Devops            | Prometheus + Grafana                   | Done          | 0.5    |
+| ✅ Accessibility     | Responsive design Mobile               | Done          | 0.5    |
+| ✅ Accessibility     | Expanding Browser Compatibility.       | Done          | 0.5    |
+| ⚠️ Web               | User and Game Stats Dashboards.        | Partial       | ~0.5   |
+| ⚠️ AI-Algo           | AI Opponent                            | Partial       | ~1.0   |
+| ⚠️ User Management   | Standard user management               | Partial       | ~1.0   |
+| ⚠️ Add another game  | Gameplay                               | Partial       | ~1.0   |
+| ⚠️ AI-Algo           | User and Game Stats Dashboards         | Partial       | ~0.5   |
+| ⚠️ Cybersecurity     | Two-Factor Authentication (2FA) and JWT| Partial       | ~1.0   |
 
 > **💡 To reach 100%**, prioritize:  
 > – Tournament logic  
