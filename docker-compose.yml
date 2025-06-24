@@ -111,6 +111,7 @@ services:
     ports:
       - "5001:5001"
       - "5044:5044"
+      - "9600:9600"
     depends_on:
       elasticsearch:
         condition: service_healthy
