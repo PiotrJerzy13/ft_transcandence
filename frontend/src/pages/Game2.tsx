@@ -566,17 +566,6 @@ const saveArkanoidScore = async () => {
       ctx.restore();
     });
 
-    // Draw UI (Score, Lives, Level)
-    ctx.fillStyle = 'white';
-    ctx.font = `${20 * scale}px "Orbitron", sans-serif`;
-    ctx.textAlign = 'left';
-    ctx.fillText(`Score: ${score}`, 20 * scale, 30 * scale);
-    
-    ctx.textAlign = 'right';
-    ctx.fillText(`Lives: ${lives}`, canvas.width - 20 * scale, 30 * scale);
-
-    ctx.textAlign = 'center';
-    ctx.fillText(`Level: ${level}`, canvas.width / 2, 30 * scale);
 
     // PAUSED OVERLAY
     if (gameState === 'paused') {
@@ -620,13 +609,12 @@ const saveArkanoidScore = async () => {
           ctx.fillStyle = "#ffffff";
           ctx.shadowBlur = 0;
           ctx.fillText(`FINAL SCORE: ${score}`, canvas.width / 2, canvas.height / 2);
+          ctx.font = `${20 * scale}px 'Courier New', monospace`;
+          ctx.fillStyle = "#ffffff";
+          ctx.shadowColor = "#4338ca";
+          ctx.shadowBlur = 10;
+          ctx.fillText("PRESS ENTER TO START", canvas.width / 2, canvas.height / 2 + 60 * scale);
       }
-
-      ctx.font = `${20 * scale}px 'Courier New', monospace`;
-      ctx.fillStyle = "#ffffff";
-      ctx.shadowColor = "#4338ca";
-      ctx.shadowBlur = 10;
-      ctx.fillText("PRESS ENTER TO START", canvas.width / 2, canvas.height / 2 + 60 * scale);
       ctx.restore();
     }
 
@@ -652,17 +640,18 @@ const saveArkanoidScore = async () => {
     }
 
     if (gameState === 'menu') {
+      ctx.textAlign = 'center';
+      ctx.font = `bold ${48 * scaleRef.current}px 'Courier New', monospace`;
+      ctx.fillStyle = '#06b6d4';
+      ctx.shadowColor = '#06b6d4';
+      ctx.shadowBlur = 15;
+      ctx.fillText('ARKANOID', canvasSize.width / 2, canvasSize.height / 2 - 80 * scaleRef.current);
+
       ctx.font = `bold ${20 * scaleRef.current}px 'Courier New', monospace`;
-      ctx.fillText("PRESS ENTER TO START", canvasSize.width / 2, canvasSize.height / 2 + 60 * scaleRef.current);
-      
-      const isMobile = window.innerWidth < 768;
-      if (isMobile) {
-        ctx.fillText("OR TOUCH TO START", canvasSize.width / 2, canvasSize.height / 2 + 100 * scaleRef.current);
-        if (isFirstLoad) {
-          ctx.font = `${18 * scaleRef.current}px Arial`;
-          ctx.fillText("Use the on-screen buttons to move", canvasSize.width / 2, canvasSize.height / 2 + 140 * scaleRef.current);
-        }
-      }
+      ctx.fillStyle = '#ffffff';
+      ctx.shadowColor = '#4338ca';
+      ctx.shadowBlur = 10;
+      ctx.fillText('Press Enter to Start', canvasSize.width / 2, canvasSize.height / 2 - 30 * scaleRef.current);
     }
   }, [score, lives, level, gameState, canvasSize, isFirstLoad]);
 
@@ -724,57 +713,51 @@ const saveArkanoidScore = async () => {
     setHistory(mockHistory);
   }, []);
 
-  return (
-    <div className="flex flex-col items-center justify-center h-full w-full bg-gray-900 text-white p-4 touch-none select-none">
-      <div className="relative" id="game-container" style={{ width: canvasSize.width, height: canvasSize.height }}>
-        <canvas
-          ref={canvasRef}
-          width={canvasSize.width}
-          height={canvasSize.height}
-          className="block mx-auto border-2 border-indigo-500 rounded-lg shadow-lg"
-          style={{ WebkitTapHighlightColor: 'transparent' }}
-        />
-        
-        <div className="absolute top-4 left-4 right-4 flex justify-between text-lg">
-          <div>Score: <span className="font-bold text-cyan-400">{score}</span></div>
-          <div>Level: <span className="font-bold text-purple-400">{level}</span></div>
-          <div>Lives: <span className="font-bold text-green-400">{lives}</span></div>
-        </div>
-
-        <button 
-          onClick={handleBackToLobby}
-          className="absolute top-12 left-4 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg transition-colors text-sm"
-        >
-          ← Lobby
-        </button>
-
-        {/* Mobile Controls */}
-        <div className="md:hidden fixed bottom-4 left-0 right-0 flex justify-between px-4">
-          <button
-            onTouchStart={() => gameStateRef.current.keys.left = true}
-            onTouchEnd={() => gameStateRef.current.keys.left = false}
-            className="bg-indigo-600/80 text-white text-xl w-20 h-20 rounded-full flex items-center justify-center active:scale-105 active:bg-indigo-500"
-          >
-            ←
-          </button>
-          <button
-            onTouchStart={() => gameStateRef.current.keys.right = true}
-            onTouchEnd={() => gameStateRef.current.keys.right = false}
-            className="bg-indigo-600/80 text-white text-xl w-20 h-20 rounded-full flex items-center justify-center active:scale-105 active:bg-indigo-500"
-          >
-            →
-          </button>
-        </div>
+return (
+  <div className="flex flex-col items-center justify-center h-full w-full bg-gray-900 text-white p-4 touch-none select-none">
+    <div className="relative" id="game-container" style={{ width: canvasSize.width, height: canvasSize.height }}>
+      <canvas
+        ref={canvasRef}
+        width={canvasSize.width}
+        height={canvasSize.height}
+        className="block mx-auto border-2 border-indigo-500 rounded-lg shadow-lg"
+        style={{ WebkitTapHighlightColor: 'transparent' }}
+      />
+      
+      <div className="absolute top-4 left-4 right-4 flex justify-between text-lg">
+        <div>Score: <span className="font-bold text-cyan-400">{score}</span></div>
+        <div>Level: <span className="font-bold text-purple-400">{level}</span></div>
+        <div>Lives: <span className="font-bold text-green-400">{lives}</span></div>
       </div>
-  
-      {/* XP Gained Notification (will be shown via showXpGain function) */}
-      <div id="xp-notification-container" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
-  
-      {/* Game Stats (optional) */}
-      <div className="mt-4 text-white">
-        <p>Best Score: {history[0]?.score || 0}</p>
-        <p>Highest Level: {history[0]?.level_reached || 1}</p>
+
+      <button 
+        onClick={handleBackToLobby}
+        className="absolute top-12 left-4 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg transition-colors text-sm"
+      >
+        ← Lobby
+      </button>
+
+      {/* Mobile Controls */}
+      <div className="md:hidden fixed bottom-4 left-0 right-0 flex justify-between px-4">
+        <button
+          onTouchStart={() => gameStateRef.current.keys.left = true}
+          onTouchEnd={() => gameStateRef.current.keys.left = false}
+          className="bg-indigo-600/80 text-white text-xl w-20 h-20 rounded-full flex items-center justify-center active:scale-105 active:bg-indigo-500"
+        >
+          ←
+        </button>
+        <button
+          onTouchStart={() => gameStateRef.current.keys.right = true}
+          onTouchEnd={() => gameStateRef.current.keys.right = false}
+          className="bg-indigo-600/80 text-white text-xl w-20 h-20 rounded-full flex items-center justify-center active:scale-105 active:bg-indigo-500"
+        >
+          →
+        </button>
       </div>
     </div>
-  );
+
+    {/* XP Gained Notification */}
+    <div id="xp-notification-container" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
+  </div>
+);
 }
