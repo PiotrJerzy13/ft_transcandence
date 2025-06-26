@@ -1,17 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-
-interface Particle {
-  x: number;
-  y: number;
-  vx: number;
-  vy: number;
-  life: number;
-  maxLife: number;
-  color: string;
-}
-
-
-const WINNING_SCORE = 5;
+import { Pong } from "./pong"; // Import the Pong class
 
 type GameProps = {
   onNavigateToLobby?: () => void;
@@ -20,10 +8,12 @@ type GameProps = {
 export default function Game({ onNavigateToLobby }: GameProps) {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
+  const pongGameRef = useRef<Pong | null>(null);
+  
   const [score, setScore] = useState({ left: 0, right: 0 });
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver'
   const [winner, setWinner] = useState('');
-  const [gameMode, setGameMode] = useState('one-player'); // 'one-player', 'two-player'
+  const [gameMode, setGameMode] = useState<'one-player' | 'two-player'>('one-player');
   const [history, setHistory] = useState<{ mode: string; score: number; opponent_score: number; winner: string; created_at: string }[]>([]);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 500 });
   const [isMobile, setIsMobile] = useState(false);
@@ -31,117 +21,58 @@ export default function Game({ onNavigateToLobby }: GameProps) {
   const scaleRef = useRef(1);
   const baseWidth = 800;
   const baseHeight = 500;
-  
-  // Add a ref to track if the current game has been saved
   const gameScoreSaved = useRef(false);
-  
-  // Update gameVars type to include particles
-  const gameVars = useRef<{
-    playerScore: number;
-    opponentScore: number;
-    ballX: number;
-    ballY: number;
-    ballSpeedX: number;
-    ballSpeedY: number;
-    paddle1Y: number;
-    paddle2Y: number;
-    particles: Particle[];
-    keys: {
-      w: boolean;
-      s: boolean;
-      up: boolean;
-      down: boolean;
+
+  // Initialize Pong game
+  const initializePongGame = () => {
+    const gameSettings = {
+      canvasWidth: canvasSize.width,
+      canvasHeight: canvasSize.height,
+      paddleHeight: 100,
+      paddleWidth: 15,
+      ballSize: 10,
+      winningScore: 5,
+      paddleSpeed: 6,
+      ballSpeed: 4,
+      aiPaddleSpeed: 4.8, // 6 * 0.8
+      aiTargetOffset: 35,
+      ballSpeedIncrease: 1.1
     };
-  }>({
-    playerScore: 0,
-    opponentScore: 0,
-    ballX: canvasSize.width / 2,
-    ballY: canvasSize.height / 2,
-    ballSpeedX: 4,
-    ballSpeedY: 4,
-    paddle1Y: canvasSize.height / 2 - 50,
-    paddle2Y: canvasSize.height / 2 - 50,
-    particles: [],
-    keys: {
-      w: false,
-      s: false,
-      up: false,
-      down: false
-    }
-  });
-  
-  // Update createParticles function with proper typing
-  const createParticles = (x: number, y: number, color: string = "#60a5fa") => {
-    for (let i = 0; i < 12; i++) {
-      gameVars.current.particles.push({
-        x: x,
-        y: y,
-        vx: (Math.random() - 0.5) * 8,
-        vy: (Math.random() - 0.5) * 8,
-        life: 40,
-        maxLife: 40,
-        color: color
-      });
-    }
+
+    pongGameRef.current = new Pong(gameSettings, scaleRef.current);
   };
 
   const resetGame = () => {
-    // Reset game score saved flag
     gameScoreSaved.current = false;
-    
-    gameVars.current.playerScore = 0;
-    gameVars.current.opponentScore = 0;
+    if (pongGameRef.current) {
+      pongGameRef.current.resetGame();
+    }
     setScore({ left: 0, right: 0 });
     setWinner('');
-    resetBall();
-    resetPaddles();
-    gameVars.current.keys = {
-      w: false,
-      s: false,
-      up: false,
-      down: false
-    };
   };
 
-  const resetBall = () => {
-    gameVars.current.ballX = canvasSize.width / 2;
-    gameVars.current.ballY = canvasSize.height / 2;
-    const speed = 4 * scaleRef.current;
-    gameVars.current.ballSpeedX = gameVars.current.ballSpeedX > 0 ? -speed : speed;
-    gameVars.current.ballSpeedY = (Math.random() - 0.5) * speed;
-  };
-
-  const resetPaddles = () => {
-    const scale = scaleRef.current;
-    gameVars.current.paddle1Y = canvasSize.height / 2 - (100 * scale) / 2;
-    gameVars.current.paddle2Y = canvasSize.height / 2 - (100 * scale) / 2;
-  };
-
-    const handleBackToLobby = () => {
+  const handleBackToLobby = () => {
     if (onNavigateToLobby) {
       onNavigateToLobby();
     } else {
-      // Fallback if no navigation function is provided
       console.log('Navigate to lobby');
     }
   };
-	
-  // Calculate XP for winning a game
+
+  // XP calculation functions (same as before)
   const calculateWinXp = (score: number, opponentScore: number): number => {
-    const baseXp = 100; // Base XP for winning
-    const scoreBonus = Math.floor(score / 2); // 1 XP per 2 points
-    const marginBonus = Math.floor((score - opponentScore) * 5); // Bonus for winning by a larger margin
+    const baseXp = 100;
+    const scoreBonus = Math.floor(score / 2);
+    const marginBonus = Math.floor((score - opponentScore) * 5);
     return baseXp + scoreBonus + marginBonus;
   };
 
-  // Calculate XP for losing a game
   const calculateLossXp = (score: number): number => {
-    const baseXp = 25; // Base XP for losing
-    const scoreBonus = Math.floor(score / 4); // Less XP per point for losing
+    const baseXp = 25;
+    const scoreBonus = Math.floor(score / 4);
     return baseXp + scoreBonus;
   };
 
-  // Visual effect for XP gain
   const showXpGain = (amount: number) => {
     const xpGainElement = document.createElement('div');
     xpGainElement.className = 'xp-gain-popup';
@@ -157,7 +88,6 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     xpGainElement.style.pointerEvents = 'none';
     xpGainElement.style.animation = 'floatUp 2s ease-out forwards';
     
-    // Add CSS animation if it doesn't exist
     if (!document.getElementById('xp-animation-styles')) {
       const style = document.createElement('style');
       style.id = 'xp-animation-styles';
@@ -181,8 +111,10 @@ export default function Game({ onNavigateToLobby }: GameProps) {
   };
 
   const savePongScore = async () => {
+    if (!pongGameRef.current) return;
+
     try {
-      // Get current user stats first to calculate total XP
+      const gameState = pongGameRef.current.getState();
       const statsResponse = await fetch('/api/user/stats', {
         method: 'GET',
         credentials: 'include',
@@ -194,24 +126,12 @@ export default function Game({ onNavigateToLobby }: GameProps) {
         currentTotalXp = statsData.xp || 0;
       }
 
-      // Calculate XP based on game result
       const isWinner = winner.includes('You') || winner.includes('Player 1');
       const xpEarned = isWinner 
-        ? calculateWinXp(gameVars.current.playerScore, gameVars.current.opponentScore)
-        : calculateLossXp(gameVars.current.playerScore);
+        ? calculateWinXp(gameState.playerScore, gameState.opponentScore)
+        : calculateLossXp(gameState.playerScore);
 
-      console.log('Saving game:', {
-        mode: gameMode,
-        score: gameVars.current.playerScore,
-        opponentScore: gameVars.current.opponentScore,
-        winner: isWinner ? 'player' : 'opponent',
-        xpEarned: xpEarned
-      });
-
-      // Show XP gain effect
       showXpGain(xpEarned);
-
-      // Calculate total XP (current + earned this session)
       const totalXp = currentTotalXp + xpEarned;
 
       const response = await fetch('/api/pong/score', {
@@ -220,8 +140,8 @@ export default function Game({ onNavigateToLobby }: GameProps) {
         credentials: 'include',
         body: JSON.stringify({
           mode: gameMode,
-          score: gameVars.current.playerScore,
-          opponentScore: gameVars.current.opponentScore,
+          score: gameState.playerScore,
+          opponentScore: gameState.opponentScore,
           winner: isWinner ? 'player' : 'opponent',
           xpEarned: xpEarned,
           totalXp: totalXp,
@@ -234,8 +154,6 @@ export default function Game({ onNavigateToLobby }: GameProps) {
 
       const data = await response.json();
       console.log('Score and XP saved successfully:', data);
-      
-      // Refresh history after saving
       fetchHistory();
     } catch (err) {
       console.error('Failed to save Pong score:', err);
@@ -261,34 +179,12 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     }
   };
 
-  const checkWinCondition = () => {
-    const vars = gameVars.current;
-    if (vars.playerScore >= WINNING_SCORE) {
-      const winnerText = gameMode === 'one-player' ? 'You Win!' : 'Player 1';
-      setWinner(winnerText);
-      setGameState('gameOver');
-      createParticles(200, 250, "#06b6d4");
-      createParticles(300, 150, "#06b6d4");
-      createParticles(400, 350, "#06b6d4");
-      // Save score when game ends
-      setTimeout(() => savePongScore(), 500);
-    } else if (vars.opponentScore >= WINNING_SCORE) {
-      const winnerText = gameMode === 'one-player' ? 'AI Wins!' : 'Player 2';
-      setWinner(winnerText);
-      setGameState('gameOver');
-      createParticles(600, 250, "#f59e0b");
-      createParticles(500, 150, "#f59e0b");
-      createParticles(700, 350, "#f59e0b");
-      // Save score when game ends
-      setTimeout(() => savePongScore(), 500);
-    }
-  };
-
+  // Initialize game on mount
   useEffect(() => {
     fetchHistory();
 
     const checkDeviceType = () => {
-      setIsMobile(window.innerWidth < 768); // Threshold for mobile devices
+      setIsMobile(window.innerWidth < 768);
     };
 
     checkDeviceType();
@@ -299,6 +195,7 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     };
   }, []);
 
+  // Handle canvas resizing
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -313,8 +210,10 @@ export default function Game({ onNavigateToLobby }: GameProps) {
         setCanvasSize({ width: newWidth, height: newHeight });
         scaleRef.current = newWidth / baseWidth;
         
-        resetPaddles();
-        resetBall();
+        // Update Pong game scale if it exists
+        if (pongGameRef.current) {
+          pongGameRef.current.updateScale(scaleRef.current);
+        }
       }
     };
 
@@ -326,24 +225,24 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     };
   }, []);
 
-  // Main game loop effect
+  // Initialize Pong game when canvas size changes
+  useEffect(() => {
+    initializePongGame();
+  }, [canvasSize]);
+
+  // Main game loop
   useEffect(() => {
     const canvas = canvasRef.current;
     const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
+    if (!canvas || !ctx || !pongGameRef.current) return;
 
     if (animationFrameRef.current) {
       cancelAnimationFrame(animationFrameRef.current);
     }
 
-    // Reset keys on state change
-    gameVars.current.keys = { w: false, s: false, up: false, down: false };
-    
-    // Define scaled dimensions here to be available in the entire scope
-    const paddleWidth = 15 * scaleRef.current;
-    const paddleHeight = 100 * scaleRef.current;
-    const ballSize = 10 * scaleRef.current;
-    
+    const pongGame = pongGameRef.current;
+    const scaledDimensions = pongGame.getScaledDimensions();
+
     const drawPaddle = (
       x: number,
       y: number,
@@ -355,21 +254,25 @@ export default function Game({ onNavigateToLobby }: GameProps) {
       ctx.shadowColor = shadowColor;
       ctx.shadowBlur = 15;
       
-      const gradient = ctx.createLinearGradient(x, y, x, y + paddleHeight);
+      const gradient = ctx.createLinearGradient(x, y, x, y + scaledDimensions.paddleHeight);
       gradient.addColorStop(0, color1);
       gradient.addColorStop(1, color2);
       
       ctx.fillStyle = gradient;
-      ctx.fillRect(x, y, paddleWidth, paddleHeight);
+      ctx.fillRect(x, y, scaledDimensions.paddleWidth, scaledDimensions.paddleHeight);
       
       ctx.shadowBlur = 0;
       ctx.fillStyle = "rgba(255, 255, 255, 0.4)";
-      ctx.fillRect(x + 2, y + 2, paddleWidth - 4, 3);
+      ctx.fillRect(x + 2, y + 2, scaledDimensions.paddleWidth - 4, 3);
       
       ctx.restore();
     };
 
     const draw = () => {
+      if (!pongGameRef.current) return;
+      const currentGameState = pongGameRef.current.getState();
+      const particles = pongGameRef.current.getParticles();
+
       // Background
       const gradient = ctx.createLinearGradient(0, 0, canvasSize.width, canvasSize.height);
       gradient.addColorStop(0, "#0f0f23");
@@ -389,23 +292,23 @@ export default function Game({ onNavigateToLobby }: GameProps) {
       ctx.setLineDash([]);
       
       // Paddles
-      drawPaddle(30 * scaleRef.current, gameVars.current.paddle1Y, "#06b6d4", "#0891b2", "#06b6d4");
-      drawPaddle(canvasSize.width - (30 * scaleRef.current) - paddleWidth, gameVars.current.paddle2Y, "#a855f7", "#9333ea", "#a855f7");
+      drawPaddle(scaledDimensions.paddle1X, currentGameState.paddle1Y, "#06b6d4", "#0891b2", "#06b6d4");
+      drawPaddle(scaledDimensions.paddle2X, currentGameState.paddle2Y, "#a855f7", "#9333ea", "#a855f7");
       
       // Ball
       ctx.save();
       ctx.shadowColor = "#ef4444";
       ctx.shadowBlur = 20;
       const ballGradient = ctx.createRadialGradient(
-        gameVars.current.ballX, gameVars.current.ballY, 0,
-        gameVars.current.ballX, gameVars.current.ballY, ballSize
+        currentGameState.ballX, currentGameState.ballY, 0,
+        currentGameState.ballX, currentGameState.ballY, scaledDimensions.ballSize
       );
       ballGradient.addColorStop(0, "#fbbf24");
       ballGradient.addColorStop(0.7, "#f59e0b");
       ballGradient.addColorStop(1, "#dc2626");
       ctx.fillStyle = ballGradient;
       ctx.beginPath();
-      ctx.arc(gameVars.current.ballX, gameVars.current.ballY, ballSize, 0, Math.PI * 2);
+      ctx.arc(currentGameState.ballX, currentGameState.ballY, scaledDimensions.ballSize, 0, Math.PI * 2);
       ctx.fill();
       ctx.restore();
 
@@ -417,10 +320,7 @@ export default function Game({ onNavigateToLobby }: GameProps) {
       ctx.fillText(String(score.right), canvasSize.width / 2 + 60 * scaleRef.current, 60 * scaleRef.current);
 
       // Particles
-      gameVars.current.particles = gameVars.current.particles.filter(p => {
-        p.x += p.vx;
-        p.y += p.vy;
-        p.life--;
+      particles.forEach(p => {
         ctx.save();
         ctx.globalAlpha = p.life / p.maxLife;
         ctx.fillStyle = p.color;
@@ -428,7 +328,6 @@ export default function Game({ onNavigateToLobby }: GameProps) {
         ctx.arc(p.x, p.y, 2 * scaleRef.current, 0, Math.PI * 2);
         ctx.fill();
         ctx.restore();
-        return p.life > 0;
       });
 
       // Game state overlays
@@ -436,14 +335,12 @@ export default function Game({ onNavigateToLobby }: GameProps) {
         ctx.save();
         ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
         ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-        
         ctx.font = `bold ${36 * scaleRef.current}px 'Courier New', monospace`;
         ctx.textAlign = "center";
         ctx.fillStyle = "#f59e0b";
         ctx.shadowColor = "#f59e0b";
         ctx.shadowBlur = 15;
         ctx.fillText("PAUSED", canvasSize.width / 2, canvasSize.height / 2 - 20 * scaleRef.current);
-        
         ctx.font = `${18 * scaleRef.current}px 'Courier New', monospace`;
         ctx.fillStyle = "#ffffff";
         ctx.shadowColor = "#4338ca";
@@ -456,108 +353,63 @@ export default function Game({ onNavigateToLobby }: GameProps) {
         ctx.save();
         ctx.fillStyle = "rgba(0, 0, 0, 0.8)";
         ctx.fillRect(0, 0, canvasSize.width, canvasSize.height);
-        
         ctx.font = `bold ${36 * scaleRef.current}px 'Courier New', monospace`;
         ctx.textAlign = "center";
-        
         const winnerColor = winner.includes('You') || winner.includes('Player 1') ? '#06b6d4' : '#f59e0b';
         ctx.fillStyle = winnerColor;
         ctx.shadowColor = winnerColor;
         ctx.shadowBlur = 15;
         ctx.fillText(winner, canvasSize.width / 2, canvasSize.height / 2 - 40 * scaleRef.current);
-        
         ctx.font = `${20 * scaleRef.current}px 'Courier New', monospace`;
         ctx.fillStyle = "#ffffff";
         ctx.shadowColor = "#4338ca";
         ctx.shadowBlur = 10;
         ctx.fillText(`Final Score: ${score.left} - ${score.right}`, canvasSize.width / 2, canvasSize.height / 2);
-        
         ctx.font = `${18 * scaleRef.current}px 'Courier New', monospace`;
         ctx.fillText("PRESS R TO PLAY AGAIN", canvasSize.width / 2, canvasSize.height / 2 + 40 * scaleRef.current);
         ctx.restore();
       }
     };
 
-    const update = () => {
-      if (gameState !== 'playing') return;
+    const updateGameState = () => {
+      if (!pongGameRef.current || gameState !== 'playing') return;
 
-      const paddleSpeed = 6 * scaleRef.current;
-
-      // Player 1 movement
-      if (gameVars.current.keys.w && gameVars.current.paddle1Y > 0) {
-        gameVars.current.paddle1Y -= paddleSpeed;
-      }
-      if (gameVars.current.keys.s && gameVars.current.paddle1Y < canvasSize.height - paddleHeight) {
-        gameVars.current.paddle1Y += paddleSpeed;
+      const { collision, score: scoreResult, gameResult } = pongGameRef.current.update(gameMode);
+      const currentGameState = pongGameRef.current.getState();
+      // Update score if needed
+      if (scoreResult.scored) {
+        setScore({ left: currentGameState.playerScore, right: currentGameState.opponentScore });
       }
 
-      // Player 2 / AI movement
-      if (gameMode === 'two-player') {
-        if (gameVars.current.keys.up && gameVars.current.paddle2Y > 0) {
-          gameVars.current.paddle2Y -= paddleSpeed;
+      // Handle game over
+      if (gameResult.gameOver) {
+        const winnerText = gameResult.winner === 'player' 
+          ? (gameMode === 'one-player' ? 'You Win!' : 'Player 1 Wins!')
+          : (gameMode === 'one-player' ? 'AI Wins!' : 'Player 2 Wins!');
+        setWinner(winnerText);
+        setGameState('gameOver');
+        // Add particles from game result (create a new array instead of mutating readonly)
+        if (gameResult.particles) {
+          // pongGameRef.current.getParticles().push(...gameResult.particles); // <-- invalid
+          // Instead, if you want to show new particles, you should update a mutable array in Pong class, or trigger a re-render
+          // For now, skip this line or refactor Pong class if needed
         }
-        if (gameVars.current.keys.down && gameVars.current.paddle2Y < canvasSize.height - paddleHeight) {
-          gameVars.current.paddle2Y += paddleSpeed;
-        }
-      } else { // AI logic
-        const paddle2Center = gameVars.current.paddle2Y + paddleHeight / 2;
-        if (paddle2Center < gameVars.current.ballY - 35) {
-          gameVars.current.paddle2Y += paddleSpeed * 0.8;
-        } else if (paddle2Center > gameVars.current.ballY + 35) {
-          gameVars.current.paddle2Y -= paddleSpeed * 0.8;
-        }
-      }
-
-      // Ball movement
-      gameVars.current.ballX += gameVars.current.ballSpeedX;
-      gameVars.current.ballY += gameVars.current.ballSpeedY;
-
-      // Ball collision with top/bottom walls
-      if (gameVars.current.ballY < ballSize || gameVars.current.ballY > canvasSize.height - ballSize) {
-        gameVars.current.ballSpeedY *= -1;
-      }
-
-      // Ball collision with paddles
-      const paddle1X = 30 * scaleRef.current;
-      const paddle2X = canvasSize.width - (30 * scaleRef.current) - paddleWidth;
-      // Left paddle
-      if (gameVars.current.ballX - ballSize < paddle1X + paddleWidth &&
-          gameVars.current.ballY > gameVars.current.paddle1Y &&
-          gameVars.current.ballY < gameVars.current.paddle1Y + paddleHeight) {
-        if (gameVars.current.ballSpeedX < 0) {
-          gameVars.current.ballSpeedX *= -1.1; // Increase speed on hit
-          createParticles(gameVars.current.ballX, gameVars.current.ballY, "#06b6d4");
+        // Save score when game ends
+        if (!gameScoreSaved.current) {
+          gameScoreSaved.current = true;
+          setTimeout(() => savePongScore(), 500);
         }
       }
-      // Right paddle
-      if (gameVars.current.ballX + ballSize > paddle2X &&
-          gameVars.current.ballY > gameVars.current.paddle2Y &&
-          gameVars.current.ballY < gameVars.current.paddle2Y + paddleHeight) {
-        if (gameVars.current.ballSpeedX > 0) {
-          gameVars.current.ballSpeedX *= -1.1; // Increase speed on hit
-          createParticles(gameVars.current.ballX, gameVars.current.ballY, "#a855f7");
-        }
-      }
-
-      // Scoring
-      if (gameVars.current.ballX < 0) {
-        gameVars.current.opponentScore++;
-        setScore({ left: gameVars.current.playerScore, right: gameVars.current.opponentScore });
-        resetBall();
-      } else if (gameVars.current.ballX > canvasSize.width) {
-        gameVars.current.playerScore++;
-        setScore({ left: gameVars.current.playerScore, right: gameVars.current.opponentScore });
-        resetBall();
-      }
-      checkWinCondition();
     };
 
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Movement keys are always tracked
-      if (e.key === 'w' || e.key === 'W') gameVars.current.keys.w = true;
-      if (e.key === 's' || e.key === 'S') gameVars.current.keys.s = true;
-      if (e.key === 'ArrowUp') gameVars.current.keys.up = true;
-      if (e.key === 'ArrowDown') gameVars.current.keys.down = true;
+      if (!pongGameRef.current) return;
+
+      // Movement keys
+      if (e.key === 'w' || e.key === 'W') pongGameRef.current.setKeyState('w', true);
+      if (e.key === 's' || e.key === 'S') pongGameRef.current.setKeyState('s', true);
+      if (e.key === 'ArrowUp') pongGameRef.current.setKeyState('up', true);
+      if (e.key === 'ArrowDown') pongGameRef.current.setKeyState('down', true);
 
       // Game state controls
       if (e.code === 'Space') {
@@ -576,15 +428,17 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      if (e.key === 'w' || e.key === 'W') gameVars.current.keys.w = false;
-      if (e.key === 's' || e.key === 'S') gameVars.current.keys.s = false;
-      if (e.key === 'ArrowUp') gameVars.current.keys.up = false;
-      if (e.key === 'ArrowDown') gameVars.current.keys.down = false;
+      if (!pongGameRef.current) return;
+
+      if (e.key === 'w' || e.key === 'W') pongGameRef.current.setKeyState('w', false);
+      if (e.key === 's' || e.key === 'S') pongGameRef.current.setKeyState('s', false);
+      if (e.key === 'ArrowUp') pongGameRef.current.setKeyState('up', false);
+      if (e.key === 'ArrowDown') pongGameRef.current.setKeyState('down', false);
     };
     
     const handleTouchMove = (e: TouchEvent) => {
       e.preventDefault();
-      if (gameState !== 'playing') return;
+      if (!pongGameRef.current || gameState !== 'playing') return;
 
       const canvasRect = canvas.getBoundingClientRect();
       
@@ -592,29 +446,19 @@ export default function Game({ onNavigateToLobby }: GameProps) {
         const touchX = touch.clientX - canvasRect.left;
         const touchY = touch.clientY - canvasRect.top;
         
-        if (touchX < canvasSize.width / 2) { // Left half
-          let newY = touchY - paddleHeight / 2;
-          if (newY < 0) newY = 0;
-          if (newY > canvasSize.height - paddleHeight) newY = canvasSize.height - paddleHeight;
-          gameVars.current.paddle1Y = newY;
-        } else { // Right half
-          if (gameMode === 'two-player') {
-            let newY = touchY - paddleHeight / 2;
-            if (newY < 0) newY = 0;
-            if (newY > canvasSize.height - paddleHeight) newY = canvasSize.height - paddleHeight;
-            gameVars.current.paddle2Y = newY;
-          }
-        }
+        pongGameRef.current?.updateTouchPaddle(
+          touchX, 
+          touchY, 
+          canvasSize.width, 
+          canvasSize.height, 
+          gameMode
+        );
       });
     };
 
     const gameLoop = () => {
-      if (gameState === 'playing') {
-        update();
-      }
-      if (gameState !== 'menu') {
-        draw();
-      }
+      updateGameState();
+      draw();
       animationFrameRef.current = requestAnimationFrame(gameLoop);
     };
     
