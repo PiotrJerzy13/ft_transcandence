@@ -22,4 +22,8 @@ export default async function userRoutes(fastify: FastifyInstance) {
       username: request.user!.username
     };
   });
+
+  fastify.get('/achievements', async (_request, _reply) => {
+    return { achievements: [] };
+  });
 }
