@@ -1,6 +1,7 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
+import { BadRequestError, UnauthorizedError } from './error.js';
 
 export default async function pongRoutes(fastify: FastifyInstance) {
   // POST /pong/score - Save a completed pong match
@@ -19,82 +20,77 @@ export default async function pongRoutes(fastify: FastifyInstance) {
 
     if (!userId || score == null || opponentScore == null || !winner || !mode || xpEarned == null || totalXp == null) {
       console.log('[PONG] Invalid score submission - missing data');
-      return reply.status(400).send({ error: 'Missing required fields' });
+      throw new BadRequestError('Missing required fields');
     }
 
-    try {
-      const db = getDb();
-      console.log('[PONG] Saving match with XP:', { userId, mode, score, opponentScore, winner, xpEarned, totalXp });
+    const db = getDb();
+    console.log('[PONG] Saving match with XP:', { userId, mode, score, opponentScore, winner, xpEarned, totalXp });
 
-      // Save the match with XP data
-      await db.run(
-        `INSERT INTO pong_matches (user_id, mode, score, opponent_score, winner, xp_earned, total_xp, created_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-        [userId, mode, score, opponentScore, winner, xpEarned, totalXp]
-      );
+    // Save the match with XP data
+    await db.run(
+      `INSERT INTO pong_matches (user_id, mode, score, opponent_score, winner, xp_earned, total_xp, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
+      [userId, mode, score, opponentScore, winner, xpEarned, totalXp]
+    );
 
-      // Get current user stats
-      const currentStats = await db.get(
-        `SELECT xp, level FROM user_stats WHERE user_id = ?`,
-        [userId]
-      );
+    // Get current user stats
+    const currentStats = await db.get(
+      `SELECT xp, level FROM user_stats WHERE user_id = ?`,
+      [userId]
+    );
 
-      // Calculate new total XP and level
-      const currentTotalXp = currentStats?.xp || 0;
-      const newTotalXp = currentTotalXp + xpEarned;
-      const newLevel = Math.floor(Math.sqrt(newTotalXp / 100)) + 1;
+    // Calculate new total XP and level
+    const currentTotalXp = currentStats?.xp || 0;
+    const newTotalXp = currentTotalXp + xpEarned;
+    const newLevel = Math.floor(Math.sqrt(newTotalXp / 100)) + 1;
 
-      // Update user stats with XP
-      await db.run(
-        `INSERT INTO user_stats (user_id, xp, level, total_games, wins, losses, win_streak, best_streak, total_play_time, rank, updated_at)
-         VALUES (?, ?, ?, 1, ?, ?, ?, ?, 0, 'Novice', datetime('now'))
-         ON CONFLICT (user_id) 
-         DO UPDATE SET 
-           xp = ?,
-           level = ?,
-           total_games = total_games + 1,
-           wins = wins + ?,
-           losses = losses + ?,
-           win_streak = CASE 
-             WHEN ? = 'player' THEN win_streak + 1 
-             ELSE 0 
-           END,
-           best_streak = CASE 
-             WHEN ? = 'player' AND win_streak + 1 > best_streak THEN win_streak + 1 
-             ELSE best_streak 
-           END,
-           updated_at = datetime('now')`,
-        [
-          userId, newTotalXp, newLevel,
-          winner === 'player' ? 1 : 0, winner === 'opponent' ? 1 : 0,
-          winner === 'player' ? 1 : 0, winner === 'player' ? 1 : 0,
-          newTotalXp, newLevel,
-          winner === 'player' ? 1 : 0, winner === 'opponent' ? 1 : 0,
-          winner, winner
-        ]
-      );
+    // Update user stats with XP
+    await db.run(
+      `INSERT INTO user_stats (user_id, xp, level, total_games, wins, losses, win_streak, best_streak, total_play_time, rank, updated_at)
+       VALUES (?, ?, ?, 1, ?, ?, ?, ?, 0, 'Novice', datetime('now'))
+       ON CONFLICT (user_id) 
+       DO UPDATE SET 
+         xp = ?,
+         level = ?,
+         total_games = total_games + 1,
+         wins = wins + ?,
+         losses = losses + ?,
+         win_streak = CASE 
+           WHEN ? = 'player' THEN win_streak + 1 
+           ELSE 0 
+         END,
+         best_streak = CASE 
+           WHEN ? = 'player' AND win_streak + 1 > best_streak THEN win_streak + 1 
+           ELSE best_streak 
+         END,
+         updated_at = datetime('now')`,
+      [
+        userId, newTotalXp, newLevel,
+        winner === 'player' ? 1 : 0, winner === 'opponent' ? 1 : 0,
+        winner === 'player' ? 1 : 0, winner === 'player' ? 1 : 0,
+        newTotalXp, newLevel,
+        winner === 'player' ? 1 : 0, winner === 'opponent' ? 1 : 0,
+        winner, winner
+      ]
+    );
 
-      const updatedStats = await db.get(
-        `SELECT xp, level FROM user_stats WHERE user_id = ?`,
-        [userId]
-      );
+    const updatedStats = await db.get(
+      `SELECT xp, level FROM user_stats WHERE user_id = ?`,
+      [userId]
+    );
 
-      console.log('[PONG] Score and XP saved successfully:', {
-        userId,
-        xpEarned,
-        totalXp: updatedStats?.xp,
-        level: updatedStats?.level
-      });
+    console.log('[PONG] Score and XP saved successfully:', {
+      userId,
+      xpEarned,
+      totalXp: updatedStats?.xp,
+      level: updatedStats?.level
+    });
 
-      return reply.send({ 
-        success: true, 
-        message: 'Score saved successfully',
-        userStats: updatedStats
-      });
-    } catch (error) {
-      console.error('[PONG] Error saving score:', error);
-      return reply.status(500).send({ error: 'Failed to save score' });
-    }
+    return reply.send({ 
+      success: true, 
+      message: 'Score saved successfully',
+      userStats: updatedStats
+    });
   });
 
   // GET /pong/history - Fetch personal Pong match history
@@ -104,23 +100,18 @@ export default async function pongRoutes(fastify: FastifyInstance) {
 
     if (!userId) {
       console.log('[PONG] Invalid history request - no user ID');
-      return reply.status(401).send({ error: 'User not authenticated' });
+      throw new UnauthorizedError('User not authenticated');
     }
 
-    try {
-      const db = getDb();
-      const history = await db.all(
-        `SELECT mode, score, opponent_score, winner, created_at
-         FROM pong_matches
-         WHERE user_id = ?
-         ORDER BY created_at DESC`,
-        [userId]
-      );
-      console.log(`[PONG] Found ${history.length} matches for user ${userId}`);
-      return reply.send({ history });
-    } catch (error) {
-      console.error('[PONG] Error fetching history:', error);
-      return reply.status(500).send({ error: 'Failed to fetch history' });
-    }
+    const db = getDb();
+    const history = await db.all(
+      `SELECT mode, score, opponent_score, winner, created_at
+       FROM pong_matches
+       WHERE user_id = ?
+       ORDER BY created_at DESC`,
+      [userId]
+    );
+    console.log(`[PONG] Found ${history.length} matches for user ${userId}`);
+    return reply.send({ history });
   });
 }

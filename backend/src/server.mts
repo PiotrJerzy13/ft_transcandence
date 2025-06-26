@@ -171,22 +171,86 @@ const start = async () => {
     });
     
     // Error handler with ELK logging
-    app.setErrorHandler(async (error, request, reply) => {
-      app.log.error({
-        msg: 'Unhandled error',
-        error: {
-          message: error.message,
-          stack: error.stack,
-          statusCode: error.statusCode || 500
-        },
-        req: request
-      });
+    // app.setErrorHandler(async (error, request, reply) => {
+    //   app.log.error({
+    //     msg: 'Unhandled error',
+    //     error: {
+    //       message: error.message,
+    //       stack: error.stack,
+    //       statusCode: error.statusCode || 500
+    //     },
+    //     req: request
+    //   });
       
-      reply.status(error.statusCode || 500).send({
-        error: 'Internal Server Error',
-        message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
-      });
-    });
+    //   reply.status(error.statusCode || 500).send({
+    //     error: 'Internal Server Error',
+    //     message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
+    //   });
+    // });
+	// Error handler with ELK logging and enhanced details
+	app.setErrorHandler(async (error, request, reply) => {
+	// Log detailed error information
+	request.log.error({
+		msg: 'Unhandled error',
+		error: {
+		message: error.message,
+		stack: error.stack,
+		statusCode: error.statusCode || 500,
+		validationErrors: error.validation ? error.validation : undefined,
+		},
+		req: request
+	});
+
+	// Customize error response based on environment and error type
+	const statusCode = error.statusCode || 500;
+	reply.status(statusCode);
+
+	if (process.env.NODE_ENV === 'development') {
+		// In development, send back full error details
+		return reply.send({
+		statusCode,
+		error: error.name || 'Internal Server Error',
+		message: error.message,
+		stack: error.stack,
+		validationErrors: error.validation,
+		});
+	} else {
+		// In production, send a more generic message
+		if (statusCode === 400 && error.validation) {
+		// Handle validation errors with more detail
+		return reply.send({
+			statusCode,
+			error: 'Bad Request',
+			message: 'Validation failed',
+			validationErrors: error.validation,
+		});
+		}
+		
+		if (statusCode >= 500) {
+		// Log critical errors to ELK
+		elkLogger.error(error.message, {
+			stack: error.stack,
+			statusCode: statusCode,
+			originalUrl: request.url,
+			method: request.method,
+		}).catch(err => {
+			request.log.warn('Failed to send error details to ELK', err);
+		});
+
+		return reply.send({
+			statusCode: 500,
+			error: 'Internal Server Error',
+			message: 'Something went wrong',
+		});
+		}
+
+		return reply.send({
+		statusCode,
+		error: error.name || 'Error',
+		message: error.message,
+		});
+	}
+	});
     
     // Graceful shutdown
     const closeGracefully = async (signal: NodeJS.Signals) => {

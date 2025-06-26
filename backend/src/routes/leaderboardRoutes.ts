@@ -1,6 +1,7 @@
 import type { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
+import { InternalServerError } from './error.js';
 
 export default async function leaderboardRoutes(fastify: FastifyInstance) {
   fastify.get('/leaderboard', { preHandler: authenticate }, async (_req, reply) => {
@@ -36,14 +37,14 @@ export default async function leaderboardRoutes(fastify: FastifyInstance) {
       
       if (!topPlayers || topPlayers.length === 0) {
         console.log('[LEADERBOARD] No players found in the leaderboard');
-        return reply.send({ leaderboard: [] }); // ✅ add return
+        return reply.send({ leaderboard: [] });
       }
       
       console.log('[LEADERBOARD] Sending leaderboard data with', topPlayers.length, 'players');
-      return reply.send({ leaderboard: topPlayers }); // ✅ add return
+      return reply.send({ leaderboard: topPlayers });
     } catch (error) {
       console.error('[LEADERBOARD] Error fetching leaderboard:', error);
-      return reply.status(500).send({ error: 'Failed to load leaderboard' }); // ✅ add return
+      throw new InternalServerError('Failed to load leaderboard');
     }
   });
 }
