@@ -52,8 +52,8 @@ export class UserRepository {
       throw new Error(`User with ID ${id} not found`);
     }
 
-    const updates = [];
-    const params = [];
+    const updates: string[] = [];
+    const params: (string | number)[] = [];
 
     // Build dynamic update query
     for (const [key, value] of Object.entries(user)) {

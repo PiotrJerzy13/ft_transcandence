@@ -374,7 +374,7 @@ export default function Game({ onNavigateToLobby }: GameProps) {
     const updateGameState = () => {
       if (!pongGameRef.current || gameState !== 'playing') return;
 
-      const { collision, score: scoreResult, gameResult } = pongGameRef.current.update(gameMode);
+      const { score: scoreResult, gameResult } = pongGameRef.current.update(gameMode);
       const currentGameState = pongGameRef.current.getState();
       // Update score if needed
       if (scoreResult.scored) {

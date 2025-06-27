@@ -39,7 +39,10 @@ export async function authenticate(
     
     try {
       // Verify token using the required JWT_SECRET
-      const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
+      if (!JWT_SECRET) {
+        throw new Error('JWT_SECRET is not defined');
+      }
+      const decoded = jwt.verify(token, JWT_SECRET) as unknown as JwtPayload;
       
       console.log('Token decoded:', decoded);
       

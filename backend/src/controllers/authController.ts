@@ -113,6 +113,11 @@ class AuthController {
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
       
+      // Ensure user has an ID
+      if (!user.id) {
+        return reply.status(500).send({ error: 'User ID not found' });
+      }
+      
       // Update status
       await userRepository.update(user.id, { status: 'online' });
       

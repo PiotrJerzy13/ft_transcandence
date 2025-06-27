@@ -11,9 +11,7 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
   const [level, setLevel] = useState(1);
-  const [xpEarned, setXpEarned] = useState(0);
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver', 'levelComplete'
-  const [history, setHistory] = useState<{ score: number; level_reached: number; created_at: string }[]>([]);
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const animationFrameRef = useRef<number | null>(null);
   const gameInstanceRef = useRef<Arkanoid | null>(null);
@@ -81,17 +79,17 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
       onLevelChange: (newLevel) => setLevel(newLevel),
       onGameOver: () => {
         const xpGained = calculateGameOverXp(score, level);
-        setXpEarned(prev => prev + xpGained);
         showXpGain(xpGained);
         setGameState('gameOver');
       },
       onLevelComplete: () => {
         const xpGained = calculateLevelXp(score, level, lives);
-        setXpEarned(prev => prev + xpGained);
         showXpGain(xpGained);
         setGameState('levelComplete');
       },
-      onXpEarned: (xp) => setXpEarned(prev => prev + xp)
+      onXpEarned: () => {
+        // This callback is no longer used in the new implementation
+      }
     });
 
     return () => {
