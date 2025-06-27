@@ -9,7 +9,7 @@ dist/
 .DS_Store
 
 # IDEs
-.idea/
 .vscode/
 
+*.db
 cookies.txt
