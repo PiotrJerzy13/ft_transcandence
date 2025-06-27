@@ -2,32 +2,31 @@
 # These are related to known CVEs in Alpine packages and do not always pose a direct threat.
 FROM node:20-alpine3.19
 
-# Update package index and install SQLite and build dependencies
-RUN apk update && apk upgrade && apk add --no-cache sqlite python3 make g++ libc6-compat
+# Install dependencies needed for native modules and the entrypoint script
+RUN apk update && apk upgrade && apk add --no-cache sqlite python3 make g++ libc6-compat bash
 
 WORKDIR /app
 
-# Copy package files first for better caching
+# Copy package files and the knex config file first for better caching
 COPY package*.json ./
-COPY tsconfig.json ./
-
-# Install dependencies
+COPY knexfile.js ./
+COPY knexfile.cjs ./
 RUN npm install
 
-# Copy source code
-COPY src ./src
-
-# Create directory for SQLite database
-RUN mkdir -p /app/data
-
-# Debug: List files before build
-RUN ls -la src/
+# Copy the rest of the source code
+COPY . .
 
 # Build TypeScript code
-RUN npm run build && ls -la dist/
+RUN npm run build
 
-# Expose port for API
+# Copy and set permissions for the entrypoint script
+COPY entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/entrypoint.sh
+
 EXPOSE 3000
 
-# Command to run app
-CMD ["node", "dist/server.mjs"]
+# Set the entrypoint to our script
+ENTRYPOINT ["entrypoint.sh"]
+
+# The default command to be executed by the entrypoint
+CMD ["npm", "run", "start"]

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
@@ -122,12 +122,12 @@ export default function Login() {
           <div className="mt-6 text-center">
             <p className="text-gray-400 font-mono text-sm">
               &gt; ARE YOU NEW HERE ?{" "}
-              <a
-                href="/register"
+              <Link
+                to="/register"
                 className="text-cyan-400 hover:text-cyan-300 underline hover:no-underline transition-all duration-300 font-bold animate-pulse"
               >
                 [REGISTER HERE]
-              </a>
+              </Link>
             </p>
           </div>
         </div>

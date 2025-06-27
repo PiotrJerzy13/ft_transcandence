@@ -23,10 +23,10 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
     const db = getDb();
 
     // Get current user stats
-    const currentStats = await db.get(
-      `SELECT xp, level FROM user_stats WHERE user_id = ?`,
-      [userId]
-    );
+    const currentStats = await db('user_stats')
+      .select('xp', 'level')
+      .where('user_id', userId)
+      .first();
 
     // Calculate new total XP
     const currentTotalXp = currentStats?.xp || 0;
@@ -34,27 +34,38 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
     const newLevel = Math.floor(Math.sqrt(newTotalXp / 100)) + 1;
 
     // Save game result
-    await db.run(
-      `INSERT INTO arkanoid_scores (user_id, score, level_reached, xp, created_at)
-       VALUES (?, ?, ?, ?, datetime('now'))`,
-      [userId, score, levelReached, xpEarned]
-    );
+    await db('arkanoid_scores').insert({
+      user_id: userId,
+      score,
+      level_reached: levelReached,
+      xp_earned: xpEarned
+    });
 
-    // Update user_stats table with new total XP
-    await db.run(
-      `INSERT INTO user_stats (user_id, xp, level, total_games, wins, losses, win_streak, best_streak, total_play_time, rank, updated_at)
-       VALUES (?, ?, ?, 0, 0, 0, 0, 0, 0, 'Novice', datetime('now'))
-       ON CONFLICT(user_id) DO UPDATE SET 
-         xp = ?,
-         level = ?,
-         updated_at = datetime('now')`,
-      [userId, newTotalXp, newLevel, newTotalXp, newLevel]
-    );
+    // Update user_stats table with new total XP using upsert
+    await db('user_stats')
+      .insert({
+        user_id: userId,
+        xp: newTotalXp,
+        level: newLevel,
+        total_games: 0,
+        wins: 0,
+        losses: 0,
+        win_streak: 0,
+        best_streak: 0,
+        total_play_time: 0,
+        rank: 'Novice'
+      })
+      .onConflict('user_id')
+      .merge({
+        xp: newTotalXp,
+        level: newLevel,
+        updated_at: new Date().toISOString()
+      });
 
-    const updatedStats = await db.get(
-      `SELECT xp, level FROM user_stats WHERE user_id = ?`,
-      [userId]
-    );
+    const updatedStats = await db('user_stats')
+      .select('xp', 'level')
+      .where('user_id', userId)
+      .first();
 
     console.log(`[ARKANOID] Score and XP saved successfully - New total XP: ${newTotalXp}, Level: ${newLevel}`);
     return reply.send({
@@ -75,13 +86,10 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
     }
 
     const db = getDb();
-    const scores = await db.all(
-      `SELECT score, level_reached, xp, created_at 
-       FROM arkanoid_scores 
-       WHERE user_id = ? 
-       ORDER BY created_at DESC`,
-      [userId]
-    );
+    const scores = await db('arkanoid_scores')
+      .select('score', 'level_reached', 'xp_earned as xp', 'created_at')
+      .where('user_id', userId)
+      .orderBy('created_at', 'desc');
 
     console.log(`[ARKANOID] Found ${scores.length} scores for user ${userId}`);
     return reply.send({ history: scores });

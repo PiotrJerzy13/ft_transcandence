@@ -67,6 +67,70 @@ You need **7 major modules** for full credit. Current estimated count: **4.5/9.5
 
 ---
 
+## 📚 Database & Knex.js Usage
+
+This project uses [Knex.js](https://knexjs.org/) as a SQL query builder and migration tool for SQLite. All database access in the backend is done via Knex.
+
+### 🔄 Running Migrations & Seeds
+
+- **Run all migrations:**
+  ```bash
+  npm run migrate
+  ```
+- **Rollback last migration:**
+  ```bash
+  npm run migrate:down
+  ```
+- **Run seeds (development only):**
+  ```bash
+  npm run seed
+  ```
+
+Migrations and seeds are located in `backend/src/db/migrations/` and `backend/src/db/seeds/`.
+
+### ✍️ Writing Queries
+- Use the `getDb()` helper from `src/db/index.ts` to get a Knex instance:
+  ```ts
+  import { getDb } from '../db/index.js';
+  const db = getDb();
+  const users = await db('users').select('*');
+  ```
+- Avoid using raw SQL strings; prefer Knex's query builder methods for safety and portability.
+
+### 🏗️ Creating a New Migration
+- Create a new migration file:
+  ```bash
+  npm run migrate:make -- <migration_name>
+  ```
+- Edit the generated file in `src/db/migrations/` to define your schema changes.
+
+### 🌱 Creating a New Seed
+- Create a new seed file:
+  ```bash
+  npm run seed:make -- <seed_name>
+  ```
+- Edit the generated file in `src/db/seeds/` to insert initial data.
+
+### 🧑‍💻 Using Knex in New Code
+- Always use the Knex instance from `getDb()`.
+- Example insert:
+  ```ts
+  await db('users').insert({ username: 'alice', password: '...' });
+  ```
+- Example update:
+  ```ts
+  await db('users').where({ id: 1 }).update({ username: 'bob' });
+  ```
+- Example select:
+  ```ts
+  const user = await db('users').where({ id: 1 }).first();
+  ```
+
+### 📖 More Info
+- See [Knex.js documentation](https://knexjs.org/) for advanced usage and query examples.
+
+---
+
 ## 🔐 Security
 
 - Passwords hashed using bcrypt

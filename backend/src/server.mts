@@ -9,6 +9,7 @@ import pongRoutes from './routes/pongRoutes.js';
 import arkanoidRoutes from './routes/arkanoidRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import { register, collectDefaultMetrics } from 'prom-client';
+import addFormats from 'ajv-formats';
 
 // Import database
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -56,7 +57,13 @@ const loggerConfig = {
 };
 
 const app: FastifyInstance = fastify({ 
-  logger: loggerConfig 
+  logger: loggerConfig,
+  ignoreTrailingSlash: true,
+  ajv: {
+    plugins: [
+      (addFormats as unknown as (ajv: any) => any)
+    ]
+  }
 });
 
 // Add request logging hook

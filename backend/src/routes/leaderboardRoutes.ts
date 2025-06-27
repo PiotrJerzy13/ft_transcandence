@@ -1,50 +1,57 @@
-import type { FastifyInstance } from 'fastify';
+import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
-import { InternalServerError } from './error.js';
 
 export default async function leaderboardRoutes(fastify: FastifyInstance) {
   fastify.get('/leaderboard', { preHandler: authenticate }, async (_req, reply) => {
     try {
-      console.log('[LEADERBOARD] Fetching leaderboard data...');
       const db = getDb();
       
-      const userCount = await db.get('SELECT COUNT(*) as count FROM users');
-      console.log('[LEADERBOARD] Total users in database:', userCount?.count);
+      // Get counts for debugging
+      const userCount = await db('users').count('* as count').first();
+      const statsCount = await db('user_stats').count('* as count').first();
       
-      const statsCount = await db.get('SELECT COUNT(*) as count FROM user_stats');
+      console.log('[LEADERBOARD] Total users in database:', userCount?.count);
       console.log('[LEADERBOARD] Total user stats in database:', statsCount?.count);
       
-      const topPlayers = await db.all(`
-        SELECT 
-          u.id,
-          u.username,
-          us.level,
-          us.rank,
-          us.total_games,
-          us.wins,
-          us.losses,
-          us.xp,
-          us.best_streak,
-          ROUND(CAST(us.wins AS FLOAT) / NULLIF(us.total_games, 0) * 100, 1) AS win_rate
-        FROM users u
-        JOIN user_stats us ON u.id = us.user_id
-        ORDER BY us.level DESC, us.xp DESC
-        LIMIT 10;
-      `);
-      
-      console.log('[LEADERBOARD] Query result:', JSON.stringify(topPlayers, null, 2));
-      
-      if (!topPlayers || topPlayers.length === 0) {
-        console.log('[LEADERBOARD] No players found in the leaderboard');
-        return reply.send({ leaderboard: [] });
-      }
-      
-      console.log('[LEADERBOARD] Sending leaderboard data with', topPlayers.length, 'players');
-      return reply.send({ leaderboard: topPlayers });
+      // Get top players with their stats
+      const topPlayers = await db('users')
+        .select(
+          'users.id',
+          'users.username',
+          'user_stats.level',
+          'user_stats.rank',
+          'user_stats.xp',
+          'user_stats.wins',
+          'user_stats.losses',
+          'user_stats.best_streak'
+        )
+        .leftJoin('user_stats', 'users.id', 'user_stats.user_id')
+        .orderBy('user_stats.xp', 'desc')
+        .orderBy('user_stats.level', 'desc')
+        .limit(10);
+
+      // Calculate win rates
+      const playersWithWinRate = topPlayers.map(player => {
+        const totalGames = (player.wins || 0) + (player.losses || 0);
+        const winRate = totalGames > 0 ? ((player.wins || 0) / totalGames) * 100 : 0;
+        
+        return {
+          id: player.id,
+          username: player.username,
+          level: player.level || 1,
+          rank: player.rank || 'Novice',
+          xp: player.xp || 0,
+          win_rate: winRate,
+          best_streak: player.best_streak || 0
+        };
+      });
+
+      console.log('[LEADERBOARD] Returning top players:', playersWithWinRate.length);
+      return reply.send(playersWithWinRate);
     } catch (error) {
-      console.error('[LEADERBOARD] Error fetching leaderboard:', error);
-      throw new InternalServerError('Failed to load leaderboard');
+      console.error('[LEADERBOARD] Error:', error);
+      return reply.status(500).send({ error: 'Failed to fetch leaderboard' });
     }
   });
 }

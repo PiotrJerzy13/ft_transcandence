@@ -1,24 +1,4 @@
 services:
-  db_init:
-    image: bash:latest
-    container_name: ft_db_init
-    volumes:
-      - ./backend/db_init:/db_init
-      - ./data:/data
-    command: |
-      bash -c '
-        if [ ! -f /data/ft_transcendence.db ]; then
-          apk add --no-cache sqlite &&
-          sqlite3 /data/ft_transcendence.db < /db_init/schema.sql &&
-          sqlite3 /data/ft_transcendence.db < /db_init/seed.sql &&
-          echo "Database initialized successfully";
-        else
-          echo "Database already exists, skipping initialization";
-        fi
-      '
-    networks:
-      - app_network
-    restart: "no"
   backend:
     build:
       context: ./backend
@@ -33,6 +13,7 @@ services:
       - LOGSTASH_HOST=logstash
       - LOGSTASH_PORT=5001
       - LOG_LEVEL=info
+      - NODE_ENV=development
     volumes:
       - ./data:/app/data
       - ./logs/backend:/app/logs
@@ -41,8 +22,6 @@ services:
     depends_on:
       logstash:
         condition: service_healthy
-      db_init:
-        condition: service_completed_successfully
     networks:
       - app_network
       - elk_network

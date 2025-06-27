@@ -46,7 +46,7 @@ class ELKLogger {
         await new Promise(res => setTimeout(res, delay));
         return this.sendLog(entry, retries - 1, delay * 2);
       }
-      // Fallback to console if ELK is not available
+      // Fallback to console if ELK is not available - don't throw error
       console.error('ELK Logger error:', error);
     }
   }
@@ -64,22 +64,34 @@ class ELKLogger {
   async info(message: string, metadata?: Record<string, any>): Promise<void> {
     // Always log to console for debugging
     console.log(`[INFO] ${message}`, metadata);
-    await this.sendLog(this.createLogEntry('info', message, metadata));
+    // Make ELK logging non-blocking
+    this.sendLog(this.createLogEntry('info', message, metadata)).catch(error => {
+      console.error('ELK Logger error:', error);
+    });
   }
 
   async warn(message: string, metadata?: Record<string, any>): Promise<void> {
     console.warn(`[WARN] ${message}`, metadata);
-    await this.sendLog(this.createLogEntry('warn', message, metadata));
+    // Make ELK logging non-blocking
+    this.sendLog(this.createLogEntry('warn', message, metadata)).catch(error => {
+      console.error('ELK Logger error:', error);
+    });
   }
 
   async error(message: string, metadata?: Record<string, any>): Promise<void> {
     console.error(`[ERROR] ${message}`, metadata);
-    await this.sendLog(this.createLogEntry('error', message, metadata));
+    // Make ELK logging non-blocking
+    this.sendLog(this.createLogEntry('error', message, metadata)).catch(error => {
+      console.error('ELK Logger error:', error);
+    });
   }
 
   async debug(message: string, metadata?: Record<string, any>): Promise<void> {
     console.debug(`[DEBUG] ${message}`, metadata);
-    await this.sendLog(this.createLogEntry('debug', message, metadata));
+    // Make ELK logging non-blocking
+    this.sendLog(this.createLogEntry('debug', message, metadata)).catch(error => {
+      console.error('ELK Logger error:', error);
+    });
   }
 }
 

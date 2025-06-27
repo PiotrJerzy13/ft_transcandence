@@ -46,9 +46,12 @@ export async function authenticate(
       
       console.log('Token decoded:', decoded);
       
-      // Verify user exists in DB
+      // Verify user exists in DB using Knex
       const db = getDb();
-      const user = await db.get('SELECT id, username FROM users WHERE id = ?', decoded.id);
+      const user = await db('users')
+        .select('id', 'username')
+        .where('id', decoded.id)
+        .first();
       
       if (!user) {
         console.log('User not found in DB for id:', decoded.id);
