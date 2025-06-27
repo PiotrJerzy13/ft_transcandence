@@ -9,6 +9,13 @@ interface JwtPayload {
   username: string;
 }
 
+// Ensure JWT_SECRET is provided at startup
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET) {
+  console.error('FATAL ERROR: JWT_SECRET environment variable is required');
+  process.exit(1);
+}
+
 export async function authenticate(
   request: FastifyRequest,
   reply: FastifyReply
@@ -31,11 +38,8 @@ export async function authenticate(
     console.log('Token found:', token.substring(0, 20) + '...');
     
     try {
-      // Verify token
-      const decoded = jwt.verify(
-        token, 
-        process.env.JWT_SECRET || 'your-secret-key'
-      ) as JwtPayload;
+      // Verify token using the required JWT_SECRET
+      const decoded = jwt.verify(token, JWT_SECRET) as JwtPayload;
       
       console.log('Token decoded:', decoded);
       
