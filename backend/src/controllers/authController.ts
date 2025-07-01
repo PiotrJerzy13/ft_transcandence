@@ -94,32 +94,40 @@ class AuthController {
     reply: FastifyReply
   ) {
     try {
+      request.log.info('Login attempt', request.body);
       const { username, password } = request.body;
       
       // Input validation
       if (!username || !password) {
+        request.log.warn('Missing username or password');
         return reply.status(400).send({ error: 'Username and password are required' });
       }
       
       // Find user
       const user = await userRepository.findByUsername(username);
+      request.log.info('User found', user);
       if (!user) {
+        request.log.warn('User not found');
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
       
       // Check password
       const passwordValid = await bcrypt.compare(password, user.password_hash);
+      request.log.info('Password valid?', passwordValid);
       if (!passwordValid) {
+        request.log.warn('Invalid password');
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
       
       // Ensure user has an ID
       if (!user.id) {
+        request.log.error('User ID not found');
         return reply.status(500).send({ error: 'User ID not found' });
       }
       
       // Update status
       await userRepository.update(user.id, { status: 'online' });
+      request.log.info('User status updated to online');
       
       // Create JWT token
       const token = jwt.sign(
@@ -139,12 +147,13 @@ class AuthController {
       
       // Return user (without password)
       const { password_hash, ...userWithoutPassword } = user;
+      request.log.info('Login successful', userWithoutPassword);
       return reply.send({ 
         user: userWithoutPassword,
         token
       });
     } catch (error) {
-      request.log.error(error);
+      request.log.error('Login error', error);
       return reply.status(500).send({ error: 'Internal Server Error' });
     }
   }

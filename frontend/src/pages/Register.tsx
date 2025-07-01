@@ -1,6 +1,6 @@
 // Register.tsx
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 
 export default function Register() {
   const navigate = useNavigate();
@@ -234,12 +234,12 @@ export default function Register() {
             <div className="mt-6 text-center">
 				<p className="text-gray-400 font-mono text-sm">
 				&gt; ALREADY REGISTERED?{" "}
-				<a 
-					href="/login" 
+				<Link 
+					to="/login" 
 					className="text-cyan-400 hover:text-cyan-300 underline hover:no-underline transition-all duration-300 font-bold animate-pulse"
 				>
 					[LOGIN]
-				</a>
+				</Link>
 				</p>
             </div>
           </form>

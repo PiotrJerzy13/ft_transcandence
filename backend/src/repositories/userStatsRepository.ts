@@ -1,4 +1,5 @@
 // src/repositories/userStatsRepository.ts
+import { Knex } from 'knex';
 import { getDb } from '../db/index.js';
 
 export interface UserStats {
@@ -35,11 +36,23 @@ export interface UserAchievement {
 }
 
 export class UserStatsRepository {
+  private db: Knex | null = null;
+
+  private getDb(): Knex {
+    if (!this.db) {
+      this.db = getDb();
+    }
+    return this.db;
+  }
+
   async findByUserId(userId: number): Promise<UserStats | undefined> {
-    const db = getDb();
-    const row = await db.get('SELECT * FROM user_stats WHERE user_id = ?', userId);
+    const row = await this.getDb()('user_stats')
+      .where('user_id', userId)
+      .first();
+    
     console.log("DEBUG (findByUserId) raw row:", row);
     if (!row) return undefined;
+    
     const stats: UserStats = {
       id: row.id,
       user_id: row.user_id,
@@ -59,47 +72,64 @@ export class UserStatsRepository {
   }
 
   async createOrUpdate(stats: UserStats): Promise<UserStats> {
-    const db = getDb();
     const existing = await this.findByUserId(stats.user_id);
     
     if (existing) {
-      await db.run(`
-        UPDATE user_stats SET 
-          total_games = ?, wins = ?, losses = ?, win_streak = ?, 
-          best_streak = ?, total_play_time = ?, rank = ?, level = ?, xp = ?
-        WHERE user_id = ?
-      `, [
-        stats.total_games, stats.wins, stats.losses, stats.win_streak,
-        stats.best_streak, stats.total_play_time, stats.rank, stats.level, stats.xp,
-        stats.user_id
-      ]);
-      return { ...stats, id: existing.id };
+      const [updatedStats] = await this.getDb()('user_stats')
+        .where('user_id', stats.user_id)
+        .update({
+          total_games: stats.total_games,
+          wins: stats.wins,
+          losses: stats.losses,
+          win_streak: stats.win_streak,
+          best_streak: stats.best_streak,
+          total_play_time: stats.total_play_time,
+          rank: stats.rank,
+          level: stats.level,
+          xp: stats.xp,
+          updated_at: new Date().toISOString()
+        })
+        .returning('*');
+      
+      return { ...stats, id: updatedStats.id };
     } else {
-      const result = await db.run(`
-        INSERT INTO user_stats 
-        (user_id, total_games, wins, losses, win_streak, best_streak, total_play_time, rank, level, xp)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `, [
-        stats.user_id, stats.total_games, stats.wins, stats.losses, stats.win_streak,
-        stats.best_streak, stats.total_play_time, stats.rank, stats.level, stats.xp
-      ]);
-      return { ...stats, id: result.lastID };
+      const [newStats] = await this.getDb()('user_stats')
+        .insert({
+          user_id: stats.user_id,
+          total_games: stats.total_games,
+          wins: stats.wins,
+          losses: stats.losses,
+          win_streak: stats.win_streak,
+          best_streak: stats.best_streak,
+          total_play_time: stats.total_play_time,
+          rank: stats.rank,
+          level: stats.level,
+          xp: stats.xp
+        })
+        .returning('*');
+      
+      return { ...stats, id: newStats.id };
     }
   }
 
   async getAllAchievements(): Promise<Achievement[]> {
-    const db = getDb();
-    return await db.all('SELECT * FROM achievements ORDER BY id');
+    return await this.getDb()('achievements')
+      .select('*')
+      .orderBy('id');
   }
 
   async getUserAchievements(userId: number): Promise<UserAchievement[]> {
-    const db = getDb();
-    return await db.all(`
-      SELECT ua.*, a.name, a.description, a.icon, a.requirement_type, a.requirement_value
-      FROM user_achievements ua
-      JOIN achievements a ON ua.achievement_id = a.id
-      WHERE ua.user_id = ?
-    `, userId);
+    return await this.getDb()('user_achievements')
+      .select(
+        'user_achievements.*',
+        'achievements.name',
+        'achievements.description',
+        'achievements.icon',
+        'achievements.requirement_type',
+        'achievements.requirement_value'
+      )
+      .join('achievements', 'user_achievements.achievement_id', 'achievements.id')
+      .where('user_achievements.user_id', userId);
   }
 
   async updateGameStats(userId: number, won: boolean, gameDuration: number): Promise<void> {
@@ -149,7 +179,6 @@ export class UserStatsRepository {
   }
 
   async checkAndUnlockAchievements(userId: number): Promise<Achievement[]> {
-    const db = getDb();
     const stats = await this.findByUserId(userId);
     if (!stats) return [];
 
@@ -182,10 +211,11 @@ export class UserStatsRepository {
       }
 
       if (shouldUnlock) {
-        await db.run(
-          'INSERT INTO user_achievements (user_id, achievement_id) VALUES (?, ?)',
-          [userId, achievement.id]
-        );
+        await this.getDb()('user_achievements')
+          .insert({
+            user_id: userId,
+            achievement_id: achievement.id
+          });
         newlyUnlocked.push(achievement);
       }
     }
@@ -194,4 +224,13 @@ export class UserStatsRepository {
   }
 }
 
-export default new UserStatsRepository();
+let userStatsRepositoryInstance: UserStatsRepository | null = null;
+
+export function getUserStatsRepository(): UserStatsRepository {
+  if (!userStatsRepositoryInstance) {
+    userStatsRepositoryInstance = new UserStatsRepository();
+  }
+  return userStatsRepositoryInstance;
+}
+
+export default getUserStatsRepository();

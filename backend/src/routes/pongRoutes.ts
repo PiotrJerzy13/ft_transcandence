@@ -27,57 +27,57 @@ export default async function pongRoutes(fastify: FastifyInstance) {
     console.log('[PONG] Saving match with XP:', { userId, mode, score, opponentScore, winner, xpEarned, totalXp });
 
     // Save the match with XP data
-    await db.run(
-      `INSERT INTO pong_matches (user_id, mode, score, opponent_score, winner, xp_earned, total_xp, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))`,
-      [userId, mode, score, opponentScore, winner, xpEarned, totalXp]
-    );
+    await db('pong_matches').insert({
+      user_id: userId,
+      mode,
+      score,
+      opponent_score: opponentScore,
+      winner,
+      xp_earned: xpEarned,
+      total_xp: totalXp
+    });
 
     // Get current user stats
-    const currentStats = await db.get(
-      `SELECT xp, level FROM user_stats WHERE user_id = ?`,
-      [userId]
-    );
+    const currentStats = await db('user_stats')
+      .select('xp', 'level')
+      .where('user_id', userId)
+      .first();
 
     // Calculate new total XP and level
     const currentTotalXp = currentStats?.xp || 0;
     const newTotalXp = currentTotalXp + xpEarned;
     const newLevel = Math.floor(Math.sqrt(newTotalXp / 100)) + 1;
 
-    // Update user stats with XP
-    await db.run(
-      `INSERT INTO user_stats (user_id, xp, level, total_games, wins, losses, win_streak, best_streak, total_play_time, rank, updated_at)
-       VALUES (?, ?, ?, 1, ?, ?, ?, ?, 0, 'Novice', datetime('now'))
-       ON CONFLICT (user_id) 
-       DO UPDATE SET 
-         xp = ?,
-         level = ?,
-         total_games = total_games + 1,
-         wins = wins + ?,
-         losses = losses + ?,
-         win_streak = CASE 
-           WHEN ? = 'player' THEN win_streak + 1 
-           ELSE 0 
-         END,
-         best_streak = CASE 
-           WHEN ? = 'player' AND win_streak + 1 > best_streak THEN win_streak + 1 
-           ELSE best_streak 
-         END,
-         updated_at = datetime('now')`,
-      [
-        userId, newTotalXp, newLevel,
-        winner === 'player' ? 1 : 0, winner === 'opponent' ? 1 : 0,
-        winner === 'player' ? 1 : 0, winner === 'player' ? 1 : 0,
-        newTotalXp, newLevel,
-        winner === 'player' ? 1 : 0, winner === 'opponent' ? 1 : 0,
-        winner, winner
-      ]
-    );
+    // Update user stats with XP using upsert
+    await db('user_stats')
+      .insert({
+        user_id: userId,
+        xp: newTotalXp,
+        level: newLevel,
+        total_games: 1,
+        wins: winner === 'player' ? 1 : 0,
+        losses: winner === 'opponent' ? 1 : 0,
+        win_streak: winner === 'player' ? 1 : 0,
+        best_streak: winner === 'player' ? 1 : 0,
+        total_play_time: 0,
+        rank: 'Novice'
+      })
+      .onConflict('user_id')
+      .merge({
+        xp: newTotalXp,
+        level: newLevel,
+        total_games: db.raw('total_games + 1'),
+        wins: db.raw(`wins + ${winner === 'player' ? 1 : 0}`),
+        losses: db.raw(`losses + ${winner === 'opponent' ? 1 : 0}`),
+        win_streak: db.raw(`CASE WHEN '${winner}' = 'player' THEN win_streak + 1 ELSE 0 END`),
+        best_streak: db.raw(`CASE WHEN '${winner}' = 'player' AND win_streak + 1 > best_streak THEN win_streak + 1 ELSE best_streak END`),
+        updated_at: new Date().toISOString()
+      });
 
-    const updatedStats = await db.get(
-      `SELECT xp, level FROM user_stats WHERE user_id = ?`,
-      [userId]
-    );
+    const updatedStats = await db('user_stats')
+      .select('xp', 'level')
+      .where('user_id', userId)
+      .first();
 
     console.log('[PONG] Score and XP saved successfully:', {
       userId,
@@ -104,13 +104,11 @@ export default async function pongRoutes(fastify: FastifyInstance) {
     }
 
     const db = getDb();
-    const history = await db.all(
-      `SELECT mode, score, opponent_score, winner, created_at
-       FROM pong_matches
-       WHERE user_id = ?
-       ORDER BY created_at DESC`,
-      [userId]
-    );
+    const history = await db('pong_matches')
+      .select('mode', 'score', 'opponent_score', 'winner', 'created_at')
+      .where('user_id', userId)
+      .orderBy('created_at', 'desc');
+    
     console.log(`[PONG] Found ${history.length} matches for user ${userId}`);
     return reply.send({ history });
   });

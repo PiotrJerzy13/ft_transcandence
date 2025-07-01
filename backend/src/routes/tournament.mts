@@ -38,16 +38,16 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
   fastify.get('/tournaments', async (_request, reply: FastifyReply) => {
     const db = getDb();
     // Fetch tournaments from database
-    const tournamentRows = await db.all(`
-      SELECT 
-        t.id, 
-        t.name, 
-        t.status, 
-        COUNT(tp.user_id) as participants
-      FROM tournaments t
-      LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
-      GROUP BY t.id
-    `);
+    const tournamentRows = await db('tournaments')
+      .select(
+        'tournaments.id',
+        'tournaments.name',
+        'tournaments.status',
+        db.raw('COUNT(tournament_participants.user_id) as participants')
+      )
+      .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
+      .groupBy('tournaments.id');
+    
     // Transform database rows to match the API format
     const tournaments: Tournament[] = tournamentRows.map(row => ({
       id: row.id,
@@ -76,35 +76,37 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const db = getDb();
       // Fetch tournament details
-      const tournament = await db.get(`
-        SELECT 
-          t.id, 
-          t.name, 
-          t.description, 
-          t.status, 
-          COUNT(tp.user_id) as participants
-        FROM tournaments t
-        LEFT JOIN tournament_participants tp ON t.id = tp.tournament_id
-        WHERE t.id = ?
-        GROUP BY t.id
-      `, parseInt(id));
+      const tournament = await db('tournaments')
+        .select(
+          'tournaments.id',
+          'tournaments.name',
+          'tournaments.description',
+          'tournaments.status',
+          db.raw('COUNT(tournament_participants.user_id) as participants')
+        )
+        .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
+        .where('tournaments.id', parseInt(id))
+        .groupBy('tournaments.id')
+        .first();
+      
       if (!tournament) {
         throw new NotFoundError('Tournament not found');
       }
+      
       // Fetch tournament matches
-      const matchRows = await db.all(`
-        SELECT 
-          m.id, 
-          u1.username as player1_username,
-          u2.username as player2_username,
-          m.player1_score,
-          m.player2_score,
-          m.status
-        FROM matches m
-        JOIN users u1 ON m.player1_id = u1.id
-        JOIN users u2 ON m.player2_id = u2.id
-        WHERE m.tournament_id = ?
-      `, parseInt(id));
+      const matchRows = await db('matches')
+        .select(
+          'matches.id',
+          'u1.username as player1_username',
+          'u2.username as player2_username',
+          'matches.player1_score',
+          'matches.player2_score',
+          'matches.status'
+        )
+        .join('users as u1', 'matches.player1_id', 'u1.id')
+        .join('users as u2', 'matches.player2_id', 'u2.id')
+        .where('matches.tournament_id', parseInt(id));
+      
       // Transform matches data
       const matches: Match[] = matchRows.map(match => ({
         id: match.id,
@@ -113,6 +115,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         score: `${match.player1_score}-${match.player2_score}`,
         status: mapMatchStatus(match.status)
       }));
+      
       return reply.send({
         id: tournament.id,
         name: tournament.name,
@@ -161,11 +164,17 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       }
       const db = getDb();
       // Insert tournament into database
-      const result = await db.run(`
-        INSERT INTO tournaments (name, description, start_date, status, created_by)
-        VALUES (?, ?, ?, 'pending', ?)
-      `, [name, description, startDate, userId]);
-      const tournamentId = result.lastID;
+      const [result] = await db('tournaments')
+        .insert({
+          name,
+          description,
+          start_date: startDate,
+          status: 'pending',
+          created_by: userId
+        })
+        .returning('id');
+      
+      const tournamentId = result.id;
       return reply.status(201).send({
         success: true, 
         message: 'Tournament created successfully',
@@ -199,7 +208,11 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       }
       const db = getDb();
       // Check if tournament exists
-      const tournament = await db.get('SELECT id, status FROM tournaments WHERE id = ?', parseInt(id));
+      const tournament = await db('tournaments')
+        .select('id', 'status')
+        .where('id', parseInt(id))
+        .first();
+      
       if (!tournament) {
         throw new NotFoundError('Tournament not found');
       }
@@ -208,18 +221,24 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         throw new BadRequestError('Tournament is not open for registration');
       }
       // Check if user is already registered
-      const existingRegistration = await db.get(
-        'SELECT id FROM tournament_participants WHERE tournament_id = ? AND user_id = ?', 
-        [parseInt(id), userId]
-      );
+      const existingRegistration = await db('tournament_participants')
+        .select('id')
+        .where({
+          tournament_id: parseInt(id),
+          user_id: userId
+        })
+        .first();
+      
       if (existingRegistration) {
         throw new BadRequestError('You are already registered for this tournament');
       }
       // Add user to tournament
-      await db.run(
-        'INSERT INTO tournament_participants (tournament_id, user_id) VALUES (?, ?)',
-        [parseInt(id), userId]
-      );
+      await db('tournament_participants')
+        .insert({
+          tournament_id: parseInt(id),
+          user_id: userId
+        });
+      
       return reply.send({ 
         success: true, 
         message: `Successfully joined tournament ${id} as ${username}` 
@@ -245,25 +264,29 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const db = getDb();
       // Check if tournament exists
-      const tournament = await db.get('SELECT id FROM tournaments WHERE id = ?', parseInt(id));
+      const tournament = await db('tournaments')
+        .select('id')
+        .where('id', parseInt(id))
+        .first();
+      
       if (!tournament) {
         throw new NotFoundError('Tournament not found');
       }
       // Fetch matches for tournament
-      const matchRows = await db.all(`
-        SELECT 
-          m.id, 
-          u1.username as player1_username,
-          u2.username as player2_username,
-          m.player1_score,
-          m.player2_score,
-          m.status
-        FROM matches m
-        JOIN users u1 ON m.player1_id = u1.id
-        JOIN users u2 ON m.player2_id = u2.id
-        WHERE m.tournament_id = ?
-        ORDER BY m.id
-      `, parseInt(id));
+      const matchRows = await db('matches')
+        .select(
+          'matches.id',
+          'u1.username as player1_username',
+          'u2.username as player2_username',
+          'matches.player1_score',
+          'matches.player2_score',
+          'matches.status'
+        )
+        .join('users as u1', 'matches.player1_id', 'u1.id')
+        .join('users as u2', 'matches.player2_id', 'u2.id')
+        .where('matches.tournament_id', parseInt(id))
+        .orderBy('matches.id');
+      
       // Transform matches data
       const matches: Match[] = matchRows.map(match => ({
         id: match.id,
@@ -272,6 +295,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         score: `${match.player1_score}-${match.player2_score}`,
         status: mapMatchStatus(match.status)
       }));
+      
       return reply.send({
         tournamentId: parseInt(id),
         matches
@@ -297,24 +321,25 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       const { id } = request.params as { id: string };
       const db = getDb();
       // Fetch match details
-      const match = await db.get(`
-        SELECT 
-          m.id,
-          u1.username as player1_username,
-          u2.username as player2_username,
-          m.player1_score,
-          m.player2_score,
-          m.played_at as start_time,
-          CASE 
-            WHEN m.status = 'completed' THEN m.played_at 
+      const match = await db('matches')
+        .select(
+          'matches.id',
+          'u1.username as player1_username',
+          'u2.username as player2_username',
+          'matches.player1_score',
+          'matches.player2_score',
+          'matches.played_at as start_time',
+          db.raw(`CASE 
+            WHEN matches.status = 'completed' THEN matches.played_at 
             ELSE NULL 
-          END as end_time,
-          m.status
-        FROM matches m
-        JOIN users u1 ON m.player1_id = u1.id
-        JOIN users u2 ON m.player2_id = u2.id
-        WHERE m.id = ?
-      `, parseInt(id));
+          END as end_time`),
+          'matches.status'
+        )
+        .join('users as u1', 'matches.player1_id', 'u1.id')
+        .join('users as u2', 'matches.player2_id', 'u2.id')
+        .where('matches.id', parseInt(id))
+        .first();
+      
       if (!match) {
         throw new NotFoundError('Match not found');
       }
@@ -372,15 +397,11 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       }
       const db = getDb();
       // Verify match exists
-      const match = await db.get(`
-        SELECT 
-          m.id, 
-          m.player1_id, 
-          m.player2_id,
-          m.status
-        FROM matches m
-        WHERE m.id = ?
-      `, parseInt(id));
+      const match = await db('matches')
+        .select('id', 'player1_id', 'player2_id', 'status')
+        .where('id', parseInt(id))
+        .first();
+      
       if (!match) {
         throw new NotFoundError('Match not found');
       }
@@ -393,11 +414,15 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         throw new BadRequestError('Cannot update score for completed match');
       }
       // Update match score in database
-      await db.run(`
-        UPDATE matches
-        SET player1_score = ?, player2_score = ?, status = ?, played_at = CURRENT_TIMESTAMP
-        WHERE id = ?
-      `, [player1Score, player2Score, 'completed', parseInt(id)]);
+      await db('matches')
+        .where('id', parseInt(id))
+        .update({
+          player1_score: player1Score,
+          player2_score: player2Score,
+          status: 'completed',
+          played_at: new Date().toISOString()
+        });
+      
       return reply.send({
         success: true,
         message: 'Match score updated successfully',
