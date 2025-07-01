@@ -4,6 +4,7 @@ import { usePlayerAchievements } from '../hooks/usePlayerAchievements';
 import { useGameHistory } from '../hooks/useGameHistory';
 import type { ArkanoidScore, PongGame } from '../types';
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // Icon mapping for achievements
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -29,15 +30,16 @@ export default function GameLobby() {
   const { history: pongHistory, loading: pongLoading, error: pongError, stats: pongStats } = useGameHistory<PongGame>('pong');
   const { history: arkanoidHistory, loading: arkanoidLoading, error: arkanoidError, stats: arkanoidStats } = useGameHistory<ArkanoidScore>('arkanoid');
   const [showStats, setShowStats] = useState(false);
+  const navigate = useNavigate();
 
   const loading = statsLoading || achievementsLoading || pongLoading || arkanoidLoading;
   const error = statsError || achievementsError || pongError || arkanoidError;
 
   const handleGameModeSelect = (mode: 'pong' | 'arkanoid') => {
     if (mode === 'pong') {
-      window.location.href = '/game';
+      navigate('/game');
     } else if (mode === 'arkanoid') {
-      window.location.href = '/game2';
+      navigate('/game2');
     }
   };
 
@@ -48,7 +50,7 @@ export default function GameLobby() {
         credentials: 'include',
       });
       if (res.ok) {
-        window.location.href = '/login';
+        navigate('/login');
       } else {
         alert('Logout failed');
       }
@@ -436,7 +438,7 @@ export default function GameLobby() {
         {/* Footer Actions */}
         <div className="mt-8 flex justify-center space-x-4">
           <button 
-            onClick={() => window.location.href = '/leaderboard'}
+            onClick={() => navigate('/leaderboard')}
             className="px-6 py-3 bg-gradient-to-r from-purple-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300"
           >
             View Leaderboard
