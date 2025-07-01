@@ -1,87 +1,3 @@
-// import { getDb } from '../db/index.js';
-
-// export interface User {
-//   id?: number;
-//   username: string;
-//   email: string;
-//   password_hash: string;
-//   avatar_url?: string;
-//   status?: string;
-//   created_at?: string;
-// }
-
-// export class UserRepository {
-//   async findAll(): Promise<User[]> {
-//     const db = getDb();
-//     return await db.all('SELECT * FROM users');
-//   }
-
-//   async findById(id: number): Promise<User | undefined> {
-//     const db = getDb();
-//     return await db.get('SELECT * FROM users WHERE id = ?', id);
-//   }
-
-//   async findByUsername(username: string): Promise<User | undefined> {
-//     const db = getDb();
-//     return await db.get('SELECT * FROM users WHERE username = ?', username);
-//   }
-
-//   async findByEmail(email: string): Promise<User | undefined> {
-//     const db = getDb();
-//     return await db.get('SELECT * FROM users WHERE email = ?', email);
-//   }
-
-//   async create(user: User): Promise<User> {
-//     const db = getDb();
-//     const result = await db.run(
-//       'INSERT INTO users (username, email, password_hash, avatar_url, status) VALUES (?, ?, ?, ?, ?)',
-//       [user.username, user.email, user.password_hash, user.avatar_url, user.status || 'offline']
-//     );
-    
-//     return {
-//       ...user,
-//       id: result.lastID
-//     };
-//   }
-
-//   async update(id: number, user: Partial<User>): Promise<void> {
-//     const db = getDb();
-//     const currentUser = await this.findById(id);
-    
-//     if (!currentUser) {
-//       throw new Error(`User with ID ${id} not found`);
-//     }
-
-//     const updates: string[] = [];
-//     const params: (string | number)[] = [];
-
-//     // Build dynamic update query
-//     for (const [key, value] of Object.entries(user)) {
-//       if (key !== 'id' && key !== 'created_at' && value !== undefined) {
-//         updates.push(`${key} = ?`);
-//         params.push(value);
-//       }
-//     }
-
-//     if (updates.length === 0) {
-//       return; // Nothing to update
-//     }
-
-//     params.push(id); // For the WHERE clause
-    
-//     await db.run(
-//       `UPDATE users SET ${updates.join(', ')} WHERE id = ?`,
-//       params
-//     );
-//   }
-
-//   async delete(id: number): Promise<void> {
-//     const db = getDb();
-//     await db.run('DELETE FROM users WHERE id = ?', id);
-//   }
-// }
-
-// export default new UserRepository();
 // src/db/repositories/UserRepository.ts
 import { Knex } from 'knex';
 import { getDb } from '../db/index.js';
@@ -227,7 +143,7 @@ export class UserRepository {
 
   // Get user leaderboard
   async getLeaderboard(limit: number = 10): Promise<(User & { stats: UserStats })[]> {
-    return await this.getDb()('users')
+    const leaderboardData = await this.getDb()('users')
       .leftJoin('user_stats', 'users.id', 'user_stats.user_id')
       .select(
         'users.*',
@@ -247,6 +163,32 @@ export class UserRepository {
       .orderBy('user_stats.xp', 'desc')
       .orderBy('user_stats.level', 'desc')
       .limit(limit);
+
+    return leaderboardData.map(player => {
+      const {
+        stats_id, total_games, wins, losses, win_streak, best_streak,
+        total_play_time, rank, level, xp, stats_created_at, stats_updated_at,
+        ...user
+      } = player;
+      return {
+        ...user,
+        stats: {
+          id: stats_id,
+          user_id: user.id,
+          total_games: total_games || 0,
+          wins: wins || 0,
+          losses: losses || 0,
+          win_streak: win_streak || 0,
+          best_streak: best_streak || 0,
+          total_play_time: total_play_time || 0,
+          rank: rank || 'Novice',
+          level: level || 1,
+          xp: xp || 0,
+          created_at: stats_created_at,
+          updated_at: stats_updated_at
+        }
+      };
+    });
   }
 
   // Search users by username

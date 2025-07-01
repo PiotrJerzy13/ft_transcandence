@@ -1,56 +1,42 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
-import { getDb } from '../db/index.js';
+// --- REMOVE getDb ---
+// import { getDb } from '../db/index.js';
+
+// --- IMPORT THE REPOSITORY ---
+import userRepository from '../repositories/userRepository.js';
 
 export default async function leaderboardRoutes(fastify: FastifyInstance) {
-  fastify.get('/leaderboard', { preHandler: authenticate }, async (_req, reply) => {
+  fastify.get('/leaderboard', { preHandler: authenticate }, async (req, reply) => {
     try {
-      const db = getDb();
-      
-      // Get counts for debugging
-      const userCount = await db('users').count('* as count').first();
-      const statsCount = await db('user_stats').count('* as count').first();
-      
-      console.log('[LEADERBOARD] Total users in database:', userCount?.count);
-      console.log('[LEADERBOARD] Total user stats in database:', statsCount?.count);
-      
-      // Get top players with their stats
-      const topPlayers = await db('users')
-        .select(
-          'users.id',
-          'users.username',
-          'user_stats.level',
-          'user_stats.rank',
-          'user_stats.xp',
-          'user_stats.wins',
-          'user_stats.losses',
-          'user_stats.best_streak'
-        )
-        .leftJoin('user_stats', 'users.id', 'user_stats.user_id')
-        .orderBy('user_stats.xp', 'desc')
-        .orderBy('user_stats.level', 'desc')
-        .limit(10);
+      req.log.info('[LEADERBOARD] Fetching top players from repository');
 
-      // Calculate win rates
-      const playersWithWinRate = topPlayers.map(player => {
-        const totalGames = (player.wins || 0) + (player.losses || 0);
-        const winRate = totalGames > 0 ? ((player.wins || 0) / totalGames) * 100 : 0;
+      // --- REPLACE THE ENTIRE DATABASE QUERY WITH THIS SINGLE LINE ---
+      const topPlayersData = await userRepository.getLeaderboard(10); // Get top 10 players
+      
+      // The repository now returns the correct nested structure.
+      // We just need to calculate the win rate for the final response.
+      const playersWithWinRate = topPlayersData.map(player => {
+        // Access stats from the nested 'stats' object
+        const totalGames = (player.stats.wins || 0) + (player.stats.losses || 0);
+        const winRate = totalGames > 0 ? ((player.stats.wins || 0) / totalGames) * 100 : 0;
         
         return {
           id: player.id,
           username: player.username,
-          level: player.level || 1,
-          rank: player.rank || 'Novice',
-          xp: player.xp || 0,
+          level: player.stats.level || 1,
+          rank: player.stats.rank || 'Novice',
+          xp: player.stats.xp || 0,
           win_rate: winRate,
-          best_streak: player.best_streak || 0
+          best_streak: player.stats.best_streak || 0
         };
       });
 
-      console.log('[LEADERBOARD] Returning top players:', playersWithWinRate.length);
-      return reply.send(playersWithWinRate);
+      req.log.info(`[LEADERBOARD] Returning ${playersWithWinRate.length} top players`);
+      return reply.send({ leaderboard: playersWithWinRate }); // Send nested under 'leaderboard' key
+
     } catch (error) {
-      console.error('[LEADERBOARD] Error:', error);
+      req.log.error('[LEADERBOARD] Error:', error);
       return reply.status(500).send({ error: 'Failed to fetch leaderboard' });
     }
   });
