@@ -32,13 +32,50 @@ const loggerConfig = {
     log: (object: any) => {
       // Send logs to ELK in addition to console
       if (object.msg) {
-        elkLogger[object.level] || elkLogger.info(object.msg, {
-          ...object,
+        // Create a clean, serializable metadata object for ELK.
+        const elkMetadata: Record<string, any> = {
           pid: process.pid,
-          hostname: process.env.HOSTNAME || 'localhost'
-        }).catch(console.error);
+          hostname: process.env.HOSTNAME || 'localhost',
+          reqId: object.reqId,
+        };
+
+        // If the log object contains a serialized request, add it.
+        if (object.req) {
+          elkMetadata.req = {
+            method: object.req.method,
+            url: object.req.url,
+            hostname: object.req.hostname,
+            remoteAddress: object.req.remoteAddress,
+            userAgent: object.req.userAgent
+          };
+        }
+
+        // If the log object contains a serialized response, add it.
+        if (object.res) {
+          elkMetadata.res = {
+            statusCode: object.res.statusCode,
+          };
+          if (object.responseTime) {
+            elkMetadata.responseTime = object.responseTime;
+          }
+        }
+
+        // Add any other top-level fields from the log object that are safe
+        if (object.error) {
+          elkMetadata.error = {
+            message: object.error.message,
+            stack: object.error.stack,
+            statusCode: object.error.statusCode,
+            validationErrors: object.error.validationErrors
+          };
+        }
+
+        // Send the clean metadata object to ELK
+        (elkLogger as any)[object.level]
+          ? (elkLogger as any)[object.level](object.msg, elkMetadata).catch(console.error)
+          : elkLogger.info(object.msg, elkMetadata).catch(console.error);
       }
-      return object;
+      return object; // Return original object for console logging
     }
   },
   serializers: {
@@ -50,8 +87,7 @@ const loggerConfig = {
       userAgent: request.headers['user-agent']
     }),
     res: (reply: any) => ({
-      statusCode: reply.statusCode,
-      responseTime: reply.responseTime
+      statusCode: reply.statusCode
     })
   }
 };
@@ -68,17 +104,13 @@ const app: FastifyInstance = fastify({
 
 // Add request logging hook
 app.addHook('preHandler', async (request, _reply) => {
-  request.log.info({
-    msg: 'Incoming request',
-    req: request
-  });
+  request.log.info({ msg: 'Incoming request' });
 });
 
-app.addHook('onResponse', async (request, reply) => {
-  request.log.info({
+app.addHook('onResponse', async (_request, reply) => {
+  reply.log.info({
     msg: 'Request completed',
-    req: request,
-    res: reply,
+    res: reply, // This will be serialized
     responseTime: reply.getResponseTime()
   });
 });
@@ -178,86 +210,67 @@ const start = async () => {
     });
     
     // Error handler with ELK logging
-    // app.setErrorHandler(async (error, request, reply) => {
-    //   app.log.error({
-    //     msg: 'Unhandled error',
-    //     error: {
-    //       message: error.message,
-    //       stack: error.stack,
-    //       statusCode: error.statusCode || 500
-    //     },
-    //     req: request
-    //   });
-      
-    //   reply.status(error.statusCode || 500).send({
-    //     error: 'Internal Server Error',
-    //     message: process.env.NODE_ENV === 'development' ? error.message : 'Something went wrong'
-    //   });
-    // });
-	// Error handler with ELK logging and enhanced details
-	app.setErrorHandler(async (error, request, reply) => {
-	// Log detailed error information
-	request.log.error({
-		msg: 'Unhandled error',
-		error: {
-		message: error.message,
-		stack: error.stack,
-		statusCode: error.statusCode || 500,
-		validationErrors: error.validation ? error.validation : undefined,
-		},
-		req: request
-	});
+    app.setErrorHandler(async (error, request, reply) => {
+      request.log.error({
+        msg: 'Unhandled error',
+        error: {
+          message: error.message,
+          stack: error.stack,
+          statusCode: error.statusCode || 500,
+          validationErrors: error.validation
+        }
+      });
 
-	// Customize error response based on environment and error type
-	const statusCode = error.statusCode || 500;
-	reply.status(statusCode);
+      // Customize error response based on environment and error type
+      const statusCode = error.statusCode || 500;
+      reply.status(statusCode);
 
-	if (process.env.NODE_ENV === 'development') {
-		// In development, send back full error details
-		return reply.send({
-		statusCode,
-		error: error.name || 'Internal Server Error',
-		message: error.message,
-		stack: error.stack,
-		validationErrors: error.validation,
-		});
-	} else {
-		// In production, send a more generic message
-		if (statusCode === 400 && error.validation) {
-		// Handle validation errors with more detail
-		return reply.send({
-			statusCode,
-			error: 'Bad Request',
-			message: 'Validation failed',
-			validationErrors: error.validation,
-		});
-		}
-		
-		if (statusCode >= 500) {
-		// Log critical errors to ELK
-		elkLogger.error(error.message, {
-			stack: error.stack,
-			statusCode: statusCode,
-			originalUrl: request.url,
-			method: request.method,
-		}).catch(err => {
-			request.log.warn('Failed to send error details to ELK', err);
-		});
+      if (process.env.NODE_ENV === 'development') {
+        // In development, send back full error details
+        return reply.send({
+          statusCode,
+          error: error.name || 'Internal Server Error',
+          message: error.message,
+          stack: error.stack,
+          validationErrors: error.validation,
+        });
+      } else {
+        // In production, send a more generic message
+        if (statusCode === 400 && error.validation) {
+          // Handle validation errors with more detail
+          return reply.send({
+            statusCode,
+            error: 'Bad Request',
+            message: 'Validation failed',
+            validationErrors: error.validation,
+          });
+        }
+        
+        if (statusCode >= 500) {
+          // Log critical errors to ELK
+          elkLogger.error(error.message, {
+            stack: error.stack,
+            statusCode: statusCode,
+            originalUrl: request.url,
+            method: request.method,
+          }).catch(err => {
+            request.log.warn('Failed to send error details to ELK', err);
+          });
 
-		return reply.send({
-			statusCode: 500,
-			error: 'Internal Server Error',
-			message: 'Something went wrong',
-		});
-		}
+          return reply.send({
+            statusCode: 500,
+            error: 'Internal Server Error',
+            message: 'Something went wrong',
+          });
+        }
 
-		return reply.send({
-		statusCode,
-		error: error.name || 'Error',
-		message: error.message,
-		});
-	}
-	});
+        return reply.send({
+          statusCode,
+          error: error.name || 'Error',
+          message: error.message,
+        });
+      }
+    });
     
     // Graceful shutdown
     const closeGracefully = async (signal: NodeJS.Signals) => {

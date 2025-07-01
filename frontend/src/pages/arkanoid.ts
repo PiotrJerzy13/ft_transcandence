@@ -39,7 +39,6 @@ interface GameState {
     score: number;
     lives: number;
     level: number;
-    xpEarned: number;
     blocks: Block[];
     particles: Particle[];
 }
@@ -64,7 +63,6 @@ export class Arkanoid {
     onLevelChange?: (level: number) => void;
     onGameOver?: () => void;
     onLevelComplete?: () => void;
-    onXpEarned?: (xp: number) => void;
 
     constructor(
         settings: GameSettings, 
@@ -86,7 +84,6 @@ export class Arkanoid {
             score: 0,
             lives: settings.initialLives,
             level: 1,
-            xpEarned: 0,
             blocks: [],
             particles: []
         };
@@ -100,14 +97,12 @@ export class Arkanoid {
         onLevelChange?: (level: number) => void;
         onGameOver?: () => void;
         onLevelComplete?: () => void;
-        onXpEarned?: (xp: number) => void;
     }) {
         this.onScoreChange = callbacks.onScoreChange;
         this.onLivesChange = callbacks.onLivesChange;
         this.onLevelChange = callbacks.onLevelChange;
         this.onGameOver = callbacks.onGameOver;
         this.onLevelComplete = callbacks.onLevelComplete;
-        this.onXpEarned = callbacks.onXpEarned;
     }
 
     private initializeBlocks(): void {
@@ -146,7 +141,6 @@ export class Arkanoid {
             this.state.score = 0;
             this.state.lives = initialLives;
             this.state.level = 1;
-            this.state.xpEarned = 0;
         }
 
         // Reset ball and paddle positions
@@ -303,10 +297,6 @@ export class Arkanoid {
     }
 
     nextLevel(): void {
-        const xpGained = calculateLevelXp(this.state.score, this.state.level, this.state.lives);
-        this.state.xpEarned += xpGained;
-        this.onXpEarned?.(xpGained);
-        
         this.state.level++;
         this.onLevelChange?.(this.state.level);
         
@@ -318,9 +308,6 @@ export class Arkanoid {
         this.onLivesChange?.(this.state.lives);
         
         if (this.state.lives <= 0) {
-            const xpGained = calculateGameOverXp(this.state.score, this.state.level);
-            this.state.xpEarned += xpGained;
-            this.onXpEarned?.(xpGained);
             this.onGameOver?.();
         } else {
             this.resetBallAndPaddle();
@@ -441,7 +428,6 @@ export class Arkanoid {
     getScore(): number { return this.state.score; }
     getLives(): number { return this.state.lives; }
     getLevel(): number { return this.state.level; }
-    getXpEarned(): number { return this.state.xpEarned; }
     getBlocks(): Block[] { return this.state.blocks; }
     getParticles(): Particle[] { return this.state.particles; }
 }

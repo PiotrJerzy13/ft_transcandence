@@ -12,41 +12,52 @@ class ELKLogger {
   private logstashUrl: string;
   private serviceName: string;
   private isInitialized: boolean = false;
+  private logstashUser?: string;
+  private logstashPassword?: string;
 
   constructor(logstashUrl: string = 'http://logstash:5001', serviceName: string = 'ft_transcendence') {
     this.logstashUrl = logstashUrl;
     this.serviceName = serviceName;
-    // Initialize after a delay to allow logstash to start
+    this.logstashUser = process.env.LOGSTASH_USER;
+    this.logstashPassword = process.env.LOGSTASH_PASSWORD;
+
     setTimeout(() => {
       this.isInitialized = true;
+      if (!this.logstashUser || !this.logstashPassword) {
+        console.warn('[ELK Logger] Warning: LOGSTASH_USER or LOGSTASH_PASSWORD not set. Logs will not be sent to ELK.');
+      }
     }, 10000); // 10 second delay
   }
 
   private async sendLog(entry: LogEntry, retries = 3, delay = 1000): Promise<void> {
-    // Don't try to send logs if not initialized yet
-    if (!this.isInitialized) {
-      console.log(`[ELK Logger] Skipping log during initialization: ${entry.message}`);
+    if (!this.isInitialized || !this.logstashUser || !this.logstashPassword) {
+      if (!this.isInitialized) {
+        console.log(`[ELK Logger] Skipping log during initialization: ${entry.message}`);
+      }
       return;
     }
 
     try {
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json',
+      };
+      const credentials = Buffer.from(`${this.logstashUser}:${this.logstashPassword}`).toString('base64');
+      headers['Authorization'] = `Basic ${credentials}`;
+
       const response = await fetch(this.logstashUrl, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: headers,
         body: JSON.stringify(entry),
       });
 
       if (!response.ok) {
-        console.error('Failed to send log to ELK:', response.statusText);
+        console.error(`Failed to send log to ELK: ${response.status} ${response.statusText}`);
       }
     } catch (error) {
       if (retries > 0) {
         await new Promise(res => setTimeout(res, delay));
         return this.sendLog(entry, retries - 1, delay * 2);
       }
-      // Fallback to console if ELK is not available - don't throw error
       console.error('ELK Logger error:', error);
     }
   }
@@ -62,9 +73,7 @@ class ELKLogger {
   }
 
   async info(message: string, metadata?: Record<string, any>): Promise<void> {
-    // Always log to console for debugging
     console.log(`[INFO] ${message}`, metadata);
-    // Make ELK logging non-blocking
     this.sendLog(this.createLogEntry('info', message, metadata)).catch(error => {
       console.error('ELK Logger error:', error);
     });
@@ -72,7 +81,6 @@ class ELKLogger {
 
   async warn(message: string, metadata?: Record<string, any>): Promise<void> {
     console.warn(`[WARN] ${message}`, metadata);
-    // Make ELK logging non-blocking
     this.sendLog(this.createLogEntry('warn', message, metadata)).catch(error => {
       console.error('ELK Logger error:', error);
     });
@@ -80,7 +88,6 @@ class ELKLogger {
 
   async error(message: string, metadata?: Record<string, any>): Promise<void> {
     console.error(`[ERROR] ${message}`, metadata);
-    // Make ELK logging non-blocking
     this.sendLog(this.createLogEntry('error', message, metadata)).catch(error => {
       console.error('ELK Logger error:', error);
     });
@@ -88,7 +95,6 @@ class ELKLogger {
 
   async debug(message: string, metadata?: Record<string, any>): Promise<void> {
     console.debug(`[DEBUG] ${message}`, metadata);
-    // Make ELK logging non-blocking
     this.sendLog(this.createLogEntry('debug', message, metadata)).catch(error => {
       console.error('ELK Logger error:', error);
     });

@@ -8,23 +8,22 @@ export default async function pongRoutes(fastify: FastifyInstance) {
   fastify.post('/score', { preHandler: authenticate }, async (req, reply: FastifyReply) => {
     console.log('[PONG] Received score submission request');
 
-    const { mode, score, opponentScore, winner, xpEarned, totalXp } = req.body as {
+    const { mode, score, opponentScore, winner, xpEarned } = req.body as {
       mode: 'one-player' | 'two-player';
       score: number;
       opponentScore: number;
       winner: 'player' | 'opponent';
       xpEarned: number;
-      totalXp: number;
     };
     const userId = req.user?.id;
 
-    if (!userId || score == null || opponentScore == null || !winner || !mode || xpEarned == null || totalXp == null) {
+    if (!userId || score == null || opponentScore == null || !winner || !mode || xpEarned == null) {
       console.log('[PONG] Invalid score submission - missing data');
       throw new BadRequestError('Missing required fields');
     }
 
     const db = getDb();
-    console.log('[PONG] Saving match with XP:', { userId, mode, score, opponentScore, winner, xpEarned, totalXp });
+    console.log('[PONG] Saving match with XP:', { userId, mode, score, opponentScore, winner, xpEarned });
 
     // Save the match with XP data
     await db('pong_matches').insert({
@@ -34,7 +33,7 @@ export default async function pongRoutes(fastify: FastifyInstance) {
       opponent_score: opponentScore,
       winner,
       xp_earned: xpEarned,
-      total_xp: totalXp
+      total_xp: null // Optionally remove or set to null if not used
     });
 
     // Get current user stats

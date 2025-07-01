@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Arkanoid } from "./arkanoid";
 import { calculateGameOverXp, calculateLevelXp, showXpGain } from "./xpCalculator";
+import { useGameHistory } from '../hooks/useGameHistory';
+import type { ArkanoidScore } from '../types';
 
 interface ArkanoidProps {
   onNavigateToLobby?: () => void;
@@ -15,6 +17,12 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const animationFrameRef = useRef<number | null>(null);
   const gameInstanceRef = useRef<Arkanoid | null>(null);
+  const [sessionXp, setSessionXp] = useState(0);
+  const { 
+    history: arkanoidHistory, 
+    loading: historyLoading, 
+    error: historyError 
+  } = useGameHistory<ArkanoidScore>('arkanoid');
   
   const blockColors = [
     { primary: "#ef4444", secondary: "#dc2626", glow: "#ef4444" },
@@ -69,6 +77,26 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
       initialLives: 3
     };
 
+    const saveArkanoidResult = async (finalScore: number, finalLevel: number, totalXpEarned: number) => {
+      console.log(`[Arkanoid] Saving final result: Score=${finalScore}, Level=${finalLevel}, XP=${totalXpEarned}`);
+      try {
+        await fetch('/api/arkanoid/score', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify({
+            score: finalScore,
+            levelReached: finalLevel,
+            xpEarned: totalXpEarned,
+          }),
+        });
+      } catch (error) {
+        console.error('Failed to save Arkanoid result:', error);
+      }
+    };
+
     const scale = canvasSize.width / 800;
     gameInstanceRef.current = new Arkanoid(gameSettings, scale, blockColors);
 
@@ -78,17 +106,25 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
       onLivesChange: (newLives) => setLives(newLives),
       onLevelChange: (newLevel) => setLevel(newLevel),
       onGameOver: () => {
-        const xpGained = calculateGameOverXp(score, level);
-        showXpGain(xpGained);
+        if (!gameInstanceRef.current) return;
+        const gameOverXp = calculateGameOverXp(
+          gameInstanceRef.current.getScore(),
+          gameInstanceRef.current.getLevel()
+        );
+        showXpGain(gameOverXp);
         setGameState('gameOver');
+        const totalXpEarned = sessionXp + gameOverXp;
+        saveArkanoidResult(
+          gameInstanceRef.current.getScore(),
+          gameInstanceRef.current.getLevel(),
+          totalXpEarned
+        );
       },
       onLevelComplete: () => {
-        const xpGained = calculateLevelXp(score, level, lives);
-        showXpGain(xpGained);
+        const levelXp = calculateLevelXp(score, level, lives);
+        showXpGain(levelXp);
+        setSessionXp(prevXp => prevXp + levelXp);
         setGameState('levelComplete');
-      },
-      onXpEarned: () => {
-        // This callback is no longer used in the new implementation
       }
     });
 
@@ -123,16 +159,15 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (!gameInstanceRef.current) return;
-
     if (e.key === 'ArrowLeft' || e.key === 'a') {
       gameInstanceRef.current.setKeyState('left', true);
     }
     if (e.key === 'ArrowRight' || e.key === 'd') {
       gameInstanceRef.current.setKeyState('right', true);
     }
-
     if (e.key === 'Enter') {
       if (gameState === 'menu' || gameState === 'gameOver') {
+        setSessionXp(0);
         gameInstanceRef.current.resetGame(true);
         setGameState('playing');
       } else if (gameState === 'levelComplete') {
@@ -140,7 +175,6 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
         setGameState('playing');
       }
     }
-
     if (e.code === 'Space') {
       e.preventDefault();
       if (gameState === 'playing') {
@@ -178,8 +212,8 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (!gameInstanceRef.current) return;
-
     if (gameState === 'menu' || gameState === 'gameOver') {
+      setSessionXp(0);
       gameInstanceRef.current.resetGame(true);
       setGameState('playing');
     } else if (gameState === 'levelComplete') {
@@ -219,6 +253,11 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
 
   return (
     <div className="flex flex-col items-center justify-center h-full w-full bg-gray-900 text-white p-4 touch-none select-none">
+      <div className="flex justify-between w-full max-w-2xl text-lg mb-4 px-4">
+        <div>Score: <span className="font-bold text-cyan-400">{score}</span></div>
+        <div>Level: <span className="font-bold text-purple-400">{level}</span></div>
+        <div>Lives: <span className="font-bold text-green-400">{lives}</span></div>
+      </div>
       <div className="relative" id="game-container" style={{ width: canvasSize.width, height: canvasSize.height }}>
         <canvas
           ref={canvasRef}
@@ -227,6 +266,18 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
           className="block mx-auto border-2 border-indigo-500 rounded-lg shadow-lg"
           style={{ WebkitTapHighlightColor: 'transparent' }}
         />
+        {/* Fixed stats positioning - use responsive text size and better positioning */}
+        <div className="absolute top-2 left-2 right-2 flex justify-between text-sm sm:text-base md:text-lg z-10">
+          <div className="bg-black/50 px-2 py-1 rounded">
+            Score: <span className="font-bold text-cyan-400">{score}</span>
+          </div>
+          <div className="bg-black/50 px-2 py-1 rounded">
+            Level: <span className="font-bold text-purple-400">{level}</span>
+          </div>
+          <div className="bg-black/50 px-2 py-1 rounded">
+            Lives: <span className="font-bold text-green-400">{lives}</span>
+          </div>
+        </div>
         {(gameState === 'menu' || gameState === 'gameOver') && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-20">
             <h2 className="text-3xl font-bold mb-4">
@@ -242,20 +293,6 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
             )}
           </div>
         )}
-        
-        <div className="absolute top-4 left-4 right-4 flex justify-between text-lg">
-          <div>Score: <span className="font-bold text-cyan-400">{score}</span></div>
-          <div>Level: <span className="font-bold text-purple-400">{level}</span></div>
-          <div>Lives: <span className="font-bold text-green-400">{lives}</span></div>
-        </div>
-
-        <button 
-          onClick={handleBackToLobby}
-          className="absolute top-12 left-4 bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg transition-colors text-sm"
-        >
-          ← Lobby
-        </button>
-
         {/* Mobile Controls */}
         <div className="md:hidden fixed bottom-4 left-0 right-0 flex justify-between px-4">
           <button
@@ -273,6 +310,45 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
             →
           </button>
         </div>
+      </div>
+
+      <div className="mt-6 flex flex-col items-center w-full max-w-2xl">
+        <button 
+          onClick={handleBackToLobby}
+          className="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors font-mono text-sm"
+        >
+          Back to Lobby
+        </button>
+        {/* Arkanoid History Table */}
+        {arkanoidHistory.length > 0 && (
+          <div className="mt-6 text-left text-sm text-gray-300 font-mono w-full">
+            <h2 className="text-lg sm:text-xl text-indigo-400 font-bold mb-2 text-center">Your Arkanoid History</h2>
+            <div className="max-h-32 overflow-y-auto bg-black/30 rounded-lg p-2">
+              <table className="w-full table-auto border-collapse">
+                <thead>
+                  <tr className="text-left border-b border-gray-500">
+                    <th className="pb-1 px-2">Date</th>
+                    <th className="pb-1 px-2">Score</th>
+                    <th className="pb-1 px-2">Level Reached</th>
+                    <th className="pb-1 px-2">XP Earned</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {arkanoidHistory.map((entry, index) => (
+                    <tr key={index} className="border-b border-gray-700/50">
+                      <td className="py-2 px-2">{new Date(entry.created_at).toLocaleDateString()}</td>
+                      <td className="py-2 px-2 text-cyan-400">{entry.score}</td>
+                      <td className="py-2 px-2 text-purple-400">{entry.level_reached}</td>
+                      <td className="py-2 px-2 text-green-400">+{entry.xp || 0}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+        {historyLoading && <p className="mt-4">Loading history...</p>}
+        {historyError && <p className="mt-4 text-red-400">Error: {historyError}</p>}
       </div>
 
       {/* XP Gained Notification */}

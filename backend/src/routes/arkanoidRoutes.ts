@@ -30,7 +30,7 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
 
     // Calculate new total XP
     const currentTotalXp = currentStats?.xp || 0;
-    const newTotalXp = totalXp || (currentTotalXp + xpEarned);
+    const newTotalXp = currentTotalXp + xpEarned;
     const newLevel = Math.floor(Math.sqrt(newTotalXp / 100)) + 1;
 
     // Save game result
@@ -41,17 +41,17 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
       xp_earned: xpEarned
     });
 
-    // Update user_stats table with new total XP using upsert
+    // Update user_stats table with new total XP and increment total_games and wins
     await db('user_stats')
       .insert({
         user_id: userId,
         xp: newTotalXp,
         level: newLevel,
-        total_games: 0,
-        wins: 0,
+        total_games: 1,
+        wins: 1,
         losses: 0,
-        win_streak: 0,
-        best_streak: 0,
+        win_streak: 1,
+        best_streak: 1,
         total_play_time: 0,
         rank: 'Novice'
       })
@@ -59,6 +59,8 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
       .merge({
         xp: newTotalXp,
         level: newLevel,
+        total_games: db.raw('total_games + 1'),
+        wins: db.raw('wins + 1'),
         updated_at: new Date().toISOString()
       });
 

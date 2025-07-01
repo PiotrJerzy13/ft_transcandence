@@ -3,17 +3,18 @@ export type ArkanoidScore = {
 	score: number;
 	level_reached: number;
 	created_at: string;
-  };
-  
-  export type PongGame = {
+	xp?: number;
+};
+
+export type PongGame = {
 	created_at: string;
 	mode: string;
 	left_score: number;
 	right_score: number;
 	winner: string;
-  };
-  
-  export type PlayerStats = {
+};
+
+export type PlayerStats = {
 	level: number;
 	xp: number;
 	xpToNext: number;
@@ -24,9 +25,9 @@ export type ArkanoidScore = {
 	winStreak: number;
 	bestStreak: number;
 	totalPlayTime: string;
-  };
-  
-  export type Achievement = {
+};
+
+export type Achievement = {
 	id: number;
 	name: string;
 	description: string;
@@ -35,4 +36,4 @@ export type ArkanoidScore = {
 	progress: number;
 	maxProgress: number;
 	date?: string;
-  };
+};
