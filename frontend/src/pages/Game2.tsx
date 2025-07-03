@@ -253,6 +253,15 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
 
   return (
     <div className="flex flex-col items-center justify-center h-full w-full bg-gray-900 text-white p-4 touch-none select-none">
+      {/* Always-accessible Back to Lobby button */}
+      <button 
+        onClick={handleBackToLobby}
+        className="fixed top-4 left-4 z-50 px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors font-mono text-sm shadow-lg"
+        style={{ minWidth: 120 }}
+      >
+        Back to Lobby
+      </button>
+      {/* Game UI */}
       <div className="flex justify-between w-full max-w-2xl text-lg mb-4 px-4">
         <div>Score: <span className="font-bold text-cyan-400">{score}</span></div>
         <div>Level: <span className="font-bold text-purple-400">{level}</span></div>
@@ -311,14 +320,7 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
           </button>
         </div>
       </div>
-
       <div className="mt-6 flex flex-col items-center w-full max-w-2xl">
-        <button 
-          onClick={handleBackToLobby}
-          className="px-4 py-2 bg-indigo-600 rounded-lg hover:bg-indigo-700 transition-colors font-mono text-sm"
-        >
-          Back to Lobby
-        </button>
         {/* Arkanoid History Table */}
         {arkanoidHistory.length > 0 && (
           <div className="mt-6 text-left text-sm text-gray-300 font-mono w-full">
@@ -350,7 +352,6 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
         {historyLoading && <p className="mt-4">Loading history...</p>}
         {historyError && <p className="mt-4 text-red-400">Error: {historyError}</p>}
       </div>
-
       {/* XP Gained Notification */}
       <div id="xp-notification-container" className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 pointer-events-none"></div>
     </div>
