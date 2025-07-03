@@ -1,8 +1,8 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "../pages/Login";
 import Register from "../pages/Register";
-import GameWithRouter from "../components/GameWithRouter";
-import Game2WithRouter from "../components/Game2WithRouter";
+import Game from "../pages/Game";
+import ArkanoidGame from "../pages/Game2";
 import Lobby from "../pages/Lobby";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Leaderboard from '../pages/Leaderboard';
@@ -15,8 +15,8 @@ export default function AppRouter() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/lobby" element={<ProtectedRoute><Lobby /></ProtectedRoute>} />
-        <Route path="/game" element={<ProtectedRoute><GameWithRouter /></ProtectedRoute>} />
-		<Route path="/game2" element={<ProtectedRoute><Game2WithRouter /></ProtectedRoute>} />
+		<Route path="/game" element={<ProtectedRoute><Game /></ProtectedRoute>} />
+		<Route path="/game2" element={<ProtectedRoute><ArkanoidGame /></ProtectedRoute>} />
 		<Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>

@@ -1,14 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { Pong } from "./pong"; // Import the Pong class
+import { useNavigate } from "react-router-dom";
 
-type GameProps = {
-  onNavigateToLobby?: () => void;
-};
-
-export default function Game({ onNavigateToLobby }: GameProps) {
+  export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const pongGameRef = useRef<Pong | null>(null);
+  const navigate = useNavigate();
   
   const [score, setScore] = useState({ left: 0, right: 0 });
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver'
@@ -52,11 +50,7 @@ export default function Game({ onNavigateToLobby }: GameProps) {
   };
 
   const handleBackToLobby = () => {
-    if (onNavigateToLobby) {
-      onNavigateToLobby();
-    } else {
-      console.log('Navigate to lobby');
-    }
+	navigate("/lobby");
   };
 
   // XP calculation functions (same as before)
