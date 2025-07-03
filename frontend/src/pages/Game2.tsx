@@ -3,12 +3,11 @@ import { Arkanoid } from "./arkanoid";
 import { calculateGameOverXp, calculateLevelXp, showXpGain } from "./xpCalculator";
 import { useGameHistory } from '../hooks/useGameHistory';
 import type { ArkanoidScore } from '../types';
+import { useNavigate } from "react-router-dom";
 
-interface ArkanoidProps {
-  onNavigateToLobby?: () => void;
-}
 
-export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
+	export default function ArkanoidGame() {
+		const navigate = useNavigate();
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [score, setScore] = useState(0);
   const [lives, setLives] = useState(3);
@@ -242,9 +241,7 @@ export default function ArkanoidGame({ onNavigateToLobby }: ArkanoidProps) {
   }, [handleKeyDown, handleKeyUp, handleTouchStart, handleTouchMove]);
 
   const handleBackToLobby = () => {
-    if (onNavigateToLobby) {
-      onNavigateToLobby();
-    }
+	navigate("/lobby");
   };
 
   useEffect(() => {
