@@ -17,8 +17,8 @@ class AuthController {
     reply: FastifyReply
   ) {
     try {
-      console.log("Request body:", request.body);
-      request.log.info("Registration attempt with data:", request.body);
+      // console.log("Request body:", request.body);
+      request.log.debug({ body: request.body }, "Registration request received");
       const { username, email, password } = request.body;
       
       // Input validation (basic)
@@ -79,7 +79,7 @@ class AuthController {
         token
       });
     } catch (error) {
-      request.log.error(error);
+      request.log.error({ err: error }, "An unexpected error occurred during registration");
       return reply.status(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -94,7 +94,7 @@ class AuthController {
     reply: FastifyReply
   ) {
     try {
-      request.log.info('Login attempt', request.body);
+      request.log.info({ username: request.body.username }, "Login attempt started");
       const { username, password } = request.body;
       
       // Input validation
@@ -105,17 +105,16 @@ class AuthController {
       
       // Find user
       const user = await userRepository.findByUsername(username);
-      request.log.info('User found', user);
+      request.log.debug({ user }, "User lookup completed for login");
       if (!user) {
-        request.log.warn('User not found');
+        request.log.warn({ username }, "Login failed: user not found");
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
       
       // Check password
       const passwordValid = await bcrypt.compare(password, user.password_hash);
-      request.log.info('Password valid?', passwordValid);
       if (!passwordValid) {
-        request.log.warn('Invalid password');
+        request.log.warn({ username }, "Login failed: invalid password");
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
       
@@ -127,7 +126,7 @@ class AuthController {
       
       // Update status
       await userRepository.update(user.id, { status: 'online' });
-      request.log.info('User status updated to online');
+      request.log.info({ userId: user.id, username: user.username }, "Login successful");
       
       // Create JWT token
       const token = jwt.sign(
@@ -147,13 +146,12 @@ class AuthController {
       
       // Return user (without password)
       const { password_hash, ...userWithoutPassword } = user;
-      request.log.info('Login successful', userWithoutPassword);
       return reply.send({ 
         user: userWithoutPassword,
         token
       });
     } catch (error) {
-      request.log.error('Login error', error);
+      request.log.error({ err: error }, "An unexpected error occurred during login");
       return reply.status(500).send({ error: 'Internal Server Error' });
     }
   }
@@ -168,25 +166,20 @@ class AuthController {
       
       if (token) {
         try {
-          // Modify your JWT verification to include definitive type checking
           const decoded = jwt.verify(token, process.env.JWT_SECRET || 'your-secret-key') as { id: number };
-
-          // Add runtime validation
           if (typeof decoded.id !== 'number') {
             throw new Error('Invalid user ID in token');
           }
-
-          // Now TypeScript is certain decoded.id is a number
           await userRepository.update(decoded.id, { status: 'offline' });
         } catch (err) {
-          request.log.error('Token verification failed during logout', err);
+          request.log.error({ err }, 'Token verification failed during logout');
         }
       }
       
       reply.clearCookie('token', { path: '/' });
       return reply.send({ message: 'Logged out successfully' });
     } catch (error) {
-      request.log.error(error);
+      request.log.error({ err: error }, 'An unexpected error occurred during logout');
       return reply.status(500).send({ error: 'Internal Server Error' });
     }
   }

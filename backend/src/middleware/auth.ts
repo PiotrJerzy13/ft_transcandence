@@ -12,6 +12,7 @@ interface JwtPayload {
 // Ensure JWT_SECRET is provided at startup
 const JWT_SECRET = process.env.JWT_SECRET;
 if (!JWT_SECRET) {
+  // This is a startup error, so console.error is acceptable
   console.error('FATAL ERROR: JWT_SECRET environment variable is required');
   process.exit(1);
 }
@@ -21,21 +22,21 @@ export async function authenticate(
   reply: FastifyReply
 ): Promise<void> {
   try {
-    console.log('Auth middleware called for:', request.method, request.url);
-    console.log('Cookies:', request.cookies);
-    console.log('Headers:', request.headers.authorization);
+    request.log.debug({ method: request.method, url: request.url }, 'Authentication middleware triggered');
+    request.log.debug({ cookies: request.cookies }, 'Cookies received');
+    request.log.debug({ authorization: request.headers.authorization }, 'Authorization header received');
     
     // Get token from cookie or authorization header
     const token = request.cookies.token || 
       (request.headers.authorization && request.headers.authorization.split(' ')[1]);
     
     if (!token) {
-      console.log('No token found');
+      request.log.warn('Authentication failed: no token provided');
       reply.status(401).send({ error: 'Authentication required' });
       return;
     }
     
-    console.log('Token found:', token.substring(0, 20) + '...');
+    request.log.debug({ token: token.substring(0, 20) + '...' }, 'Token found for verification');
     
     try {
       // Verify token using the required JWT_SECRET
@@ -44,7 +45,7 @@ export async function authenticate(
       }
       const decoded = jwt.verify(token, JWT_SECRET) as unknown as JwtPayload;
       
-      console.log('Token decoded:', decoded);
+      request.log.debug({ decoded }, 'Token successfully decoded');
       
       // Verify user exists in DB using Knex
       const db = getDb();
@@ -54,23 +55,23 @@ export async function authenticate(
         .first();
       
       if (!user) {
-        console.log('User not found in DB for id:', decoded.id);
+        request.log.warn({ userId: decoded.id }, 'Authentication failed: user from token not found in DB');
         reply.status(401).send({ error: 'User not found' });
         return;
       }
       
-      console.log('User found:', user);
+      request.log.debug({ user }, 'Authenticated user found in DB');
       
       // Add user to request object
       request.user = user;
-      console.log('User attached to request');
+      request.log.debug({ userId: user.id }, 'User attached to request');
     } catch (err) {
-      console.log('Token verification failed:', err);
+      request.log.warn({ err }, 'Token verification failed');
       reply.status(401).send({ error: 'Invalid or expired token' });
       return;
     }
   } catch (error) {
-    console.error('Authentication error:', error);
+    request.log.error({ err: error }, 'Internal server error during authentication middleware');
     reply.status(500).send({ error: 'Internal server error during authentication' });
   }
 }

@@ -50,7 +50,7 @@ export class UserStatsRepository {
       .where('user_id', userId)
       .first();
     
-    console.log("DEBUG (findByUserId) raw row:", row);
+    // DEBUG (findByUserId) raw row: (use logger if available)
     if (!row) return undefined;
     
     const stats: UserStats = {
@@ -67,7 +67,7 @@ export class UserStatsRepository {
       xp: row.xp,
       updated_at: row.updated_at
     };
-    console.log("DEBUG (findByUserId) returned stats:", stats);
+    // DEBUG (findByUserId) returned stats: (use logger if available)
     return stats;
   }
 

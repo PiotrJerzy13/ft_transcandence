@@ -12,7 +12,7 @@ services:
       - DB_PATH=/app/data/ft_transcendence.db
       - LOGSTASH_HOST=logstash
       - LOGSTASH_PORT=5001
-      - LOG_LEVEL=info
+      - LOG_LEVEL=debug
       - NODE_ENV=development
     volumes:
       - ./data:/app/data

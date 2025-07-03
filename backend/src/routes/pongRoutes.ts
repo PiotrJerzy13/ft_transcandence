@@ -6,7 +6,7 @@ import { BadRequestError, UnauthorizedError } from './error.js';
 export default async function pongRoutes(fastify: FastifyInstance) {
   // POST /pong/score - Save a completed pong match
   fastify.post('/score', { preHandler: authenticate }, async (req, reply: FastifyReply) => {
-    console.log('[PONG] Received score submission request');
+    req.log.info('[PONG] Received score submission request');
 
     const { mode, score, opponentScore, winner, xpEarned } = req.body as {
       mode: 'one-player' | 'two-player';
@@ -18,12 +18,12 @@ export default async function pongRoutes(fastify: FastifyInstance) {
     const userId = req.user?.id;
 
     if (!userId || score == null || opponentScore == null || !winner || !mode || xpEarned == null) {
-      console.log('[PONG] Invalid score submission - missing data');
+      req.log.warn({ body: req.body }, "[PONG] Invalid score submission - missing data");
       throw new BadRequestError('Missing required fields');
     }
 
     const db = getDb();
-    console.log('[PONG] Saving match with XP:', { userId, mode, score, opponentScore, winner, xpEarned });
+    req.log.debug({ userId, mode, score, opponentScore, winner, xpEarned }, '[PONG] Saving match with XP');
 
     // Save the match with XP data
     await db('pong_matches').insert({
@@ -78,12 +78,7 @@ export default async function pongRoutes(fastify: FastifyInstance) {
       .where('user_id', userId)
       .first();
 
-    console.log('[PONG] Score and XP saved successfully:', {
-      userId,
-      xpEarned,
-      totalXp: updatedStats?.xp,
-      level: updatedStats?.level
-    });
+    req.log.info({ userId, xpEarned, newTotalXp: updatedStats?.xp, newLevel: updatedStats?.level }, '[PONG] Score and XP saved successfully');
 
     return reply.send({ 
       success: true, 
@@ -94,11 +89,11 @@ export default async function pongRoutes(fastify: FastifyInstance) {
 
   // GET /pong/history - Fetch personal Pong match history
   fastify.get('/history', { preHandler: authenticate }, async (req, reply: FastifyReply) => {
-    console.log('[PONG] Received history request');
+    req.log.info('[PONG] Received history request');
     const userId = req.user?.id;
 
     if (!userId) {
-      console.log('[PONG] Invalid history request - no user ID');
+      req.log.warn({ body: req.body }, '[PONG] Invalid history request - no user ID');
       throw new UnauthorizedError('User not authenticated');
     }
 
@@ -108,7 +103,7 @@ export default async function pongRoutes(fastify: FastifyInstance) {
       .where('user_id', userId)
       .orderBy('created_at', 'desc');
     
-    console.log(`[PONG] Found ${history.length} matches for user ${userId}`);
+    req.log.debug({ userId, matchCount: history.length }, `[PONG] Found ${history.length} matches for user ${userId}`);
     return reply.send({ history });
   });
 }

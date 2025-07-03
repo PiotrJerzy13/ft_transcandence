@@ -13,8 +13,8 @@ class UserController {
       const userId = request.user.id;
       const stats = await this.ensureUserStats(userId);
       request.log.info('DEBUG: Raw stats from DB:', JSON.stringify(stats, null, 2));
-	  console.log(">>> Type of stats.total_games:", typeof stats.total_games);
-	  console.log(">>> Keys in stats:", Object.keys(stats));
+      request.log.debug({ type: typeof stats.total_games }, 'Type of stats.total_games');
+      request.log.debug({ keys: Object.keys(stats) }, 'Keys in stats');
 
       // Fetch achievements
       const allAchievements = await userStatsRepository.getAllAchievements();
@@ -59,7 +59,7 @@ class UserController {
       return reply.send({ stats: formattedStats, achievements });
 
     } catch (error) {
-      console.error('❌ Error in getProfile:', error);
+      request.log.error({ err: error }, 'Error in getProfile');
       return reply.status(500).send({ 
         error: 'Failed to fetch user profile',
         details: error instanceof Error ? error.message : 'Unknown error'
@@ -93,7 +93,7 @@ class UserController {
       });
 
     } catch (error) {
-      console.error('❌ Error in updateGameResult:', error);
+      request.log.error({ err: error }, 'Error in updateGameResult');
       return reply.status(500).send({ 
         error: 'Failed to update game result',
         details: error instanceof Error ? error.message : 'Unknown error'

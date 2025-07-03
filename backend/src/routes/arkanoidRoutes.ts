@@ -6,7 +6,7 @@ import { BadRequestError, UnauthorizedError } from './error.js';
 export default async function arkanoidRoutes(fastify: FastifyInstance) {
   // POST /arkanoid/score - Save score + xp
   fastify.post('/score', { preHandler: authenticate }, async (req, reply) => {
-    console.log('[ARKANOID] Received score submission request');
+    req.log.info('[ARKANOID] Received score submission request');
     const { score, levelReached, xpEarned, totalXp } = req.body as {
       score: number;
       levelReached: number;
@@ -14,7 +14,7 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
       totalXp?: number;
     };
     const userId = req.user?.id;
-    console.log(`[ARKANOID] Score submission - user: ${userId}, score: ${score}, level: ${levelReached}, xpEarned: ${xpEarned}, totalXp: ${totalXp}`);
+    req.log.debug({ userId, score, levelReached, xpEarned, totalXp }, '[ARKANOID] Score submission');
 
     if (!userId || score == null || levelReached == null || xpEarned == null) {
       throw new BadRequestError('Missing score, level or xp');
@@ -69,7 +69,7 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
       .where('user_id', userId)
       .first();
 
-    console.log(`[ARKANOID] Score and XP saved successfully - New total XP: ${newTotalXp}, Level: ${newLevel}`);
+    req.log.info({ userId, newTotalXp, newLevel }, '[ARKANOID] Score and XP saved successfully');
     return reply.send({
       success: true,
       message: 'Score saved successfully',
@@ -79,9 +79,9 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
 
   // GET /arkanoid/history - Fetch personal history
   fastify.get('/history', { preHandler: authenticate }, async (req, reply) => {
-    console.log('[ARKANOID] Received history request');
+    req.log.info('[ARKANOID] Received history request');
     const userId = req.user?.id;
-    console.log(`[ARKANOID] History request - user: ${userId}`);
+    req.log.debug({ userId }, '[ARKANOID] History request');
 
     if (!userId) {
       throw new UnauthorizedError('User not authenticated');
@@ -93,7 +93,7 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
       .where('user_id', userId)
       .orderBy('created_at', 'desc');
 
-    console.log(`[ARKANOID] Found ${scores.length} scores for user ${userId}`);
+    req.log.debug({ userId, scoreCount: scores.length }, `[ARKANOID] Found ${scores.length} scores for user ${userId}`);
     return reply.send({ history: scores });
   });
 }

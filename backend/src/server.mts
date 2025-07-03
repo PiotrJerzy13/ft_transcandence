@@ -24,7 +24,7 @@ import tournamentRoutes from './routes/tournament.mjs';
 import { elkLogger } from './utils/elkLogger.js';
 
 dotenv.config();
-
+console.log('LOG_LEVEL:', process.env.LOG_LEVEL);
 // Enhanced logger configuration
 const loggerConfig = {
   level: process.env.LOG_LEVEL || 'info',
