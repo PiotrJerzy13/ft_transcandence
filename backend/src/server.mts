@@ -10,6 +10,15 @@ import arkanoidRoutes from './routes/arkanoidRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import { register, collectDefaultMetrics } from 'prom-client';
 import addFormats from 'ajv-formats';
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+// ES module __dirname workaround
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const certDir = process.env.CERT_DIR || path.join(__dirname, '../../certs');
 
 // Import database
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -95,6 +104,10 @@ const loggerConfig = {
 const app: FastifyInstance = fastify({ 
   logger: loggerConfig,
   ignoreTrailingSlash: true,
+  https: {
+    key: fs.readFileSync(path.join(certDir, 'localhost.key')),
+    cert: fs.readFileSync(path.join(certDir, 'localhost.crt'))
+  },
   ajv: {
     plugins: [
       (addFormats as unknown as (ajv: any) => any)
@@ -137,7 +150,7 @@ const start = async () => {
         },
         servers: [
           {
-            url: 'http://localhost:3000',
+            url: 'https://localhost:3000',
             description: 'Development server',
           },
         ],
@@ -308,7 +321,7 @@ const start = async () => {
     
     const port = Number(process.env.PORT) || 3000;
     app.log.info(`Server running on port ${port}`);
-    app.log.info(`Swagger documentation available at http://localhost:${port}/documentation`);
+    app.log.info(`Swagger documentation available at https://localhost:${port}/documentation`);
     
     // Send startup log to ELK
     elkLogger.info('ft_transcendence server started successfully', {

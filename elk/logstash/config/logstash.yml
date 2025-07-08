@@ -1,8 +1,8 @@
 api.auth.basic.password: ${LOGSTASH_PASSWORD}
 api.auth.basic.username: logstash
 api.auth.type: basic
-api.http.host: 0.0.0.0
-api.http.port: 9600
+api.https.host: 0.0.0.0
+api.https.port: 9600
 api.ssl.enabled: false
 path.config: /usr/share/logstash/pipeline
 path.queue: /usr/share/logstash/data/queue
@@ -14,7 +14,7 @@ queue.max_bytes: 1gb
 queue.max_events: 0
 queue.type: persisted
 xpack.monitoring.elasticsearch.hosts:
-- http://elasticsearch:9200
+- https://elasticsearch:9200
 xpack.monitoring.elasticsearch.password: qfpOAarca6BFMvu0CfOpDqGds
 xpack.monitoring.elasticsearch.username: elastic
 xpack.monitoring.enabled: true

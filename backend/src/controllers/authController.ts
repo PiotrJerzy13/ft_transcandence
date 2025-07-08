@@ -67,7 +67,7 @@ class AuthController {
       reply.setCookie('token', token, {
         path: '/',
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' || process.env.ENABLE_HTTPS === 'true',
         sameSite: 'lax',
         maxAge: 86400 // 24 hours
       });
@@ -139,7 +139,7 @@ class AuthController {
       reply.setCookie('token', token, {
         path: '/',
         httpOnly: true,
-        secure: process.env.NODE_ENV === 'production',
+        secure: process.env.NODE_ENV === 'production' || process.env.ENABLE_HTTPS === 'true',
         sameSite: 'lax',
         maxAge: 86400 // 24 hours
       });

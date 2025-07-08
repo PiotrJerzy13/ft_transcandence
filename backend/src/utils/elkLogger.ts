@@ -15,7 +15,7 @@ class ELKLogger {
   private logstashUser?: string;
   private logstashPassword?: string;
 
-  constructor(logstashUrl: string = 'http://logstash:5001', serviceName: string = 'ft_transcendence') {
+  constructor(logstashUrl: string = 'https://logstash:5001', serviceName: string = 'ft_transcendence') {
     this.logstashUrl = logstashUrl;
     this.serviceName = serviceName;
     this.logstashUser = process.env.LOGSTASH_USER;

@@ -2,10 +2,10 @@
 server.name: kibana
 server.host: "0.0.0.0"
 server.port: 5601
-server.publicBaseUrl: "http://localhost:5601"
+server.publicBaseUrl: "https://localhost:5601"
 
 # Elasticsearch connection
-elasticsearch.hosts: ["http://elasticsearch:9200"]
+elasticsearch.hosts: ["https://elasticsearch:9200"]
 elasticsearch.username: "kibana_system"
 elasticsearch.password: "${KIBANA_PASSWORD}"
 elasticsearch.requestTimeout: 30000
@@ -65,5 +65,5 @@ logging.root.level: warn
 logging.loggers:
   - name: elasticsearch.query
     level: warn
-  - name: http.server.response
+  - name: https.server.response
     level: warn
