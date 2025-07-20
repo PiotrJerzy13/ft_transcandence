@@ -22,6 +22,9 @@ export const useGameHistory = <T extends PongGame | ArkanoidScore>(game: 'pong' 
                 credentials: 'include',
                 headers: {
                     'Content-Type': 'application/json',
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
                 }
             });
             
@@ -35,9 +38,8 @@ export const useGameHistory = <T extends PongGame | ArkanoidScore>(game: 'pong' 
             
             // Calculate some stats
             if (game === 'pong' && data.history) {
-                const wins = (data.history as PongGame[]).filter(game => 
-                    game.winner.includes('You') || game.winner.includes('Player 1')
-                ).length;
+                // CORRECTED LOGIC
+                const wins = (data.history as PongGame[]).filter(g => g.winner === 'player').length;
                 setStats({
                     wins,
                     total: data.history.length
@@ -46,8 +48,8 @@ export const useGameHistory = <T extends PongGame | ArkanoidScore>(game: 'pong' 
                 const scores = (data.history as ArkanoidScore[]).map(s => s.score);
                 const levels = (data.history as ArkanoidScore[]).map(s => s.level_reached);
                 setStats({
-                    highScore: Math.max(...scores),
-                    highestLevel: Math.max(...levels)
+                    highScore: scores.length > 0 ? Math.max(...scores) : 0,
+                    highestLevel: levels.length > 0 ? Math.max(...levels) : 1
                 });
             }
         } catch (err) {

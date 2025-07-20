@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from "react";
-import { Pong } from "./pong"; // Import the Pong class
+import React, { useEffect, useRef, useState } from "react";
+import { Pong } from "./pong";
 import { useNavigate } from "react-router-dom";
+import { useToasts } from '../context/ToastContext';
+import { usePlayerData } from '../context/PlayerDataContext';
 
-  export default function Game() {
+export default function Game() {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const pongGameRef = useRef<Pong | null>(null);
@@ -20,6 +22,9 @@ import { useNavigate } from "react-router-dom";
   const baseWidth = 800;
   const baseHeight = 500;
   const gameScoreSaved = useRef(false);
+
+  const { addToast } = useToasts();
+  const { refetch: refetchPlayerData } = usePlayerData();
 
   // Initialize Pong game
   const initializePongGame = () => {
@@ -109,36 +114,27 @@ import { useNavigate } from "react-router-dom";
 
     try {
       const gameState = pongGameRef.current.getState();
-      const statsResponse = await fetch('/api/user/stats', {
-        method: 'GET',
-        credentials: 'include',
-      });
-      
-      let currentTotalXp = 0;
-      if (statsResponse.ok) {
-        const statsData = await statsResponse.json();
-        currentTotalXp = statsData.xp || 0;
-      }
-
       const isWinner = winner.includes('You') || winner.includes('Player 1');
       const xpEarned = isWinner 
         ? calculateWinXp(gameState.playerScore, gameState.opponentScore)
         : calculateLossXp(gameState.playerScore);
-
+      
       showXpGain(xpEarned);
-      const totalXp = currentTotalXp + xpEarned;
+
+      // The duration would be calculated from the start of the game
+      const durationInSeconds = 60; // Example: 60 seconds
 
       const response = await fetch('/api/pong/score', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
         body: JSON.stringify({
-          mode: gameMode,
           score: gameState.playerScore,
           opponentScore: gameState.opponentScore,
           winner: isWinner ? 'player' : 'opponent',
           xpEarned: xpEarned,
-          totalXp: totalXp,
+          duration: durationInSeconds,
+          isPerfectGame: isWinner && gameState.opponentScore === 0,
         }),
       });
 
@@ -147,8 +143,17 @@ import { useNavigate } from "react-router-dom";
       }
 
       const data = await response.json();
-      console.log('Score and XP saved successfully:', data);
-      fetchHistory();
+      console.log('Score saved:', data);
+      
+      // Refetch the shared player data after the game is saved.
+      refetchPlayerData(); 
+
+      if (data.newAchievements && data.newAchievements.length > 0) {
+        data.newAchievements.forEach((ach: import('../types').Achievement) => {
+          addToast(ach);
+        });
+      }
+      // fetchHistory(); // The Lobby will now have a history component
     } catch (err) {
       console.error('Failed to save Pong score:', err);
     }

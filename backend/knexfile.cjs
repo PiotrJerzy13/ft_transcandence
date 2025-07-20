@@ -1,7 +1,12 @@
 // knexfile.cjs - CommonJS version for Knex CLI
 const path = require('path');
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, '../data/ft_transcendence.db');
+// THIS IS THE ONLY PATH WE SHOULD USE
+const dbPath = process.env.DB_PATH;
+
+if (!dbPath) {
+  throw new Error('DB_PATH environment variable is not set. Please check your docker-compose.yml or .env file.');
+}
 
 module.exports = {
   development: {
@@ -19,7 +24,6 @@ module.exports = {
     },
     pool: {
       afterCreate: (conn, done) => {
-        // Enable foreign keys for SQLite
         conn.run('PRAGMA foreign_keys = ON', done);
       }
     }

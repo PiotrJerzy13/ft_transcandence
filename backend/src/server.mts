@@ -10,15 +10,15 @@ import arkanoidRoutes from './routes/arkanoidRoutes.js';
 import leaderboardRoutes from './routes/leaderboardRoutes.js';
 import { register, collectDefaultMetrics } from 'prom-client';
 import addFormats from 'ajv-formats';
-import fs from 'fs';
-import path from 'path';
-import { fileURLToPath } from 'url';
+// import fs from 'fs';
+// import path from 'path';
+// import { fileURLToPath } from 'url';
 
 // ES module __dirname workaround
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// const __filename = fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
-const certDir = process.env.CERT_DIR || path.join(__dirname, '../../certs');
+// const certDir = process.env.CERT_DIR || path.join(__dirname, '../../certs');
 
 // Import database
 import { initializeDatabase, closeDatabase } from './db/index.js';
@@ -104,10 +104,10 @@ const loggerConfig = {
 const app: FastifyInstance = fastify({ 
   logger: loggerConfig,
   ignoreTrailingSlash: true,
-  https: {
-    key: fs.readFileSync(path.join(certDir, 'localhost.key')),
-    cert: fs.readFileSync(path.join(certDir, 'localhost.crt'))
-  },
+  // https: {
+  //   key: fs.readFileSync(path.join(certDir, 'localhost.key')),
+  //   cert: fs.readFileSync(path.join(certDir, 'localhost.crt'))
+  // },
   ajv: {
     plugins: [
       (addFormats as unknown as (ajv: any) => any)

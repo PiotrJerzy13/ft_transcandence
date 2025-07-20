@@ -38,7 +38,7 @@ export interface UserAchievement {
 export class UserStatsRepository {
   private db: Knex | null = null;
 
-  private getDb(): Knex {
+  public getDb(): Knex {
     if (!this.db) {
       this.db = getDb();
     }
@@ -178,23 +178,125 @@ export class UserStatsRepository {
     return 'Novice';
   }
 
-  async checkAndUnlockAchievements(userId: number): Promise<Achievement[]> {
-    const stats = await this.findByUserId(userId);
+  async processGameResult(
+    userId: number,
+    result: { isWin: boolean; duration: number; xpEarned: number; isPerfectGame?: boolean }
+  ): Promise<{ updatedStats: UserStats, newAchievements: Achievement[] }> {
+    const db = this.getDb();
+
+    return db.transaction(async (trx) => {
+      // 1. Get current stats (we know it exists since it's created during user registration)
+      const currentStats = await trx('user_stats').where('user_id', userId).first();
+      
+      if (!currentStats) {
+        throw new Error(`User stats not found for user ${userId}. This should not happen if stats are created during registration.`);
+      }
+
+      // 2. Calculate new values
+      const newWinStreak = result.isWin ? currentStats.win_streak + 1 : 0;
+      const newBestStreak = Math.max(currentStats.best_streak, newWinStreak);
+      const newTotalGames = currentStats.total_games + 1;
+      const newWins = currentStats.wins + (result.isWin ? 1 : 0);
+      const newLosses = currentStats.losses + (result.isWin ? 0 : 1);
+      const newTotalPlayTime = currentStats.total_play_time + result.duration;
+      const newXp = currentStats.xp + result.xpEarned;
+      
+      // 3. Calculate level and rank
+      const newLevel = Math.floor(Math.sqrt(newXp / 100)) + 1;
+      const newRank = this.calculateRank(newLevel, newWins);
+
+      // 4. Update stats with explicit UPDATE query
+      await trx('user_stats')
+        .where('user_id', userId)
+        .update({
+          total_games: newTotalGames,
+          wins: newWins,
+          losses: newLosses,
+          win_streak: newWinStreak,
+          best_streak: newBestStreak,
+          total_play_time: newTotalPlayTime,
+          xp: newXp,
+          level: newLevel,
+          rank: newRank,
+          updated_at: new Date().toISOString()
+        });
+      
+      // 5. Get the updated stats
+      const updatedStats = await trx('user_stats').where('user_id', userId).first();
+
+      // 6. Check for achievements based on the new stats
+      const newAchievements = await this.checkAndUnlockAchievements(userId, trx);
+      
+      // 7. Handle specific, event-based achievements
+      if (result.isPerfectGame) {
+        const perfectGameAchievement = await trx('achievements').where({ requirement_type: 'perfect_game', id: 5 }).first();
+        if (perfectGameAchievement) {
+          const isUnlocked = await trx('user_achievements').where({ user_id: userId, achievement_id: perfectGameAchievement.id }).first();
+          if (!isUnlocked) {
+            await trx('user_achievements').insert({ user_id: userId, achievement_id: perfectGameAchievement.id, unlocked_at: new Date().toISOString() });
+            newAchievements.push(perfectGameAchievement);
+          }
+        }
+      }
+
+      return { updatedStats, newAchievements };
+    });
+  }
+
+  async checkAndUnlockAchievements(userId: number, trx: Knex.Transaction): Promise<Achievement[]> {
+    const stats = await trx('user_stats').where('user_id', userId).first();
     if (!stats) return [];
 
-    const achievements = await this.getAllAchievements();
-    const userAchievements = await this.getUserAchievements(userId);
+    const allAchievements = await trx('achievements').select('*');
+    const userAchievements = await trx('user_achievements').where('user_id', userId);
     const unlockedIds = new Set(userAchievements.map(ua => ua.achievement_id));
-    
+
     const newlyUnlocked: Achievement[] = [];
 
-    for (const achievement of achievements) {
+    for (const achievement of allAchievements) {
+    //   const userAch = userAchievements.find(ua => ua.achievement_id === achievement.id);
+      let progress = 0;
+      switch (achievement.requirement_type) {
+        case 'first_win':
+          progress = stats.wins;
+          break;
+        case 'games_played':
+          progress = stats.total_games;
+          break;
+        case 'win_streak':
+          progress = stats.best_streak;
+          break;
+        case 'play_time':
+          progress = stats.total_play_time;
+          break;
+        case 'level_reached':
+          // This refers to the Arkanoid game level, not the player's overall level.
+          // You may want to track this separately if needed.
+          progress = 0;
+          break;
+        case 'perfect_game':
+          // This requires specific data from a game result (e.g., opponent score was 0).
+          // It cannot be checked from general stats alone.
+          progress = 0;
+          break;
+      }
+
+      // Upsert progress for this achievement
+      await trx('user_achievements')
+        .insert({
+          user_id: userId,
+          achievement_id: achievement.id,
+          progress
+        })
+        .onConflict(['user_id', 'achievement_id'])
+        .merge({ progress });
+
       if (unlockedIds.has(achievement.id)) continue;
 
       let shouldUnlock = false;
       switch (achievement.requirement_type) {
         case 'first_win':
-          shouldUnlock = stats.wins >= 1;
+          shouldUnlock = stats.wins >= achievement.requirement_value;
           break;
         case 'games_played':
           shouldUnlock = stats.total_games >= achievement.requirement_value;
@@ -205,22 +307,30 @@ export class UserStatsRepository {
         case 'play_time':
           shouldUnlock = stats.total_play_time >= achievement.requirement_value;
           break;
+        case 'level_reached':
+          // This refers to the Arkanoid game level, not the player's overall level.
+          // This type of achievement must be checked and awarded from the arkanoid route specifically.
+          break;
         case 'perfect_game':
-          // This would need to be tracked separately in match results
+          // This requires specific data from a game result (e.g., opponent score was 0).
+          // It cannot be checked from general stats alone. We'll address this in Step 2.
           break;
       }
 
       if (shouldUnlock) {
-        await this.getDb()('user_achievements')
-          .insert({
-            user_id: userId,
-            achievement_id: achievement.id
-          });
+        await trx('user_achievements')
+          .where({ user_id: userId, achievement_id: achievement.id })
+          .update({ unlocked_at: new Date().toISOString() });
         newlyUnlocked.push(achievement);
       }
     }
 
     return newlyUnlocked;
+  }
+
+  async checkAndUnlockAchievementsStandalone(userId: number): Promise<Achievement[]> {
+    const db = this.getDb();
+    return db.transaction(trx => this.checkAndUnlockAchievements(userId, trx));
   }
 }
 

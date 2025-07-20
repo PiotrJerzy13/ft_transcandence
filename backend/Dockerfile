@@ -3,7 +3,7 @@
 FROM node:20-alpine3.19
 
 # Install dependencies needed for native modules and the entrypoint script
-RUN apk update && apk upgrade && apk add --no-cache sqlite python3 make g++ libc6-compat bash
+RUN apk update && apk upgrade && apk add --no-cache sqlite python3 make g++ libc6-compat bash curl
 
 WORKDIR /app
 

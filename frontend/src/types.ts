@@ -9,9 +9,9 @@ export type ArkanoidScore = {
 export type PongGame = {
 	created_at: string;
 	mode: string;
-	left_score: number;
-	right_score: number;
-	winner: string;
+	score: number;
+	opponent_score: number;
+	winner: 'player' | 'opponent';
 };
 
 export type PlayerStats = {

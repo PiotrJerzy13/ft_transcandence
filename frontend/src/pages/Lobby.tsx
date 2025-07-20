@@ -1,34 +1,35 @@
-import { usePlayerStats } from '../hooks/usePlayerStats';
-import { usePlayerAchievements } from '../hooks/usePlayerAchievements';
 import { useGameHistory } from '../hooks/useGameHistory';
 import type { ArkanoidScore, PongGame } from '../types';
+import { usePlayerData } from '../context/PlayerDataContext';
 
 // Import your new components
 import PlayerHeader from './components/PlayerHeader';
 import GameModeSelection from './components/GameModeSelection';
 import GameHistorySection from './components/GameHistorySection';
 import PlayerProfileSidebar from './components/PlayerProfileSidebar';
-import LobbyActions from './components/LobbyActions'
+import LobbyActions from './components/LobbyActions';
+import { useNavigate } from 'react-router-dom';
 
 export default function GameLobby() {
-  // --- Data fetching stays here ---
-  const { stats: playerStats, loading: statsLoading, error: statsError } = usePlayerStats();
-  const { achievements, loading: achievementsLoading, error: achievementsError } = usePlayerAchievements();
+  const navigate = useNavigate();
+
+  // --- Data fetching is now simpler ---
+  const { playerData, loading: profileLoading, error: profileError } = usePlayerData();
   const { history: pongHistory, loading: pongLoading, error: pongError, stats: pongStats } = useGameHistory<PongGame>('pong');
   const { history: arkanoidHistory, loading: arkanoidLoading, error: arkanoidError, stats: arkanoidStats } = useGameHistory<ArkanoidScore>('arkanoid');
 
-  const loading = statsLoading || achievementsLoading || pongLoading || arkanoidLoading;
-  const error = statsError || achievementsError || pongError || arkanoidError;
+  const loading = profileLoading || pongLoading || arkanoidLoading;
+  const error = profileError || pongError || arkanoidError;
 
   // --- Handlers stay here ---
   const handleGameModeSelect = (mode: 'pong' | 'arkanoid') => {
-    window.location.href = mode === 'pong' ? '/game' : '/game2';
+    navigate(mode === 'pong' ? '/game' : '/game2');
   };
 
   const handleLogout = async () => {
     try {
       const res = await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
-      if (res.ok) window.location.href = '/login';
+      if (res.ok) navigate('/login', { replace: true });
       else alert('Logout failed');
     } catch (err) {
       console.error('Logout error:', err);
@@ -52,38 +53,25 @@ export default function GameLobby() {
       </div>
     );
   }
-  if (error) {
+  if (error || !playerData) { // Check for playerData as well
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-8 max-w-md">
+        <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-8 max-w-md text-center">
           <h2 className="text-red-400 text-xl mb-4">Failed to Load Profile</h2>
-          <p className="text-gray-300 mb-4">{error}</p>
+          <p className="text-gray-300 mb-4">{error || "Could not retrieve player data. Please try logging in again."}</p>
           <button 
-            onClick={() => window.location.reload()} 
+            onClick={() => navigate('/login', { replace: true })}
             className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
           >
-            Retry
+            Go to Login
           </button>
         </div>
       </div>
     );
   }
-  if (!playerStats) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
-        <div className="bg-yellow-900/20 border border-yellow-500/30 rounded-xl p-8 max-w-md">
-          <h2 className="text-yellow-400 text-xl mb-4">No Profile Data</h2>
-          <p className="text-gray-300 mb-4">Unable to load your player profile. Please try refreshing the page.</p>
-          <button 
-            onClick={() => window.location.reload()} 
-            className="px-4 py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
-          >
-            Refresh
-          </button>
-        </div>
-      </div>
-    );
-  }
+
+  const { stats: playerStats, achievements } = playerData;
+  if (!playerStats) return null; // Should be handled by the error block above, but good for type safety
 
   const rankColor = getRankColor(playerStats.rank);
 

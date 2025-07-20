@@ -1,6 +1,6 @@
 // VS Code shows "Cannot find module" because node_modules are in Docker, not locally. 
 // Run `docker exec -it ft_backend sh` then `npm list jsonwebtoken` to confirm it's installed.
-import bcrypt from 'bcrypt';
+import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import type { FastifyRequest, FastifyReply } from 'fastify';
 import userRepository from '../repositories/userRepository.js';
@@ -94,48 +94,57 @@ class AuthController {
     reply: FastifyReply
   ) {
     try {
-      request.log.info({ username: request.body.username }, "Login attempt started");
+      request.log.info({ username: request.body.username }, "[LOGIN] Step 1: Login attempt started");
       const { username, password } = request.body;
       
-      // Input validation
+      // Step 2: Input validation
       if (!username || !password) {
-        request.log.warn('Missing username or password');
+        request.log.warn('[LOGIN] Step 2: Missing username or password');
         return reply.status(400).send({ error: 'Username and password are required' });
       }
+      request.log.info('[LOGIN] Step 2: Input validated');
       
-      // Find user
+      // Step 3: Find user
       const user = await userRepository.findByUsername(username);
-      request.log.debug({ user }, "User lookup completed for login");
+      request.log.debug({ user }, "[LOGIN] Step 3: User lookup completed");
       if (!user) {
-        request.log.warn({ username }, "Login failed: user not found");
+        request.log.warn({ username }, "[LOGIN] Step 3: Login failed: user not found");
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
+      request.log.info('[LOGIN] Step 3: User found');
       
-      // Check password
+      // Step 4: Check password
+      request.log.info('[LOGIN] Step 4: Checking password');
       const passwordValid = await bcrypt.compare(password, user.password_hash);
       if (!passwordValid) {
-        request.log.warn({ username }, "Login failed: invalid password");
+        request.log.warn({ username }, "[LOGIN] Step 4: Login failed: invalid password");
         return reply.status(401).send({ error: 'Invalid credentials' });
       }
+      request.log.info('[LOGIN] Step 4: Password valid');
       
-      // Ensure user has an ID
+      // Step 5: Ensure user has an ID
       if (!user.id) {
-        request.log.error('User ID not found');
+        request.log.error('[LOGIN] Step 5: User ID not found');
         return reply.status(500).send({ error: 'User ID not found' });
       }
+      request.log.info('[LOGIN] Step 5: User ID found');
       
-      // Update status
+      // Step 6: Update status
+      request.log.info('[LOGIN] Step 6: Updating user status to online');
       await userRepository.update(user.id, { status: 'online' });
-      request.log.info({ userId: user.id, username: user.username }, "Login successful");
+      request.log.info({ userId: user.id, username: user.username }, "[LOGIN] Step 6: Login successful, status updated");
       
-      // Create JWT token
+      // Step 7: Create JWT token
+      request.log.info('[LOGIN] Step 7: Creating JWT token');
       const token = jwt.sign(
         { id: user.id, username: user.username }, 
         process.env.JWT_SECRET || 'your-secret-key',
         { expiresIn: '24h' }
       );
+      request.log.info('[LOGIN] Step 7: JWT token created');
       
-      // Set cookie
+      // Step 8: Set cookie
+      request.log.info('[LOGIN] Step 8: Setting cookie');
       reply.setCookie('token', token, {
         path: '/',
         httpOnly: true,
@@ -143,16 +152,18 @@ class AuthController {
         sameSite: 'lax',
         maxAge: 86400 // 24 hours
       });
+      request.log.info('[LOGIN] Step 8: Cookie set');
       
-      // Return user (without password)
+      // Step 9: Return user (without password) and token
       const { password_hash, ...userWithoutPassword } = user;
+      request.log.info('[LOGIN] Step 9: Sending response');
       return reply.send({ 
         user: userWithoutPassword,
         token
       });
     } catch (error) {
-      request.log.error({ err: error }, "An unexpected error occurred during login");
-      return reply.status(500).send({ error: 'Internal Server Error' });
+      request.log.error({ err: error, step: '[LOGIN] CATCH BLOCK' }, "[LOGIN] An unexpected error occurred during login");
+      return reply.status(500).send({ error: 'Internal Server Error', details: error instanceof Error ? error.message : error });
     }
   }
 

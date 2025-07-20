@@ -2,79 +2,64 @@ import type { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
 import { BadRequestError, UnauthorizedError } from './error.js';
+import userStatsRepository from '../repositories/userStatsRepository.js';
+import { InternalServerError } from './error.js';
 
 export default async function arkanoidRoutes(fastify: FastifyInstance) {
-  // POST /arkanoid/score - Save score + xp
+  // POST /arkanoid/score - Save score + xp (NEW HANDLER)
   fastify.post('/score', { preHandler: authenticate }, async (req, reply) => {
     req.log.info('[ARKANOID] Received score submission request');
-    const { score, levelReached, xpEarned, totalXp } = req.body as {
+    const { score, levelReached, xpEarned, duration, blocksDestroyed = 0, powerUpsCollected = 0 } = req.body as {
       score: number;
       levelReached: number;
       xpEarned: number;
-      totalXp?: number;
+      duration: number;
+      blocksDestroyed?: number;
+      powerUpsCollected?: number;
     };
-    const userId = req.user?.id;
-    req.log.debug({ userId, score, levelReached, xpEarned, totalXp }, '[ARKANOID] Score submission');
+    const userId = req.user!.id;
+    req.log.debug({ userId, score, levelReached, xpEarned, duration }, '[ARKANOID] Score submission');
 
-    if (!userId || score == null || levelReached == null || xpEarned == null) {
-      throw new BadRequestError('Missing score, level or xp');
+    if (score == null || levelReached == null || xpEarned == null || duration == null) {
+      throw new BadRequestError('Missing score, level, xp, or duration');
     }
 
-    const db = getDb();
+    // For Arkanoid, every game is a win (single player)
+    const isWin = true;
+    // Optionally, define isPerfectGame if you have a condition (e.g., max level reached)
+    const isPerfectGame = false; // Set to true if you want to support perfect game logic
 
-    // Get current user stats
-    const currentStats = await db('user_stats')
-      .select('xp', 'level')
-      .where('user_id', userId)
-      .first();
-
-    // Calculate new total XP
-    const currentTotalXp = currentStats?.xp || 0;
-    const newTotalXp = currentTotalXp + xpEarned;
-    const newLevel = Math.floor(Math.sqrt(newTotalXp / 100)) + 1;
-
-    // Save game result
-    await db('arkanoid_scores').insert({
-      user_id: userId,
-      score,
-      level_reached: levelReached,
-      xp_earned: xpEarned
-    });
-
-    // Update user_stats table with new total XP and increment total_games and wins
-    await db('user_stats')
-      .insert({
+    try {
+      const db = getDb();
+      await db('arkanoid_scores').insert({
         user_id: userId,
-        xp: newTotalXp,
-        level: newLevel,
-        total_games: 1,
-        wins: 1,
-        losses: 0,
-        win_streak: 1,
-        best_streak: 1,
-        total_play_time: 0,
-        rank: 'Novice'
-      })
-      .onConflict('user_id')
-      .merge({
-        xp: newTotalXp,
-        level: newLevel,
-        total_games: db.raw('total_games + 1'),
-        wins: db.raw('wins + 1'),
-        updated_at: new Date().toISOString()
+        score,
+        level_reached: levelReached,
+        xp_earned: xpEarned,
+        duration,
+        blocks_destroyed: blocksDestroyed,
+        power_ups_collected: powerUpsCollected
       });
 
-    const updatedStats = await db('user_stats')
-      .select('xp', 'level')
-      .where('user_id', userId)
-      .first();
+      const { updatedStats, newAchievements } = await userStatsRepository.processGameResult(userId, {
+        isWin,
+        duration,
+        xpEarned,
+        isPerfectGame
+      });
 
-    req.log.info({ userId, newTotalXp, newLevel }, '[ARKANOID] Score and XP saved successfully');
-    return reply.send({
-      success: true,
-      message: 'Score saved successfully',
-      userStats: updatedStats,
-    });
+      req.log.info({ userId, newAchievements: newAchievements.map(a => a.name) }, '[ARKANOID] Game processed, achievements unlocked');
+
+      return reply.send({
+        success: true,
+        message: 'Score saved successfully',
+        userStats: updatedStats,
+        newAchievements
+      });
+    } catch (error) {
+      req.log.error({ err: error }, 'Error processing arkanoid game result');
+      throw new InternalServerError('Failed to process game result');
+    }
   });
 
   // GET /arkanoid/history - Fetch personal history

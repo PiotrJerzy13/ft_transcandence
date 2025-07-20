@@ -6,12 +6,12 @@ interface LeaderboardPlayer {
   username: string;
   level: number;
   rank: string;
-  total_games: number;
+  totalGames: number;
   wins: number;
   losses: number;
   xp: number;
-  best_streak: number;
-  win_rate: number;
+  bestStreak: number; // Changed from best_streak to bestStreak
+  winRate: number;    // Changed from win_rate to winRate
 }
 
 export default function Leaderboard() {
@@ -96,8 +96,8 @@ export default function Leaderboard() {
                     <td className="py-2 px-2">{player.level}</td>
                     <td className="py-2 px-2">{player.rank}</td>
                     <td className="py-2 px-2">{player.xp}</td>
-                    <td className="py-2 px-2">{typeof player.win_rate === 'number' ? player.win_rate.toFixed(1) : '0.0'}%</td>
-                    <td className="py-2 px-2">{player.best_streak}</td>
+                    <td className="py-2 px-2">{typeof player.winRate === 'number' ? player.winRate.toFixed(1) : '0.0'}%</td>
+                    <td className="py-2 px-2">{player.bestStreak}</td>
                   </tr>
                 ))}
               </tbody>
@@ -107,14 +107,14 @@ export default function Leaderboard() {
       ) : (
         <p className="text-gray-400 mt-4">No leaderboard data available.</p>
       )}
-	  <div className="mt-8 flex justify-center">
-	<button
-		onClick={handleBackToLobby}
-		className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 font-mono"
-	>
-		← BACK TO LOBBY
-		</button>
-	</div>
+      <div className="mt-8 flex justify-center">
+        <button
+          onClick={handleBackToLobby}
+          className="px-6 py-3 bg-gradient-to-r from-cyan-600 to-blue-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-cyan-500/25 transition-all duration-300 font-mono"
+        >
+          ← BACK TO LOBBY
+        </button>
+      </div>
     </div>
   );
 }

@@ -16,6 +16,13 @@ class UserController {
       request.log.debug({ type: typeof stats.total_games }, 'Type of stats.total_games');
       request.log.debug({ keys: Object.keys(stats) }, 'Keys in stats');
 
+      // Fetch user object (exclude password_hash)
+      const userRecord = await userStatsRepository.getDb()('users').where('id', userId).first();
+      if (!userRecord) {
+        return reply.status(404).send({ error: 'User not found' });
+      }
+      const { password_hash, ...user } = userRecord;
+
       // Fetch achievements
       const allAchievements = await userStatsRepository.getAllAchievements();
       const userAchievements = await userStatsRepository.getUserAchievements(userId);
@@ -56,7 +63,8 @@ class UserController {
         achievements: achievements.length,
       });
 
-      return reply.send({ stats: formattedStats, achievements });
+      // Include user in the response
+      return reply.send({ user, stats: formattedStats, achievements });
 
     } catch (error) {
       request.log.error({ err: error }, 'Error in getProfile');
@@ -82,7 +90,7 @@ class UserController {
 
       await userStatsRepository.updateGameStats(userId, won, duration);
 
-      const newAchievements = await userStatsRepository.checkAndUnlockAchievements(userId);
+      const newAchievements = await userStatsRepository.checkAndUnlockAchievementsStandalone(userId);
 
       request.log.info('🏆 Game updated, new achievements unlocked:', newAchievements.length);
 

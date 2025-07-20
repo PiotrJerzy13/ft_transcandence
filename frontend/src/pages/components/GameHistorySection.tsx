@@ -133,17 +133,17 @@ export default function GameHistorySection({ playerStats, pongHistory, pongStats
                             {game.mode === 'one-player' ? 'Single Player' : 'Two Player'}
                           </td>
                           <td className="px-4 py-2 text-right font-mono">
-                            <span className="text-cyan-400">{game.left_score}</span>
+                            <span className="text-cyan-400">{game.score}</span>
                             <span className="text-gray-400 mx-1">-</span>
-                            <span className="text-amber-400">{game.right_score}</span>
+                            <span className="text-amber-400">{game.opponent_score}</span>
                           </td>
                           <td className="px-4 py-2 text-right">
-                            <span className={`font-mono ${
-                              game.winner.includes('You') || game.winner.includes('Player 1')
+                            <span className={`font-mono capitalize ${
+                              game.winner === 'player'
                                 ? 'text-cyan-400'
                                 : 'text-amber-400'
                             }`}>
-                              {game.winner}
+                              {game.winner === 'player' ? 'Win' : 'Loss'}
                             </span>
                           </td>
                         </tr>

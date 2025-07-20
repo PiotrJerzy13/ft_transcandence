@@ -13,27 +13,44 @@ export class UserRepository {
     return this.db;
   }
 
-  // Create a new user
+  // Create a new user and their initial stats within a transaction
   async create(userData: Omit<User, 'id' | 'created_at' | 'updated_at'>): Promise<User> {
-    const [user] = await this.getDb()('users')
-      .insert(userData)
-      .returning('*');
-    
-    // Create initial user stats
-    await this.getDb()('user_stats').insert({
-      user_id: user.id,
-      total_games: 0,
-      wins: 0,
-      losses: 0,
-      win_streak: 0,
-      best_streak: 0,
-      total_play_time: 0,
-      rank: 'Novice',
-      level: 1,
-      xp: 0
+    const db = this.getDb();
+    let createdUser: User | null = null;
+
+    await db.transaction(async (trx) => {
+      // 1. Insert the new user and get the ID.
+      // For sqlite3, the insert method returns an array with the new ID.
+      const [newUserId] = await trx('users').insert(userData);
+
+      if (!newUserId) {
+        throw new Error("User creation failed, no ID returned.");
+      }
+
+      // 2. Create the initial user stats record using the new ID.
+      await trx('user_stats').insert({
+        user_id: newUserId,
+        total_games: 0,
+        wins: 0,
+        losses: 0,
+        win_streak: 0,
+        best_streak: 0,
+        total_play_time: 0,
+        rank: 'Novice',
+        level: 1,
+        xp: 0
+      });
+
+      // 3. Fetch the complete user object to return it.
+      createdUser = await trx('users').where('id', newUserId).first();
     });
 
-    return user;
+    if (!createdUser) {
+      // This should ideally not happen if the transaction was successful.
+      throw new Error("Failed to retrieve created user after transaction.");
+    }
+
+    return createdUser;
   }
 
   // Find user by ID

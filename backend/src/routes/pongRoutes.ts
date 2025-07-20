@@ -1,93 +1,64 @@
 import type { FastifyInstance, FastifyReply } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
+import userStatsRepository from '../repositories/userStatsRepository.js';
 import { BadRequestError, UnauthorizedError } from './error.js';
+import { InternalServerError } from './error.js';
 
 export default async function pongRoutes(fastify: FastifyInstance) {
-  // POST /pong/score - Save a completed pong match
-  fastify.post('/score', { preHandler: authenticate }, async (req, reply: FastifyReply) => {
+  // POST /pong/score - Save a completed pong match (NEW HANDLER)
+  fastify.post('/score', { preHandler: authenticate }, async (req, reply) => {
     req.log.info('[PONG] Received score submission request');
-
-    const { mode, score, opponentScore, winner, xpEarned } = req.body as {
-      mode: 'one-player' | 'two-player';
+    const { score, opponentScore, winner, xpEarned, duration } = req.body as {
       score: number;
       opponentScore: number;
       winner: 'player' | 'opponent';
       xpEarned: number;
+      duration: number;
     };
-    const userId = req.user?.id;
+    const userId = req.user!.id;
 
-    if (!userId || score == null || opponentScore == null || !winner || !mode || xpEarned == null) {
-      req.log.warn({ body: req.body }, "[PONG] Invalid score submission - missing data");
-      throw new BadRequestError('Missing required fields');
+    // Validation...
+    if (score == null || opponentScore == null || !winner || xpEarned == null || duration == null) {
+      throw new BadRequestError('Missing required fields for pong score');
     }
 
-    const db = getDb();
-    req.log.debug({ userId, mode, score, opponentScore, winner, xpEarned }, '[PONG] Saving match with XP');
+    const isWin = winner === 'player';
+    const isPerfectGame = isWin && opponentScore === 0;
 
-    // Save the match with XP data
-    await db('pong_matches').insert({
-      user_id: userId,
-      mode,
-      score,
-      opponent_score: opponentScore,
-      winner,
-      xp_earned: xpEarned,
-      total_xp: null // Optionally remove or set to null if not used
-    });
-
-    // Get current user stats
-    const currentStats = await db('user_stats')
-      .select('xp', 'level')
-      .where('user_id', userId)
-      .first();
-
-    // Calculate new total XP and level
-    const currentTotalXp = currentStats?.xp || 0;
-    const newTotalXp = currentTotalXp + xpEarned;
-    const newLevel = Math.floor(Math.sqrt(newTotalXp / 100)) + 1;
-
-    // Update user stats with XP using upsert
-    await db('user_stats')
-      .insert({
+    try {
+      const db = getDb();
+      await db('pong_matches').insert({
         user_id: userId,
-        xp: newTotalXp,
-        level: newLevel,
-        total_games: 1,
-        wins: winner === 'player' ? 1 : 0,
-        losses: winner === 'opponent' ? 1 : 0,
-        win_streak: winner === 'player' ? 1 : 0,
-        best_streak: winner === 'player' ? 1 : 0,
-        total_play_time: 0,
-        rank: 'Novice'
-      })
-      .onConflict('user_id')
-      .merge({
-        xp: newTotalXp,
-        level: newLevel,
-        total_games: db.raw('total_games + 1'),
-        wins: db.raw(`wins + ${winner === 'player' ? 1 : 0}`),
-        losses: db.raw(`losses + ${winner === 'opponent' ? 1 : 0}`),
-        win_streak: db.raw(`CASE WHEN '${winner}' = 'player' THEN win_streak + 1 ELSE 0 END`),
-        best_streak: db.raw(`CASE WHEN '${winner}' = 'player' AND win_streak + 1 > best_streak THEN win_streak + 1 ELSE best_streak END`),
-        updated_at: new Date().toISOString()
+        mode: 'one-player', // or use the actual mode if available
+        score: score,
+        opponent_score: opponentScore,
+        winner,
+        xp_earned: xpEarned
       });
 
-    const updatedStats = await db('user_stats')
-      .select('xp', 'level')
-      .where('user_id', userId)
-      .first();
+      const { updatedStats, newAchievements } = await userStatsRepository.processGameResult(userId, {
+        isWin,
+        duration,
+        xpEarned,
+        isPerfectGame
+      });
 
-    req.log.info({ userId, xpEarned, newTotalXp: updatedStats?.xp, newLevel: updatedStats?.level }, '[PONG] Score and XP saved successfully');
+      req.log.info({ userId, newAchievements: newAchievements.map(a => a.name) }, '[PONG] Game processed, achievements unlocked');
 
-    return reply.send({ 
-      success: true, 
-      message: 'Score saved successfully',
-      userStats: updatedStats
-    });
+      return reply.send({ 
+        success: true, 
+        message: 'Score saved successfully',
+        userStats: updatedStats,
+        newAchievements // Send new achievements to the frontend!
+      });
+    } catch (error) {
+      req.log.error({ err: error }, 'Error processing pong game result');
+      throw new InternalServerError('Failed to process game result');
+    }
   });
 
-  // GET /pong/history - Fetch personal Pong match history
+  // GET /pong/history - Fetch personal Pong match history (CORRECTED)
   fastify.get('/history', { preHandler: authenticate }, async (req, reply: FastifyReply) => {
     req.log.info('[PONG] Received history request');
     const userId = req.user?.id;
@@ -97,13 +68,25 @@ export default async function pongRoutes(fastify: FastifyInstance) {
       throw new UnauthorizedError('User not authenticated');
     }
 
-    const db = getDb();
-    const history = await db('pong_matches')
-      .select('mode', 'score', 'opponent_score', 'winner', 'created_at')
-      .where('user_id', userId)
-      .orderBy('created_at', 'desc');
-    
-    req.log.debug({ userId, matchCount: history.length }, `[PONG] Found ${history.length} matches for user ${userId}`);
-    return reply.send({ history });
+    try {
+      const db = getDb();
+      const history = await db('pong_matches')
+        .select(
+          'mode',
+          'score as left_score',
+          'opponent_score as right_score',
+          'winner',
+          'created_at'
+        )
+        .where('user_id', userId)
+        .orderBy('created_at', 'desc');
+      
+      req.log.debug({ userId, matchCount: history.length }, `[PONG] Found ${history.length} matches for user ${userId}`);
+      return reply.send({ history });
+      
+    } catch (error) {
+      req.log.error({ err: error }, 'Error fetching pong history');
+      throw new InternalServerError('Failed to fetch pong history');
+    }
   });
 }

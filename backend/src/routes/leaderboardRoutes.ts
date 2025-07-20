@@ -15,7 +15,7 @@ export default async function leaderboardRoutes(fastify: FastifyInstance) {
       const topPlayersData = await userRepository.getLeaderboard(10); // Get top 10 players
       
       // The repository now returns the correct nested structure.
-      // We just need to calculate the win rate for the final response.
+      // We calculate the win rate and transform to camelCase for consistency.
       const playersWithWinRate = topPlayersData.map(player => {
         // Access stats from the nested 'stats' object
         const totalGames = (player.stats.wins || 0) + (player.stats.losses || 0);
@@ -26,9 +26,12 @@ export default async function leaderboardRoutes(fastify: FastifyInstance) {
           username: player.username,
           level: player.stats.level || 1,
           rank: player.stats.rank || 'Novice',
+          totalGames: totalGames,
+          wins: player.stats.wins || 0,
+          losses: player.stats.losses || 0,
           xp: player.stats.xp || 0,
-          win_rate: winRate,
-          best_streak: player.stats.best_streak || 0
+          winRate: winRate, // Changed from win_rate to winRate
+          bestStreak: player.stats.best_streak || 0 // Changed from best_streak to bestStreak
         };
       });
 

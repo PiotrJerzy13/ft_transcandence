@@ -5,7 +5,12 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const dbPath = process.env.DB_PATH || path.join(__dirname, 'src/db/data/ft_transcendence.db');
+// THIS IS THE ONLY PATH WE SHOULD USE
+const dbPath = process.env.DB_PATH;
+
+if (!dbPath) {
+  throw new Error('DB_PATH environment variable is not set. Please check your docker-compose.yml or .env file.');
+}
 
 export default {
   development: {
@@ -23,7 +28,6 @@ export default {
     },
     pool: {
       afterCreate: (conn, done) => {
-        // Enable foreign keys for SQLite
         conn.run('PRAGMA foreign_keys = ON', done);
       }
     }

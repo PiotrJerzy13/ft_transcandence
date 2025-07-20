@@ -4,6 +4,9 @@ import { calculateGameOverXp, calculateLevelXp, showXpGain } from "./xpCalculato
 import { useGameHistory } from '../hooks/useGameHistory';
 import type { ArkanoidScore } from '../types';
 import { useNavigate } from "react-router-dom";
+import { useToasts } from '../context/ToastContext';
+import { usePlayerAchievements } from '../hooks/usePlayerAchievements';
+import { usePlayerData } from '../context/PlayerDataContext'; // Import player data context
 
 
 	export default function ArkanoidGame() {
@@ -16,12 +19,16 @@ import { useNavigate } from "react-router-dom";
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
   const animationFrameRef = useRef<number | null>(null);
   const gameInstanceRef = useRef<Arkanoid | null>(null);
+  const gameStartTimeRef = useRef<number | null>(null);
   const [sessionXp, setSessionXp] = useState(0);
   const { 
     history: arkanoidHistory, 
     loading: historyLoading, 
     error: historyError 
   } = useGameHistory<ArkanoidScore>('arkanoid');
+  const { addToast } = useToasts();
+  const { refetch: refetchAchievements } = usePlayerAchievements();
+  const { refetch: refetchPlayerData } = usePlayerData(); // Get the refetch function
   
   const blockColors = [
     { primary: "#ef4444", secondary: "#dc2626", glow: "#ef4444" },
@@ -76,21 +83,30 @@ import { useNavigate } from "react-router-dom";
       initialLives: 3
     };
 
-    const saveArkanoidResult = async (finalScore: number, finalLevel: number, totalXpEarned: number) => {
-      console.log(`[Arkanoid] Saving final result: Score=${finalScore}, Level=${finalLevel}, XP=${totalXpEarned}`);
+    const saveArkanoidResult = async (finalScore: number, finalLevel: number, totalXpEarned: number, durationInSeconds: number) => {
+      console.log(`[Arkanoid] Saving final result: Score=${finalScore}, Level=${finalLevel}, XP=${totalXpEarned}, Duration=${durationInSeconds}s`);
       try {
-        await fetch('/api/arkanoid/score', {
+        const response = await fetch('/api/arkanoid/score', {
           method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
             score: finalScore,
             levelReached: finalLevel,
             xpEarned: totalXpEarned,
+            duration: Math.round(durationInSeconds),
           }),
         });
+        if (response && response.ok) {
+          const data = await response.json();
+          refetchPlayerData();
+          if (data.newAchievements && data.newAchievements.length > 0) {
+            data.newAchievements.forEach((ach: import('../types').Achievement) => {
+              addToast(ach);
+            });
+            refetchAchievements();
+          }
+        }
       } catch (error) {
         console.error('Failed to save Arkanoid result:', error);
       }
@@ -106,6 +122,9 @@ import { useNavigate } from "react-router-dom";
       onLevelChange: (newLevel) => setLevel(newLevel),
       onGameOver: () => {
         if (!gameInstanceRef.current) return;
+        // Calculate duration
+        const duration = gameStartTimeRef.current ? (Date.now() - gameStartTimeRef.current) / 1000 : 0;
+        gameStartTimeRef.current = null; // Reset for next game
         const gameOverXp = calculateGameOverXp(
           gameInstanceRef.current.getScore(),
           gameInstanceRef.current.getLevel()
@@ -116,7 +135,8 @@ import { useNavigate } from "react-router-dom";
         saveArkanoidResult(
           gameInstanceRef.current.getScore(),
           gameInstanceRef.current.getLevel(),
-          totalXpEarned
+          totalXpEarned,
+          duration
         );
       },
       onLevelComplete: () => {
@@ -166,6 +186,7 @@ import { useNavigate } from "react-router-dom";
     }
     if (e.key === 'Enter') {
       if (gameState === 'menu' || gameState === 'gameOver') {
+        gameStartTimeRef.current = Date.now();
         setSessionXp(0);
         gameInstanceRef.current.resetGame(true);
         setGameState('playing');
@@ -212,6 +233,7 @@ import { useNavigate } from "react-router-dom";
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (!gameInstanceRef.current) return;
     if (gameState === 'menu' || gameState === 'gameOver') {
+      gameStartTimeRef.current = Date.now();
       setSessionXp(0);
       gameInstanceRef.current.resetGame(true);
       setGameState('playing');
