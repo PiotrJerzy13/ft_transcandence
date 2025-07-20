@@ -1,7 +1,4 @@
-// src/db/migrations/005_create_game_tables.ts
-import { Knex } from 'knex';
-
-export async function up(knex: Knex): Promise<void> {
+exports.up = async function(knex) {
   // Create pong_matches table (for single player and detailed tracking)
   await knex.schema.createTableIfNotExists('pong_matches', (table) => {
     table.increments('id').primary();
@@ -14,10 +11,8 @@ export async function up(knex: Knex): Promise<void> {
     table.integer('total_xp').defaultTo(0);
     table.integer('duration').defaultTo(0); // in seconds
     table.timestamps(true, true);
-    
     // Foreign key
     table.foreign('user_id').references('id').inTable('users').onDelete('CASCADE');
-    
     // Indexes
     table.index(['user_id']);
     table.index(['mode']);
@@ -36,19 +31,17 @@ export async function up(knex: Knex): Promise<void> {
     table.integer('power_ups_collected').defaultTo(0);
     table.integer('duration').defaultTo(0); // in seconds
     table.timestamps(true, true);
-    
     // Foreign key
     table.foreign('user_id').references('id').inTable('users').onDelete('CASCADE');
-    
     // Indexes
     table.index(['user_id']);
     table.index(['score']);
     table.index(['level_reached']);
     table.index(['created_at']);
   });
-}
+};
 
-export async function down(knex: Knex): Promise<void> {
+exports.down = async function(knex) {
   await knex.schema.dropTableIfExists('arkanoid_scores');
   await knex.schema.dropTableIfExists('pong_matches');
-}
+}; 

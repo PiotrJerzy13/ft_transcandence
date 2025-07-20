@@ -28,6 +28,15 @@ clean:
 prune:
 	docker system prune -af
 
+db-reset:
+	@echo "Removing old database file..."
+	rm -f data/ft_transcendence.db
+	@echo "Running migrations..."
+	DB_PATH=../data/ft_transcendence.db npx knex migrate:latest --knexfile backend/knexfile.cjs
+	@echo "Seeding achievements..."
+	DB_PATH=../data/ft_transcendence.db npx knex seed:run --knexfile backend/knexfile.cjs --specific=001_achievements.cjs
+	@echo "Database reset, migrated, and seeded!"
+
 # Help command
 help:
 	@echo "Available targets:"

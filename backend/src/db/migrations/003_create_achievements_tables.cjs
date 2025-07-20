@@ -1,7 +1,4 @@
-// src/db/migrations/003_create_achievements_tables.ts
-import { Knex } from 'knex';
-
-export async function up(knex: Knex): Promise<void> {
+exports.up = async function(knex) {
   // Create achievements table with basic schema first
   await knex.schema.createTableIfNotExists('achievements', (table) => {
     table.increments('id').primary();
@@ -11,7 +8,6 @@ export async function up(knex: Knex): Promise<void> {
     table.string('requirement_type').notNullable();
     table.integer('requirement_value').notNullable();
     table.timestamps(true, true);
-    
     // Indexes
     table.index(['requirement_type']);
   });
@@ -43,22 +39,19 @@ export async function up(knex: Knex): Promise<void> {
     table.integer('progress').defaultTo(0);
     table.timestamp('unlocked_at').nullable();
     table.timestamps(true, true);
-    
     // Foreign keys
     table.foreign('user_id').references('id').inTable('users').onDelete('CASCADE');
     table.foreign('achievement_id').references('id').inTable('achievements').onDelete('CASCADE');
-    
     // Unique constraint
     table.unique(['user_id', 'achievement_id']);
-    
     // Indexes
     table.index(['user_id']);
     table.index(['achievement_id']);
     table.index(['unlocked_at']);
   });
-}
+};
 
-export async function down(knex: Knex): Promise<void> {
+exports.down = async function(knex) {
   await knex.schema.dropTableIfExists('user_achievements');
   await knex.schema.dropTableIfExists('achievements');
-}
+}; 

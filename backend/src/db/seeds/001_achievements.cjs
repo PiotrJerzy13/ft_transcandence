@@ -1,4 +1,3 @@
-// src/db/seeds/001_achievements.ts
 exports.seed = async function(knex) {
   // Clear existing entries
   await knex('achievements').del();

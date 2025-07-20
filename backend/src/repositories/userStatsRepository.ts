@@ -35,6 +35,15 @@ export interface UserAchievement {
   progress?: number;
 }
 
+export interface GameResultData {
+  isWin: boolean;
+  duration: number; // in seconds
+  xpEarned: number;
+  isPerfectGame?: boolean;
+  arkanoidLevelReached?: number;
+  arkanoidScore?: number;
+}
+
 export class UserStatsRepository {
   private db: Knex | null = null;
 
@@ -180,7 +189,7 @@ export class UserStatsRepository {
 
   async processGameResult(
     userId: number,
-    result: { isWin: boolean; duration: number; xpEarned: number; isPerfectGame?: boolean }
+    result: GameResultData
   ): Promise<{ updatedStats: UserStats, newAchievements: Achievement[] }> {
     const db = this.getDb();
 
@@ -224,19 +233,61 @@ export class UserStatsRepository {
       // 5. Get the updated stats
       const updatedStats = await trx('user_stats').where('user_id', userId).first();
 
-      // 6. Check for achievements based on the new stats
+      // 6. Check for STATS-based achievements
       const newAchievements = await this.checkAndUnlockAchievements(userId, trx);
+      const unlockedIds = new Set(newAchievements.map(a => a.id));
+
+      // 7. Check for EVENT-based achievements (The new, improved logic)
       
-      // 7. Handle specific, event-based achievements
+      // Perfect Game (Pong)
       if (result.isPerfectGame) {
-        const perfectGameAchievement = await trx('achievements').where({ requirement_type: 'perfect_game', id: 5 }).first();
-        if (perfectGameAchievement) {
-          const isUnlocked = await trx('user_achievements').where({ user_id: userId, achievement_id: perfectGameAchievement.id }).first();
-          if (!isUnlocked) {
-            await trx('user_achievements').insert({ user_id: userId, achievement_id: perfectGameAchievement.id, unlocked_at: new Date().toISOString() });
-            newAchievements.push(perfectGameAchievement);
+        const perfectGameAchievements = await trx('achievements').where({ requirement_type: 'perfect_game' });
+        for (const ach of perfectGameAchievements) {
+          if (!unlockedIds.has(ach.id)) {
+              const isUnlocked = await trx('user_achievements').where({ user_id: userId, achievement_id: ach.id }).first();
+              if (!isUnlocked) {
+                  await trx('user_achievements').insert({ user_id: userId, achievement_id: ach.id, progress: 1, unlocked_at: new Date().toISOString() });
+                  newAchievements.push(ach);
+                  unlockedIds.add(ach.id); // Add to set to prevent re-adding
+              }
           }
         }
+      }
+
+      // Arkanoid Level Reached
+      if (result.arkanoidLevelReached && result.arkanoidLevelReached > 0) {
+          const levelAchievements = await trx('achievements')
+              .where({ requirement_type: 'level_reached' })
+              .andWhere('requirement_value', '<=', result.arkanoidLevelReached);
+          
+          for (const ach of levelAchievements) {
+              if (!unlockedIds.has(ach.id)) {
+                  const isUnlocked = await trx('user_achievements').where({ user_id: userId, achievement_id: ach.id }).first();
+                  if (!isUnlocked) {
+                      await trx('user_achievements').insert({ user_id: userId, achievement_id: ach.id, progress: result.arkanoidLevelReached, unlocked_at: new Date().toISOString() });
+                      newAchievements.push(ach);
+                      unlockedIds.add(ach.id);
+                  }
+              }
+          }
+      }
+      
+      // Arkanoid Score Threshold
+      if (result.arkanoidScore && result.arkanoidScore > 0) {
+          const scoreAchievements = await trx('achievements')
+              .where({ requirement_type: 'score_threshold' })
+              .andWhere('requirement_value', '<=', result.arkanoidScore);
+
+          for (const ach of scoreAchievements) {
+              if (!unlockedIds.has(ach.id)) {
+                  const isUnlocked = await trx('user_achievements').where({ user_id: userId, achievement_id: ach.id }).first();
+                  if (!isUnlocked) {
+                      await trx('user_achievements').insert({ user_id: userId, achievement_id: ach.id, progress: result.arkanoidScore, unlocked_at: new Date().toISOString() });
+                      newAchievements.push(ach);
+                      unlockedIds.add(ach.id);
+                  }
+              }
+          }
       }
 
       return { updatedStats, newAchievements };

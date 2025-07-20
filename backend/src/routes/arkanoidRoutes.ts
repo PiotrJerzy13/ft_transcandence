@@ -27,7 +27,7 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
     // For Arkanoid, every game is a win (single player)
     const isWin = true;
     // Optionally, define isPerfectGame if you have a condition (e.g., max level reached)
-    const isPerfectGame = false; // Set to true if you want to support perfect game logic
+    // const isPerfectGame = false; // Set to true if you want to support perfect game logic
 
     try {
       const db = getDb();
@@ -41,11 +41,15 @@ export default async function arkanoidRoutes(fastify: FastifyInstance) {
         power_ups_collected: powerUpsCollected
       });
 
+      // *** THIS IS THE KEY CHANGE ***
+      // Pass the specific arkanoid data to the result processor
       const { updatedStats, newAchievements } = await userStatsRepository.processGameResult(userId, {
         isWin,
         duration,
         xpEarned,
-        isPerfectGame
+        isPerfectGame: false, // Arkanoid doesn't have a "perfect game" achievement in this context
+        arkanoidLevelReached: levelReached,
+        arkanoidScore: score
       });
 
       req.log.info({ userId, newAchievements: newAchievements.map(a => a.name) }, '[ARKANOID] Game processed, achievements unlocked');

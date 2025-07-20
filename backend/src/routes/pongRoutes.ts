@@ -42,6 +42,7 @@ export default async function pongRoutes(fastify: FastifyInstance) {
         duration,
         xpEarned,
         isPerfectGame
+        // arkanoidLevelReached and arkanoidScore are omitted as they are optional
       });
 
       req.log.info({ userId, newAchievements: newAchievements.map(a => a.name) }, '[PONG] Game processed, achievements unlocked');
