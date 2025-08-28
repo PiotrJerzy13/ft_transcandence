@@ -9,6 +9,7 @@ export const API_ENDPOINTS = {
   TOURNAMENT_DETAIL: (id: number) => `${API_BASE_URL}/api/tournaments/${id}`,
   JOIN_TOURNAMENT: (id: number) => `${API_BASE_URL}/api/tournaments/${id}/join`,
   START_TOURNAMENT: (id: number) => `${API_BASE_URL}/api/tournaments/${id}/start`,
+  DELETE_TOURNAMENT: (id: number) => `${API_BASE_URL}/api/tournaments/${id}`,
   PONG_HISTORY: `${API_BASE_URL}/api/pong/history`,
   ARKANOID_HISTORY: `${API_BASE_URL}/api/arkanoid/history`,
 };

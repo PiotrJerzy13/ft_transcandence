@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSimpleToasts } from '../context/SimpleToastContext';
 import { API_ENDPOINTS } from '../config/api';
+import TournamentHistory from '../components/TournamentHistory';
 
 interface Tournament {
   id: number;
   name: string;
   description?: string;
-  status: 'pending' | 'active' | 'completed';
+  status: 'pending' | 'active' | 'completed' | 'archived' | 'expired';
   participants: number;
   start_date?: string;
   created_by?: number;
@@ -32,6 +33,7 @@ export default function Tournaments() {
     startDate: '',
     maxParticipants: 16
   });
+  const [activeTab, setActiveTab] = useState<'active' | 'history'>('active');
 
   useEffect(() => {
     fetchTournaments();
@@ -156,6 +158,10 @@ export default function Tournaments() {
         return 'text-green-400 bg-green-400/10';
       case 'completed':
         return 'text-gray-400 bg-gray-400/10';
+      case 'archived':
+        return 'text-orange-400 bg-orange-400/10';
+      case 'expired':
+        return 'text-red-400 bg-red-400/10';
       default:
         return 'text-gray-400 bg-gray-400/10';
     }
@@ -169,6 +175,10 @@ export default function Tournaments() {
         return 'In Progress';
       case 'completed':
         return 'Completed';
+      case 'archived':
+        return 'Archived';
+      case 'expired':
+        return 'Expired';
       default:
         return status;
     }
@@ -282,56 +292,90 @@ export default function Tournaments() {
           </div>
         )}
 
-        {/* Tournaments List */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {tournaments.map((tournament) => (
-            <div
-              key={tournament.id}
-              className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 hover:border-purple-500/50 transition-colors"
-            >
-              <div className="flex justify-between items-start mb-4">
-                <h3 className="text-xl font-bold text-white">{tournament.name}</h3>
-                <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(tournament.status)}`}>
-                  {getStatusText(tournament.status)}
-                </span>
-              </div>
-              
-              {tournament.description && (
-                <p className="text-gray-300 mb-4 text-sm">
-                  {tournament.description}
-                </p>
-              )}
-              
-              <div className="flex items-center justify-between mb-4">
-                <span className="text-gray-400 text-sm">
-                  👥 {tournament.participants} participants
-                </span>
-                {tournament.start_date && (
-                  <span className="text-gray-400 text-sm">
-                    📅 {new Date(tournament.start_date).toLocaleDateString()}
-                  </span>
-                )}
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleViewTournament(tournament.id)}
-                  className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
-                >
-                  View Details
-                </button>
-                {tournament.status === 'pending' && (
-                  <button
-                    onClick={() => handleJoinTournament(tournament.id)}
-                    className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
-                  >
-                    Join
-                  </button>
-                )}
-              </div>
-            </div>
-          ))}
+        {/* Tabs */}
+        <div className="flex space-x-1 bg-slate-800/50 rounded-lg p-1 mb-6">
+          <button
+            onClick={() => setActiveTab('active')}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'active'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            🏆 Active Tournaments
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              activeTab === 'history'
+                ? 'bg-purple-600 text-white'
+                : 'text-gray-400 hover:text-white'
+            }`}
+          >
+            📜 Tournament History
+          </button>
         </div>
+
+        {/* Active Tournaments */}
+        {activeTab === 'active' && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tournaments.filter(t => t.status !== 'completed').map((tournament) => (
+              <div
+                key={tournament.id}
+                className="bg-slate-800/50 rounded-lg p-6 border border-slate-700 hover:border-purple-500/50 transition-colors"
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <h3 className="text-xl font-bold text-white">{tournament.name}</h3>
+                  <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(tournament.status)}`}>
+                    {getStatusText(tournament.status)}
+                  </span>
+                </div>
+                
+                {tournament.description && (
+                  <p className="text-gray-300 mb-4 text-sm">
+                    {tournament.description}
+                  </p>
+                )}
+                
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-gray-400 text-sm">
+                    👥 {tournament.participants} participants
+                  </span>
+                  {tournament.start_date && (
+                    <span className="text-gray-400 text-sm">
+                      📅 {new Date(tournament.start_date).toLocaleDateString()}
+                    </span>
+                  )}
+                </div>
+                
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => handleViewTournament(tournament.id)}
+                    className="flex-1 px-3 py-2 bg-blue-600 text-white rounded text-sm hover:bg-blue-700 transition-colors"
+                  >
+                    View Details
+                  </button>
+                  {tournament.status === 'pending' && (
+                    <button
+                      onClick={() => handleJoinTournament(tournament.id)}
+                      className="flex-1 px-3 py-2 bg-green-600 text-white rounded text-sm hover:bg-green-700 transition-colors"
+                    >
+                      Join
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Tournament History */}
+        {activeTab === 'history' && (
+          <TournamentHistory 
+            tournaments={tournaments.filter(t => t.status === 'completed')}
+            onViewTournament={handleViewTournament}
+          />
+        )}
 
         {tournaments.length === 0 && (
           <div className="text-center py-12">

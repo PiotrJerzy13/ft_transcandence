@@ -2,6 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useSimpleToasts } from '../context/SimpleToastContext';
 import { API_ENDPOINTS } from '../config/api';
+import TournamentBracket from '../components/TournamentBracket';
+import MatchCard from '../components/MatchCard';
 
 interface Tournament {
   id: number;
@@ -129,6 +131,56 @@ export default function TournamentDetail() {
     }
   };
 
+  const handleDeleteTournament = async () => {
+    if (!window.confirm('Are you sure you want to delete this tournament? This action cannot be undone.')) {
+      return;
+    }
+
+    try {
+      const response = await fetch(API_ENDPOINTS.DELETE_TOURNAMENT(parseInt(id)), {
+        method: 'DELETE',
+        credentials: 'include'
+      });
+
+      if (response.ok) {
+        addToast('Tournament deleted successfully!', 'success');
+        navigate('/tournaments'); // Go back to tournaments list
+      } else {
+        const errorData = await response.json();
+        
+        // Show specific error messages
+        let errorMessage = 'Failed to delete tournament';
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+        
+        addToast(errorMessage, 'error');
+      }
+    } catch (error) {
+      console.error('Error deleting tournament:', error);
+      addToast('Failed to delete tournament', 'error');
+    }
+  };
+
+  const handlePlayMatch = async (matchId: number) => {
+    try {
+      // For now, just show a message that this would start the game
+      addToast('Starting tournament match... (Game integration coming soon!)', 'info');
+      
+      // TODO: Integrate with actual game system
+      // This would typically:
+      // 1. Update match status to 'ongoing'
+      // 2. Redirect to game with match context
+      // 3. Handle game completion and score updates
+      
+    } catch (error) {
+      console.error('Error starting match:', error);
+      addToast('Failed to start match', 'error');
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending':
@@ -137,6 +189,10 @@ export default function TournamentDetail() {
         return 'text-green-400 bg-green-400/10';
       case 'completed':
         return 'text-gray-400 bg-gray-400/10';
+      case 'archived':
+        return 'text-orange-400 bg-orange-400/10';
+      case 'expired':
+        return 'text-red-400 bg-red-400/10';
       default:
         return 'text-gray-400 bg-gray-400/10';
     }
@@ -204,12 +260,30 @@ export default function TournamentDetail() {
                 Join Tournament
               </button>
             )}
-            {isCreator && tournament.status === 'pending' && participants.length >= 2 && (
+            {isCreator && (tournament.status === 'pending' || tournament.status === 'archived') && participants.length >= 2 && (
               <button
                 onClick={handleStartTournament}
                 className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               >
-                Start Tournament
+                {tournament.status === 'archived' ? 'Start Archived Tournament' : 'Start Tournament'}
+              </button>
+            )}
+            {isCreator && tournament.status === 'pending' && participants.length < 2 && (
+              <div className="px-6 py-3 bg-yellow-100 text-yellow-800 rounded-lg border border-yellow-300">
+                Waiting for more participants (need at least 2)
+              </div>
+            )}
+            {isCreator && tournament.status === 'archived' && participants.length < 2 && (
+              <div className="px-6 py-3 bg-orange-100 text-orange-800 rounded-lg border border-orange-300">
+                Archived tournament needs more participants to start
+              </div>
+            )}
+            {isCreator && (tournament.status === 'pending' || tournament.status === 'archived') && (
+              <button
+                onClick={handleDeleteTournament}
+                className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+              >
+                Delete Tournament
               </button>
             )}
           </div>
@@ -245,30 +319,23 @@ export default function TournamentDetail() {
           )}
         </div>
 
+        {/* Tournament Bracket */}
+        <div className="bg-slate-800/50 rounded-lg p-6 mb-8">
+          <TournamentBracket matches={matches} participants={participants} />
+        </div>
+
         {/* Matches */}
         {matches.length > 0 && (
           <div className="bg-slate-800/50 rounded-lg p-6">
-            <h2 className="text-xl font-bold text-white mb-4">Matches</h2>
+            <h2 className="text-xl font-bold text-white mb-4">Match Details</h2>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {matches.map((match) => (
-                <div
+                <MatchCard
                   key={match.id}
-                  className="bg-slate-700/50 rounded-lg p-4 border border-slate-600"
-                >
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-white font-semibold">{match.player1}</span>
-                    <span className="text-gray-400">vs</span>
-                    <span className="text-white font-semibold">{match.player2}</span>
-                  </div>
-                  <div className="text-center text-lg font-bold text-purple-400 mb-2">
-                    {match.score}
-                  </div>
-                  <div className="text-center">
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(match.status)}`}>
-                      {match.status}
-                    </span>
-                  </div>
-                </div>
+                  match={match}
+                  currentUserId={tournament.currentUserId}
+                  onPlayMatch={handlePlayMatch}
+                />
               ))}
             </div>
           </div>

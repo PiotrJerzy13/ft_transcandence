@@ -6,8 +6,9 @@ import { BadRequestError, UnauthorizedError, NotFoundError } from './error.js';
 interface Tournament {
   id: number;
   name: string;
-  status: 'pending' | 'active' | 'completed';
+  status: 'pending' | 'active' | 'completed' | 'expired' | 'archived';
   participants: number;
+  created_by?: number;
 }
 
 interface Match {
@@ -75,6 +76,9 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     console.log('=== TOURNAMENTS ENDPOINT CALLED ===');
     const db = getDb();
     
+    // Check and auto-archive tournaments that have passed their start date
+    await autoArchiveTournaments();
+    
     // Quick fix: Add creators as participants for tournaments with 0 participants
     const tournamentsWithoutParticipants = await db('tournaments as t')
       .leftJoin('tournament_participants as tp', 't.id', 'tp.tournament_id')
@@ -94,7 +98,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     // Debug: Log the raw data
     console.log('=== DEBUG: Fetching tournaments ===');
     
-    // Fetch tournaments from database with proper participant count
+    // Fetch tournaments from database with proper participant count (exclude expired, include archived)
     const tournamentRows = await db('tournaments')
       .select(
         'tournaments.id',
@@ -102,10 +106,12 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         'tournaments.status',
         'tournaments.description',
         'tournaments.start_date',
+        'tournaments.created_by',
         db.raw('COALESCE(COUNT(tournament_participants.user_id), 0) as participants')
       )
       .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
-      .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date');
+      .whereNotIn('tournaments.status', ['expired']) // Exclude expired tournaments, include archived
+      .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date', 'tournaments.created_by');
     
     console.log('Raw tournament rows:', JSON.stringify(tournamentRows, null, 2));
     
@@ -115,7 +121,8 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         id: row.id,
         name: row.name,
         status: mapDatabaseStatus(row.status),
-        participants: parseInt(row.participants) || 0
+        participants: parseInt(row.participants) || 0,
+        created_by: row.created_by
       };
       console.log('Transformed tournament:', tournament);
       return tournament;
@@ -247,6 +254,44 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     });
   });
 
+  // Auto-archive tournaments that have reached their start date
+  const autoArchiveTournaments = async () => {
+    const db = getDb();
+    const now = new Date();
+    
+    // Find tournaments that have reached their start date and are still pending
+    const expiredTournaments = await db('tournaments')
+      .select('id', 'name', 'start_date')
+      .where('status', 'pending')
+      .where('start_date', '<=', now.toISOString());
+    
+    for (const tournament of expiredTournaments) {
+      // Check if tournament has enough participants
+      const participantCount = await db('tournament_participants')
+        .count('* as count')
+        .where('tournament_id', tournament.id)
+        .first();
+      
+      const count = participantCount ? parseInt(participantCount.count as string) : 0;
+      
+      if (count < 2) {
+        // Mark as expired if not enough participants
+        await db('tournaments')
+          .where('id', tournament.id)
+          .update({ status: 'expired' });
+        
+        console.log(`Marked tournament ${tournament.id}: ${tournament.name} as expired (insufficient participants)`);
+      } else {
+        // Mark as archived if enough participants
+        await db('tournaments')
+          .where('id', tournament.id)
+          .update({ status: 'archived' });
+        
+        console.log(`Archived tournament ${tournament.id}: ${tournament.name} (date passed with sufficient participants)`);
+      }
+    }
+  };
+
   // Get tournament details - Public endpoint, no authentication required
   fastify.get(
     '/tournaments/:id', 
@@ -262,6 +307,8 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       }
     },
     async (request, reply: FastifyReply) => {
+      // Check and auto-archive tournaments that have passed their start date
+      await autoArchiveTournaments();
       console.log('=== FETCHING TOURNAMENT DETAILS ===');
       const { id } = request.params as { id: string };
       console.log('Tournament ID:', id);
@@ -426,6 +473,63 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     }
   );
 
+  // Delete tournament - Protected endpoint (only creator can delete)
+  fastify.delete(
+    '/tournaments/:id',
+    {
+      preHandler: authenticate,
+      schema: {
+        params: {
+          type: 'object',
+          required: ['id'],
+          properties: {
+            id: { type: 'string' }
+          }
+        }
+      }
+    },
+    async (request, reply: FastifyReply) => {
+      const { id } = request.params as { id: string };
+      const userId = request.user?.id;
+      
+      if (!userId) {
+        throw new UnauthorizedError('User authentication required');
+      }
+      
+      const db = getDb();
+      
+      // Check if tournament exists and user is the creator
+      const tournament = await db('tournaments')
+        .select('id', 'created_by', 'status')
+        .where('id', parseInt(id))
+        .first();
+      
+      if (!tournament) {
+        throw new NotFoundError('Tournament not found');
+      }
+      
+      if (tournament.created_by !== userId) {
+        throw new BadRequestError('Only the tournament creator can delete this tournament');
+      }
+      
+      if (tournament.status === 'active' || tournament.status === 'completed') {
+        throw new BadRequestError('Cannot delete an active or completed tournament');
+      }
+      
+      // Allow deletion of pending and archived tournaments
+      
+      // Delete tournament and all related data
+      await db('tournament_participants').where('tournament_id', parseInt(id)).del();
+      await db('matches').where('tournament_id', parseInt(id)).del();
+      await db('tournaments').where('id', parseInt(id)).del();
+      
+      return reply.send({
+        success: true,
+        message: 'Tournament deleted successfully'
+      });
+    }
+  );
+
   // Get tournament matches - Public endpoint, no authentication required
   fastify.get(
     '/tournaments/:id/matches', 
@@ -579,13 +683,13 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       throw new UnauthorizedError('Only tournament creator can start the tournament');
     }
     
-    // Check if tournament is in pending status
-    if (tournament.status !== 'pending') {
-      throw new BadRequestError('Tournament can only be started when in pending status');
+    // Check if tournament is in pending or archived status
+    if (tournament.status !== 'pending' && tournament.status !== 'archived') {
+      throw new BadRequestError('Tournament can only be started when in pending or archived status');
     }
     
-    // Check if start date has passed
-    if (new Date(tournament.start_date) > new Date()) {
+    // For archived tournaments, allow starting regardless of date
+    if (tournament.status === 'pending' && new Date(tournament.start_date) > new Date()) {
       throw new BadRequestError('Tournament start date has not been reached');
     }
     
@@ -706,7 +810,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
 }
 
 // Helper function to map database status to API status
-function mapDatabaseStatus(status: string): 'pending' | 'active' | 'completed' {
+function mapDatabaseStatus(status: string): 'pending' | 'active' | 'completed' | 'expired' | 'archived' {
   switch (status) {
     case 'pending':
       return 'pending';
@@ -714,6 +818,10 @@ function mapDatabaseStatus(status: string): 'pending' | 'active' | 'completed' {
       return 'active';
     case 'completed':
       return 'completed';
+    case 'expired':
+      return 'expired';
+    case 'archived':
+      return 'archived';
     default:
       return 'pending'; // Default value
   }
