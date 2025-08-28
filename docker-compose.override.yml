@@ -1,0 +1,56 @@
+services:
+  backend:
+    depends_on: []
+    environment:
+      - LOGSTASH_HOST=localhost
+      - LOGSTASH_PORT=5001
+      - LOG_LEVEL=info
+      - NODE_ENV=development
+      - DB_PATH=/app/data/ft_transcendence.db
+      - JWT_SECRET=dev-secret-key-for-testing
+    networks:
+      - app_network
+
+  frontend:
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  sqlite-web:
+    depends_on:
+      backend:
+        condition: service_healthy
+    networks:
+      - app_network
+
+  # Disable monitoring services for testing
+  elasticsearch:
+    profiles:
+      - monitoring
+
+  logstash:
+    profiles:
+      - monitoring
+
+  kibana:
+    profiles:
+      - monitoring
+
+  prometheus:
+    profiles:
+      - monitoring
+
+  grafana:
+    profiles:
+      - monitoring
+
+  elasticsearch_setup:
+    profiles:
+      - monitoring
+
+networks:
+  app_network:
+    driver: bridge
+

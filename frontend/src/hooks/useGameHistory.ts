@@ -1,6 +1,7 @@
 // src/hooks/useGameHistory.ts
 import { useState, useEffect } from 'react';
 import type { PongGame, ArkanoidScore } from '../types';
+import { API_ENDPOINTS } from '../config/api';
 
 type GameHistory<T> = T[];
 
@@ -17,7 +18,7 @@ export const useGameHistory = <T extends PongGame | ArkanoidScore>(game: 'pong' 
 
     const fetchHistory = async () => {
         try {
-            const endpoint = game === 'pong' ? '/api/pong/history' : '/api/arkanoid/history';
+            const endpoint = game === 'pong' ? API_ENDPOINTS.PONG_HISTORY : API_ENDPOINTS.ARKANOID_HISTORY;
             const res = await fetch(endpoint, { 
                 credentials: 'include',
                 headers: {

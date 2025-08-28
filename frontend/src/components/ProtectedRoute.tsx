@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
+import { API_ENDPOINTS } from "../config/api";
 
 export default function ProtectedRoute({ children }: { children: React.ReactElement }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -8,7 +9,7 @@ export default function ProtectedRoute({ children }: { children: React.ReactElem
   useEffect(() => {
     const checkAuth = async () => {
       try {
-        const res = await fetch("/api/user/me", {
+        const res = await fetch(API_ENDPOINTS.PROFILE, {
           credentials: "include", // Needed for sending cookies!
         });
         setIsAuthenticated(res.ok);

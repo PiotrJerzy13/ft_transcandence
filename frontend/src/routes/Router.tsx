@@ -6,6 +6,8 @@ import ArkanoidGame from "../pages/Game2";
 import Lobby from "../pages/Lobby";
 import ProtectedRoute from "../components/ProtectedRoute";
 import Leaderboard from '../pages/Leaderboard';
+import Tournaments from '../pages/Tournaments';
+import TournamentDetail from '../pages/TournamentDetail';
 
 export default function AppRouter() {
   return (
@@ -18,6 +20,8 @@ export default function AppRouter() {
 		<Route path="/game" element={<ProtectedRoute><Game /></ProtectedRoute>} />
 		<Route path="/game2" element={<ProtectedRoute><ArkanoidGame /></ProtectedRoute>} />
 		<Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
+		<Route path="/tournaments" element={<ProtectedRoute><Tournaments /></ProtectedRoute>} />
+		<Route path="/tournaments/:id" element={<ProtectedRoute><TournamentDetail /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

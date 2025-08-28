@@ -21,9 +21,7 @@ services:
       - ./certs:/certs
     working_dir: /app
     restart: unless-stopped
-    depends_on:
-      logstash:
-        condition: service_healthy
+    depends_on: []
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
       interval: 10s
@@ -32,7 +30,6 @@ services:
       start_period: 30s
     networks:
       - app_network
-      - elk_network
     deploy:
       resources:
         limits:

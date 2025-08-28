@@ -12,13 +12,13 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    https: {
-      key: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.key')),
-      cert: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.crt')),
-    },
+    // https: {
+    //   key: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.key')),
+    //   cert: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.crt')),
+    // },
     proxy: {
       '/api': {
-        target: 'http://backend:3000',
+        target: 'http://localhost:3000',
         changeOrigin: true,
         secure: false
       }

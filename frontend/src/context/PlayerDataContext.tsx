@@ -1,6 +1,7 @@
 // frontend/src/context/PlayerDataContext.tsx
 import React, { createContext, useState, useContext, useCallback, ReactNode, useEffect } from 'react';
 import type { PlayerStats, Achievement } from '../types';
+import { API_ENDPOINTS } from '../config/api';
 
 interface PlayerData {
   user: { id: number; username: string; email: string; } | null;
@@ -34,7 +35,7 @@ export const PlayerDataProvider = ({ children }: { children: ReactNode }) => {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch('/api/user/profile', {
+      const res = await fetch(API_ENDPOINTS.USER_PROFILE, {
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
