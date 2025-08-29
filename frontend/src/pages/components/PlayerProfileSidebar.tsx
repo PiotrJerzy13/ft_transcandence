@@ -1,6 +1,7 @@
 import { useState } from 'react';
-import { TrendingUp, BarChart3, Award, Trophy, Zap, Target, Star, Crown, Clock } from 'lucide-react';
+import { TrendingUp, BarChart3, Award, Trophy, Zap, Target, Star, Crown, Clock, Shield } from 'lucide-react';
 import type { PlayerStats, Achievement } from '../../types';
+import TwoFactorSettings from '../../components/TwoFactorSettings';
 
 // Icon mapping for achievements
 const iconMap: Record<string, React.ComponentType<any>> = {
@@ -20,6 +21,7 @@ interface PlayerProfileSidebarProps {
 
 export default function PlayerProfileSidebar({ playerStats, achievements, rankColor }: PlayerProfileSidebarProps) {
   const [showStats, setShowStats] = useState(false);
+  const [showSecurity, setShowSecurity] = useState(false);
   const progressPercent = playerStats.xp > 0 ? ((playerStats.xp % 1000) / 1000) * 100 : 0;
 
   return (
@@ -138,6 +140,25 @@ export default function PlayerProfileSidebar({ playerStats, achievements, rankCo
             );
           })}
         </div>
+      </div>
+
+      {/* Security Settings */}
+      <div className="bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
+        <button 
+          onClick={() => setShowSecurity(!showSecurity)}
+          className="w-full flex justify-between items-center mb-4"
+        >
+          <h3 className="text-lg font-bold text-white flex items-center">
+            <Shield className="w-5 h-5 mr-2 text-purple-400" />
+            Security Settings
+          </h3>
+          <div className={`transform transition-transform ${showSecurity ? 'rotate-180' : ''}`}> 
+            <TrendingUp className="w-4 h-4 text-gray-400" />
+          </div>
+        </button>
+        {showSecurity && (
+          <TwoFactorSettings />
+        )}
       </div>
     </div>
   );

@@ -12,4 +12,11 @@ export const API_ENDPOINTS = {
   DELETE_TOURNAMENT: (id: number) => `${API_BASE_URL}/api/tournaments/${id}`,
   PONG_HISTORY: `${API_BASE_URL}/api/pong/history`,
   ARKANOID_HISTORY: `${API_BASE_URL}/api/arkanoid/history`,
+  // 2FA endpoints
+  TWO_FACTOR_SETUP: `${API_BASE_URL}/api/2fa/setup`,
+  TWO_FACTOR_VERIFY_SETUP: `${API_BASE_URL}/api/2fa/verify-setup`,
+  TWO_FACTOR_DISABLE: `${API_BASE_URL}/api/2fa/disable`,
+  TWO_FACTOR_STATUS: `${API_BASE_URL}/api/2fa/status`,
+  TWO_FACTOR_BACKUP_CODES: `${API_BASE_URL}/api/2fa/backup-codes`,
+  TWO_FACTOR_REGENERATE_BACKUP_CODES: `${API_BASE_URL}/api/2fa/regenerate-backup-codes`,
 };

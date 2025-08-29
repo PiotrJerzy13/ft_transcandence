@@ -6,6 +6,10 @@ export interface User {
 	password_hash: string;
 	avatar_url?: string;
 	status: 'online' | 'offline' | 'in_game';
+	two_factor_secret?: string;
+	two_factor_enabled?: boolean;
+	backup_codes?: string;
+	two_factor_setup_at?: string;
 	created_at: string;
 	updated_at: string;
   }

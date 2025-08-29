@@ -1,11 +1,14 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { API_ENDPOINTS } from "../config/api";
+import TwoFactorVerification from "../components/TwoFactorVerification";
 
 export default function Login() {
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [show2FA, setShow2FA] = useState(false);
+  const [pendingCredentials, setPendingCredentials] = useState<{ username: string; password: string } | null>(null);
   const navigate = useNavigate();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -35,6 +38,11 @@ export default function Login() {
       if (response.ok) {
         console.log("✅ Login successful:", data);
         navigate("/lobby");
+      } else if (data.requires2FA) {
+        // 2FA is required
+        setPendingCredentials({ username: form.username, password: form.password });
+        setShow2FA(true);
+        setError("");
       } else {
         setError(data.error || "Login failed");
       }
@@ -46,8 +54,61 @@ export default function Login() {
     }
   };
 
+  const handle2FAVerification = async (token: string) => {
+    if (!pendingCredentials) return;
+
+    setIsLoading(true);
+    try {
+      const response = await fetch(API_ENDPOINTS.LOGIN, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({
+          username: pendingCredentials.username,
+          password: pendingCredentials.password,
+          twoFactorToken: token,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        console.log("✅ 2FA login successful:", data);
+        setShow2FA(false);
+        setPendingCredentials(null);
+        navigate("/lobby");
+      } else {
+        setError(data.error || "2FA verification failed");
+      }
+    } catch (err) {
+      console.error("❌ 2FA verification error:", err);
+      setError("Network error during 2FA verification.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handle2FACancel = () => {
+    setShow2FA(false);
+    setPendingCredentials(null);
+    setError("");
+  };
+
   return (
     <div className="min-h-screen bg-black relative overflow-hidden flex items-center justify-center p-2 sm:p-4">
+      {show2FA && (
+        <TwoFactorVerification
+          onVerify={handle2FAVerification}
+          onCancel={handle2FACancel}
+          onUseBackupCode={() => {
+            // TODO: Implement backup code handling
+            console.log("Backup code option clicked");
+          }}
+          isLoading={isLoading}
+        />
+      )}
       {/* Animated Background & Grid */}
       <div className="absolute inset-0 overflow-hidden opacity-20">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-cyan-500 rounded-full blur-xl animate-pulse"></div>

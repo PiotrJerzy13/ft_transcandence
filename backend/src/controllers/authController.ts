@@ -89,13 +89,14 @@ class AuthController {
       Body: {
         username: string;
         password: string;
+        twoFactorToken?: string;
       }
     }>,
     reply: FastifyReply
   ) {
     try {
       request.log.info({ username: request.body.username }, "[LOGIN] Step 1: Login attempt started");
-      const { username, password } = request.body;
+      const { username, password, twoFactorToken } = request.body;
       
       // Step 2: Input validation
       if (!username || !password) {
@@ -122,29 +123,157 @@ class AuthController {
       }
       request.log.info('[LOGIN] Step 4: Password valid');
       
-      // Step 5: Ensure user has an ID
+      // Step 5: Check 2FA if enabled
+      if (user.two_factor_enabled) {
+        request.log.info('[LOGIN] Step 5: 2FA is enabled, checking token');
+        if (!twoFactorToken) {
+          request.log.warn('[LOGIN] Step 5: 2FA token required but not provided');
+          return reply.status(401).send({ 
+            error: '2FA token required',
+            requires2FA: true,
+            message: 'Please provide your 2FA token'
+          });
+        }
+        
+        // Import 2FA service dynamically to avoid circular dependencies
+        const { TwoFactorAuthService } = await import('../services/twoFactorAuth.mjs');
+        
+        // Verify 2FA token
+        docker-compose build backend
+        #1 [internal] load local bake definitions
+        #1 reading from stdin 593B 0.0s done
+        #1 DONE 0.0s
+        
+        #2 [internal] load build definition from Dockerfile
+        #2 transferring dockerfile: 30B 0.1s
+        #2 transferring dockerfile: 971B 0.6s done
+        #2 DONE 1.0s
+        
+        #3 [internal] load metadata for docker.io/library/node:20-alpine3.19
+        #3 DONE 0.2s
+        
+        #4 [internal] load .dockerignore
+        #4 transferring context: 69B 0.1s done
+        #4 DONE 0.1s
+        
+        #5 [internal] load build context
+        #5 DONE 0.0s
+        
+        #6 [ 1/11] FROM docker.io/library/node:20-alpine3.19@sha256:1cc9088b0fbcb2009a8fc2cb57916cd129cd5e32b3c75fb12bb24bac76917a96
+        #6 resolve docker.io/library/node:20-alpine3.19@sha256:1cc9088b0fbcb2009a8fc2cb57916cd129cd5e32b3c75fb12bb24bac76917a96    
+        #6 resolve docker.io/library/node:20-alpine3.19@sha256:1cc9088b0fbcb2009a8fc2cb57916cd129cd5e32b3c75fb12bb24bac76917a96 0.3s done
+        #6 DONE 0.4s
+        
+        #5 [internal] load build context
+        #5 transferring context: 13.13kB 1.5s done
+        #5 DONE 1.5s
+        
+        #7 [ 2/11] RUN apk update && apk upgrade && apk add --no-cache sqlite python3 make g++ libc6-compat bash curl
+        #7 CACHED
+        
+        #8 [ 3/11] WORKDIR /app
+        #8 CACHED
+        
+        #9 [ 4/11] COPY package*.json ./
+        #9 CACHED
+        
+        #10 [ 5/11] COPY knexfile.js ./
+        #10 CACHED
+        
+        #11 [ 6/11] COPY knexfile.cjs ./
+        #11 CACHED
+        
+        #12 [ 7/11] RUN npm install
+        #12 CACHED
+        
+        #13 [ 8/11] COPY . .
+        #13 DONE 0.8s
+        
+        #14 [ 9/11] RUN npm run build
+        #14 6.566 
+        #14 6.566 > ft_transcendence_backend@1.0.0 build
+        #14 6.566 > tsc
+        #14 6.566
+        #14 53.94 src/server.mts(94,28): error TS2554: Expected 0 arguments, but got 2.
+        #14 53.94 src/server.mts(274,27): error TS2554: Expected 0 arguments, but got 2.
+        #14 53.94 src/server.mts(302,22): error TS2554: Expected 0 arguments, but got 2.
+        #14 53.94 src/server.mts(337,20): error TS2554: Expected 0 arguments, but got 2.
+        #14 53.94 src/server.mts(347,27): error TS2554: Expected 0 arguments, but got 2.
+        #14 ERROR: process "/bin/sh -c npm run build" did not complete successfully: exit code: 2
+        ------
+         > [ 9/11] RUN npm run build:
+        6.566
+        6.566 > ft_transcendence_backend@1.0.0 build
+        6.566 > tsc
+        6.566
+        53.94 src/server.mts(94,28): error TS2554: Expected 0 arguments, but got 2.
+        53.94 src/server.mts(274,27): error TS2554: Expected 0 arguments, but got 2.
+        53.94 src/server.mts(302,22): error TS2554: Expected 0 arguments, but got 2.
+        53.94 src/server.mts(337,20): error TS2554: Expected 0 arguments, but got 2.
+        53.94 src/server.mts(347,27): error TS2554: Expected 0 arguments, but got 2.
+        ------
+        Dockerfile:20
+        
+        --------------------
+        
+          18 |
+        
+          19 |     # Build TypeScript code
+        
+          20 | >>> RUN npm run build
+        
+          21 |
+        
+          22 |     # Copy and set permissions for the entrypoint script
+        
+        --------------------
+        
+        failed to solve: process "/bin/sh -c npm run build" did not complete successfully: exit code: 2
+                if (!user.two_factor_secret) {
+          request.log.warn('[LOGIN] Step 5: No 2FA secret found for user');
+          return reply.status(401).send({ 
+            error: '2FA not properly configured',
+            requires2FA: true,
+            message: '2FA is not properly configured. Please contact support.'
+          });
+        }
+        const isValid2FA = TwoFactorAuthService.verifyToken(twoFactorToken, user.two_factor_secret);
+        if (!isValid2FA) {
+          request.log.warn('[LOGIN] Step 5: Invalid 2FA token');
+          return reply.status(401).send({ 
+            error: 'Invalid 2FA token',
+            requires2FA: true,
+            message: 'Invalid 2FA token. Please try again.'
+          });
+        }
+        request.log.info('[LOGIN] Step 5: 2FA token valid');
+      } else {
+        request.log.info('[LOGIN] Step 5: 2FA not enabled');
+      }
+      
+      // Step 6: Ensure user has an ID
       if (!user.id) {
-        request.log.error('[LOGIN] Step 5: User ID not found');
+        request.log.error('[LOGIN] Step 6: User ID not found');
         return reply.status(500).send({ error: 'User ID not found' });
       }
-      request.log.info('[LOGIN] Step 5: User ID found');
+      request.log.info('[LOGIN] Step 6: User ID found');
       
-      // Step 6: Update status
-      request.log.info('[LOGIN] Step 6: Updating user status to online');
+      // Step 7: Update status
+      request.log.info('[LOGIN] Step 7: Updating user status to online');
       await userRepository.update(user.id, { status: 'online' });
-      request.log.info({ userId: user.id, username: user.username }, "[LOGIN] Step 6: Login successful, status updated");
+      request.log.info({ userId: user.id, username: user.username }, "[LOGIN] Step 7: Login successful, status updated");
       
-      // Step 7: Create JWT token
-      request.log.info('[LOGIN] Step 7: Creating JWT token');
+      // Step 8: Create JWT token
+      request.log.info('[LOGIN] Step 8: Creating JWT token');
       const token = jwt.sign(
         { id: user.id, username: user.username }, 
         process.env.JWT_SECRET || 'your-secret-key',
         { expiresIn: '24h' }
       );
-      request.log.info('[LOGIN] Step 7: JWT token created');
+      request.log.info('[LOGIN] Step 8: JWT token created');
       
-      // Step 8: Set cookie
-      request.log.info('[LOGIN] Step 8: Setting cookie');
+      // Step 9: Set cookie
+      request.log.info('[LOGIN] Step 9: Setting cookie');
       reply.setCookie('token', token, {
         path: '/',
         httpOnly: true,
@@ -152,11 +281,11 @@ class AuthController {
         sameSite: 'lax',
         maxAge: 86400 // 24 hours
       });
-      request.log.info('[LOGIN] Step 8: Cookie set');
+      request.log.info('[LOGIN] Step 9: Cookie set');
       
-      // Step 9: Return user (without password) and token
+      // Step 10: Return user (without password) and token
       const { password_hash, ...userWithoutPassword } = user;
-      request.log.info('[LOGIN] Step 9: Sending response');
+      request.log.info('[LOGIN] Step 10: Sending response');
       return reply.send({ 
         user: userWithoutPassword,
         token

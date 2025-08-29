@@ -28,9 +28,18 @@ import indexRoutes from './routes/index.mjs';
 import authRoutes from './routes/auth.mjs';
 import userRoutes from './routes/user.mjs';
 import tournamentRoutes from './routes/tournament.mjs';
+import twoFactorAuthRoutes from './routes/twoFactorAuth.mts';
 
 // Import ELK logger
-import { elkLogger } from './utils/elkLogger.js';
+// import { elkLogger } from './utils/elkLogger.js';
+
+// Temporary mock ELK logger to avoid connection issues
+const elkLogger = {
+  info: () => Promise.resolve(),
+  error: () => Promise.resolve(),
+  warn: () => Promise.resolve(),
+  debug: () => Promise.resolve()
+};
 
 dotenv.config();
 console.log('LOG_LEVEL:', process.env.LOG_LEVEL);
@@ -203,6 +212,7 @@ const start = async () => {
     await app.register(authRoutes, { prefix: '/api/auth' });
     await app.register(userRoutes, { prefix: '/api/user' });
     await app.register(tournamentRoutes, { prefix: '/api' });
+    await app.register(twoFactorAuthRoutes, { prefix: '/api' });
     
     app.log.info('Routes registered successfully');
     
