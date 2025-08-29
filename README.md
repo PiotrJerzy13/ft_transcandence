@@ -16,7 +16,7 @@ A Dockerized single-page web platform for playing real-time Pong, built with **R
 | Secure password hashing                   | ✅ Implemented    |
 | JWT Authentication                        | ✅ Implemented    |
 | Server-side form validation               | ✅ Implemented    |
-| Tournament system                         | ❌ Not implemented|
+| Tournament system                         | ✅ **IMPLEMENTED** 🏆 |
 | Matchmaking                               | ❌ Not implemented|
 | Tournament aliases                        | ❌ Not implemented|
 | HTTPS / WSS                               | ❌ Not implemented|
@@ -141,9 +141,44 @@ Migrations and seeds are located in `backend/src/db/migrations/` and `backend/sr
 
 ---
 
+## 🏆 Tournament System
+
+**Status**: ✅ **IMPLEMENTED** 🏆  
+**Contributor**: Blatifat
+
+### **Features**
+- **Tournament Creation**: Custom names, descriptions, start dates
+- **Bracket Types**: Single elimination, Double elimination, Swiss system  
+- **Seeding**: Random and ranked seeding options
+- **Hybrid Start**: Manual start + auto-start when date reached (≥2 participants)
+- **Auto-cancel**: Tournaments with <2 participants at start date
+- **Stuck Detection**: Auto-complete tournaments inactive for 3 days
+- **Bracket Generation**: Automatic match creation with progression links
+- **Score Updates**: Frontend interface for match score editing
+- **Bracket Progression**: Automatic winner/loser advancement
+- **Tournament Completion**: Auto-detection and winner determination
+
+### **API Endpoints**
+```
+GET    /api/tournaments              # List tournaments
+POST   /api/tournaments              # Create tournament  
+GET    /api/tournaments/:id          # Tournament details
+POST   /api/tournaments/:id/join     # Join tournament
+DELETE /api/tournaments/:id/leave    # Leave tournament
+POST   /api/tournaments/:id/start    # Start tournament
+DELETE /api/tournaments/:id          # Delete tournament
+PUT    /api/matches/:id/score        # Update match score
+```
+
+### **Key Implementation**
+- **Backend**: Enhanced auto-start with bracket generation, match progression logic
+- **Frontend**: Interactive bracket visualization with score editing
+- **Database**: Tournament, participants, and matches tables with progression links
+- **Authentication**: Protected endpoints, creator-only actions
+
+---
 ## 📋 Missing Features
 
-- ❌ Tournament bracket management
 - ❌ Real matchmaking queue
 - ❌ Google login
 - ❌ HTTPS / WSS

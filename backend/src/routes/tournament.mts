@@ -36,6 +36,132 @@ interface MatchDetails {
 }
 
 export default async function tournamentRoutes(fastify: FastifyInstance) {
+  // Check if tournament is completed and determine winner
+  const checkTournamentCompletion = async (tournamentId: number) => {
+    const db = getDb();
+    
+    console.log(`🔍 Checking tournament ${tournamentId} completion status`);
+    
+    try {
+      // Get all matches for the tournament
+      const matches = await db('matches')
+        .select('*')
+        .where('tournament_id', tournamentId);
+      
+      // Check if all matches are completed
+      const allCompleted = matches.every(match => match.status === 'completed');
+      
+      if (allCompleted) {
+        // Find the final match (highest round number)
+        const finalMatch = matches.reduce((prev, current) => 
+          (current.round > prev.round) ? current : prev
+        );
+        
+        // Determine the winner
+        const winnerId = finalMatch.player1_score > finalMatch.player2_score 
+          ? finalMatch.player1_id 
+          : finalMatch.player2_id;
+        
+        // Update tournament status to completed
+        await db('tournaments')
+          .where('id', tournamentId)
+          .update({ 
+            status: 'completed',
+            end_date: new Date().toISOString()
+          });
+        
+        console.log(`🏆 Tournament ${tournamentId} completed! Winner: ${winnerId}`);
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error checking tournament completion for ${tournamentId}:`, error);
+    }
+  };
+
+  // Handle bracket progression when a match is completed
+  const handleBracketProgression = async (matchId: number, player1Score: number, player2Score: number) => {
+    const db = getDb();
+    
+    console.log(`🔄 Handling bracket progression for match ${matchId}`);
+    
+    try {
+      // Get the completed match details
+      const match = await db('matches')
+        .select('*')
+        .where('id', matchId)
+        .first();
+      
+      if (!match) {
+        console.log(`❌ Match ${matchId} not found for bracket progression`);
+        return;
+      }
+      
+      // Determine winner and loser
+      const winnerId = player1Score > player2Score ? match.player1_id : match.player2_id;
+      const loserId = player1Score > player2Score ? match.player2_id : match.player1_id;
+      
+      console.log(`🏆 Match ${matchId} winner: ${winnerId}, loser: ${loserId}`);
+      
+      // Handle winner advancement
+      if (match.winner_advances_to) {
+        const nextMatch = await db('matches')
+          .select('*')
+          .where('id', match.winner_advances_to)
+          .first();
+        
+        if (nextMatch) {
+          // Determine which player slot to fill
+          let updateData: any = {};
+          if (nextMatch.player1_id === null) {
+            updateData.player1_id = winnerId;
+          } else if (nextMatch.player2_id === null) {
+            updateData.player2_id = winnerId;
+          }
+          
+          if (Object.keys(updateData).length > 0) {
+            await db('matches')
+              .where('id', match.winner_advances_to)
+              .update(updateData);
+            
+            console.log(`✅ Advanced winner ${winnerId} to match ${match.winner_advances_to}`);
+          }
+        }
+      }
+      
+      // Handle loser advancement (for double elimination)
+      if (match.loser_advances_to) {
+        const nextMatch = await db('matches')
+          .select('*')
+          .where('id', match.loser_advances_to)
+          .first();
+        
+        if (nextMatch) {
+          // Determine which player slot to fill
+          let updateData: any = {};
+          if (nextMatch.player1_id === null) {
+            updateData.player1_id = loserId;
+          } else if (nextMatch.player2_id === null) {
+            updateData.player2_id = loserId;
+          }
+          
+          if (Object.keys(updateData).length > 0) {
+            await db('matches')
+              .where('id', match.loser_advances_to)
+              .update(updateData);
+            
+            console.log(`✅ Advanced loser ${loserId} to match ${match.loser_advances_to}`);
+          }
+        }
+      }
+      
+      // Check if tournament is completed
+      await checkTournamentCompletion(match.tournament_id);
+      
+    } catch (error) {
+      console.error(`❌ Error handling bracket progression for match ${matchId}:`, error);
+    }
+  };
+
   // Test endpoint to verify the route is working
   fastify.get('/tournaments/test', async (_request, reply: FastifyReply) => {
     console.log('=== TEST ENDPOINT CALLED ===');
@@ -318,12 +444,101 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         
         console.log(`❌ Auto-cancelled tournament ${tournament.id}: ${tournament.name} (insufficient participants: ${count})`);
       } else {
-        // Mark as active if enough participants (auto-start)
-        await db('tournaments')
-          .where('id', tournament.id)
-          .update({ status: 'active' });
+        // Auto-start tournament with bracket generation
+        console.log(`🔄 Auto-starting tournament ${tournament.id}: ${tournament.name} with ${count} participants`);
         
-        console.log(`✅ Auto-started tournament ${tournament.id}: ${tournament.name} (${count} participants, date passed)`);
+        try {
+          // Get tournament configuration
+          const tournamentConfig = await db('tournaments')
+            .select('bracket_type', 'seeding_method', 'total_rounds', 'bracket_config')
+            .where('id', tournament.id)
+            .first();
+          
+          if (!tournamentConfig) {
+            console.log(`❌ Tournament ${tournament.id} configuration not found`);
+            continue;
+          }
+          
+          // Get participants
+          const participants = await db('tournament_participants')
+            .select('user_id')
+            .where('tournament_id', tournament.id)
+            .orderBy('joined_at');
+          
+          const participantIds = participants.map(p => p.user_id);
+          
+          // Get player seeding if using ranked seeding
+          let playerSeeds: PlayerSeed[] = [];
+          if (tournamentConfig.seeding_method === 'ranked') {
+            const playerStats = await db('user_stats')
+              .select('user_id', 'rating', 'total_games')
+              .whereIn('user_id', participantIds)
+              .orderBy('rating', 'desc');
+            
+            playerSeeds = playerStats.map((stat, index) => ({
+              player_id: stat.user_id,
+              seed: index + 1,
+              rating: stat.rating || 1000
+            }));
+          }
+          
+          // Generate brackets based on tournament type
+          let bracket;
+          switch (tournamentConfig.bracket_type) {
+            case 'single_elimination':
+              bracket = generateSingleEliminationBracket(participantIds, playerSeeds);
+              break;
+            case 'double_elimination':
+              bracket = generateDoubleEliminationBracket(participantIds, playerSeeds);
+              break;
+            case 'swiss':
+              const config = tournamentConfig.bracket_config ? JSON.parse(tournamentConfig.bracket_config) : {};
+              const rounds = config.rounds || 5;
+              bracket = generateSwissBracket(participantIds, rounds);
+              break;
+            default:
+              console.log(`❌ Invalid bracket type for tournament ${tournament.id}: ${tournamentConfig.bracket_type}`);
+              continue;
+          }
+          
+          // Validate bracket integrity
+          if (!validateBracket(bracket)) {
+            console.log(`❌ Generated bracket is invalid for tournament ${tournament.id}`);
+            continue;
+          }
+          
+          // Insert matches into database
+          const matchInserts = bracket.matches.map(match => ({
+            tournament_id: tournament.id,
+            player1_id: match.player1_id === -1 ? null : match.player1_id,
+            player2_id: match.player2_id === -1 ? null : match.player2_id,
+            player1_score: 0,
+            player2_score: 0,
+            status: match.player1_id === -1 || match.player2_id === -1 ? 'completed' : 'pending',
+            round: match.round,
+            match_number: match.match_number,
+            bracket_type: match.bracket_type,
+            winner_advances_to: match.winner_advances_to || null,
+            loser_advances_to: match.loser_advances_to || null,
+            is_bye: match.player1_id === -1 || match.player2_id === -1
+          }));
+          
+          await db('matches').insert(matchInserts);
+          
+          // Update tournament status to active
+          await db('tournaments')
+            .where('id', tournament.id)
+            .update({ status: 'active' });
+          
+          console.log(`✅ Auto-started tournament ${tournament.id}: ${tournament.name} with ${bracket.matches.length} matches generated`);
+        } catch (error) {
+          console.error(`❌ Error auto-starting tournament ${tournament.id}:`, error);
+          // Fallback: just mark as active without bracket generation
+          await db('tournaments')
+            .where('id', tournament.id)
+            .update({ status: 'active' });
+          console.log(`⚠️ Tournament ${tournament.id} marked as active without bracket generation due to error`);
+        }
       }
     }
   };
@@ -975,6 +1190,9 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
           status: 'completed',
           played_at: new Date().toISOString()
         });
+      
+      // Handle bracket progression
+      await handleBracketProgression(parseInt(id), player1Score, player2Score);
       
       return reply.send({
         success: true,
