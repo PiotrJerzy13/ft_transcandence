@@ -75,6 +75,15 @@ export default function TournamentDetail() {
         setMatches(data.matches || []);
         setIsParticipant(data.isParticipant || false);
         setIsCreator(data.created_by === data.currentUserId);
+        
+        // Debug logging
+        console.log('🔍 Tournament data for UI logic:');
+        console.log('  - created_by:', data.created_by);
+        console.log('  - currentUserId:', data.currentUserId);
+        console.log('  - isCreator:', data.created_by === data.currentUserId);
+        console.log('  - status:', data.status);
+        console.log('  - participants count:', data.participants?.length || 0);
+        console.log('  - isParticipant:', data.isParticipant || false);
       } else {
         console.log('❌ Response not OK, status:', response.status);
         const errorText = await response.text();
@@ -270,6 +279,22 @@ export default function TournamentDetail() {
     }
   };
 
+  const getStatusDescription = (status: string, startDate?: string) => {
+    switch (status) {
+      case 'pending':
+        if (startDate && new Date(startDate) <= new Date()) {
+          return 'Ready to start (past scheduled time)';
+        }
+        return 'Waiting for start date or manual start';
+      case 'active':
+        return 'Tournament is running';
+      case 'completed':
+        return 'Tournament has finished';
+      default:
+        return '';
+    }
+  };
+
   // Transform matches for the bracket component
   const bracketMatches = matches.map(match => ({
     id: match.id,
@@ -325,6 +350,9 @@ export default function TournamentDetail() {
                 👥 {participants.length} participants
               </span>
             </div>
+            <div className="text-gray-400 text-sm mt-1">
+              {getStatusDescription(tournament.status, tournament.start_date)}
+            </div>
           </div>
           <div className="flex gap-4 mt-4 sm:mt-0">
             {!isParticipant && tournament.status === 'pending' && (
@@ -335,12 +363,14 @@ export default function TournamentDetail() {
                 Join Tournament
               </button>
             )}
-            {isCreator && (tournament.status === 'pending' || tournament.status === 'archived') && participants.length >= 2 && (
+            {isCreator && tournament.status === 'pending' && participants.length >= 2 && (
               <button
                 onClick={handleStartTournament}
                 className="px-6 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
               >
-                {tournament.status === 'archived' ? 'Start Archived Tournament' : 'Start Tournament'}
+                {tournament.start_date && new Date(tournament.start_date) <= new Date() 
+                  ? 'Start Tournament Now' 
+                  : 'Start Tournament Early'}
               </button>
             )}
             {isCreator && tournament.status === 'pending' && participants.length < 2 && (
@@ -348,12 +378,7 @@ export default function TournamentDetail() {
                 Waiting for more participants (need at least 2)
               </div>
             )}
-            {isCreator && tournament.status === 'archived' && participants.length < 2 && (
-              <div className="px-6 py-3 bg-orange-100 text-orange-800 rounded-lg border border-orange-300">
-                Archived tournament needs more participants to start
-              </div>
-            )}
-            {isCreator && (tournament.status === 'pending' || tournament.status === 'archived') && (
+            {isCreator && tournament.status === 'pending' && (
               <button
                 onClick={handleDeleteTournament}
                 className="px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"

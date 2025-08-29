@@ -73,12 +73,22 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     return reply.send({ message: 'Tournaments fixed!', tournaments });
   });
   // GET /tournaments - List all tournaments
-  fastify.get('/tournaments', async (_request, reply) => {
+    fastify.get('/tournaments', async (_request, reply) => {
     try {
       console.log('🔍 Fetching tournaments...');
       
-             // First, let's check what columns exist in the tournaments table
-       const db = getDb();
+      // Check and auto-start tournaments that have passed their start date (hybrid approach)
+      console.log('🔄 Running auto-start check...');
+      await autoStartTournaments();
+      console.log('✅ Auto-start check completed');
+      
+      // Check and auto-complete stuck tournaments
+      console.log('🔄 Running stuck tournament check...');
+      await autoCompleteStuckTournaments();
+      console.log('✅ Stuck tournament check completed');
+      
+      // First, let's check what columns exist in the tournaments table
+      const db = getDb();
        const tableInfo = await db.raw("PRAGMA table_info(tournaments)");
        const columns = tableInfo.map((col: any) => col.name);
        console.log('Available columns:', columns);
@@ -273,18 +283,24 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     });
   });
 
-  // Auto-archive tournaments that have reached their start date
-  const autoArchiveTournaments = async () => {
+  // Auto-start tournaments that have reached their start date (hybrid approach)
+  const autoStartTournaments = async () => {
     const db = getDb();
     const now = new Date();
     
+    console.log('🔄 Checking for tournaments that need auto-start...');
+    
     // Find tournaments that have reached their start date and are still pending
-    const expiredTournaments = await db('tournaments')
+    const pendingTournaments = await db('tournaments')
       .select('id', 'name', 'start_date')
       .where('status', 'pending')
       .where('start_date', '<=', now.toISOString());
     
-    for (const tournament of expiredTournaments) {
+    console.log(`📅 Found ${pendingTournaments.length} tournaments past their start date`);
+    
+    for (const tournament of pendingTournaments) {
+      console.log(`🔍 Processing tournament ${tournament.id}: ${tournament.name}`);
+      
       // Check if tournament has enough participants
       const participantCount = await db('tournament_participants')
         .count('* as count')
@@ -292,29 +308,71 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         .first();
       
       const count = participantCount ? parseInt(participantCount.count as string) : 0;
+      console.log(`👥 Tournament ${tournament.id} has ${count} participants`);
       
       if (count < 2) {
-        // Mark as expired if not enough participants
+        // Mark as completed if not enough participants
         await db('tournaments')
           .where('id', tournament.id)
-          .update({ status: 'expired' });
+          .update({ status: 'completed' });
         
-        console.log(`Marked tournament ${tournament.id}: ${tournament.name} as expired (insufficient participants)`);
+        console.log(`❌ Auto-cancelled tournament ${tournament.id}: ${tournament.name} (insufficient participants: ${count})`);
       } else {
-        // Mark as archived if enough participants
+        // Mark as active if enough participants (auto-start)
         await db('tournaments')
           .where('id', tournament.id)
-          .update({ status: 'archived' });
+          .update({ status: 'active' });
         
-        console.log(`Archived tournament ${tournament.id}: ${tournament.name} (date passed with sufficient participants)`);
+        console.log(`✅ Auto-started tournament ${tournament.id}: ${tournament.name} (${count} participants, date passed)`);
       }
     }
   };
 
-  // Get tournament details - Public endpoint, no authentication required
+  // Auto-complete stuck tournaments (active tournaments with no game activity)
+  const autoCompleteStuckTournaments = async () => {
+    const db = getDb();
+    const now = new Date();
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000); // 3 days ago
+    
+    console.log('🔄 Checking for stuck tournaments...');
+    
+    // Find active tournaments that started more than 3 days ago
+    const stuckTournaments = await db('tournaments')
+      .select('id', 'name', 'start_date')
+      .where('status', 'active')
+      .where('start_date', '<=', threeDaysAgo.toISOString());
+    
+    console.log(`📅 Found ${stuckTournaments.length} potentially stuck tournaments`);
+    
+    for (const tournament of stuckTournaments) {
+      console.log(`🔍 Checking tournament ${tournament.id}: ${tournament.name}`);
+      
+      // Check if any matches have been played
+      const playedMatches = await db('matches')
+        .count('* as count')
+        .where('tournament_id', tournament.id)
+        .where('status', 'completed')
+        .first();
+      
+      const playedCount = playedMatches ? parseInt(playedMatches.count as string) : 0;
+      console.log(`🎮 Tournament ${tournament.id} has ${playedCount} completed matches`);
+      
+      if (playedCount === 0) {
+        // Mark as completed if no matches have been played
+        await db('tournaments')
+          .where('id', tournament.id)
+          .update({ status: 'completed' });
+        
+        console.log(`⏰ Auto-completed stuck tournament ${tournament.id}: ${tournament.name} (no game activity)`);
+      }
+    }
+  };
+
+  // Get tournament details - Protected endpoint to get user context
   fastify.get(
     '/tournaments/:id', 
     {
+      preHandler: authenticate,
       schema: {
         params: {
           type: 'object',
@@ -331,10 +389,15 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         console.log('🔍 Request params:', request.params);
         console.log('🔍 Request headers:', request.headers);
         
-        // Check and auto-archive tournaments that have passed their start date
-        console.log('🔄 Running auto-archive check...');
-        await autoArchiveTournaments();
-        console.log('✅ Auto-archive check completed');
+        // Check and auto-start tournaments that have passed their start date (hybrid approach)
+        console.log('🔄 Running auto-start check...');
+        await autoStartTournaments();
+        console.log('✅ Auto-start check completed');
+        
+        // Check and auto-complete stuck tournaments
+        console.log('🔄 Running stuck tournament check...');
+        await autoCompleteStuckTournaments();
+        console.log('✅ Stuck tournament check completed');
         
         const { id } = request.params as { id: string };
         console.log('🎯 Tournament ID:', id);
@@ -433,6 +496,10 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       const currentUserId = request.user?.id;
       console.log('👤 Current user ID:', currentUserId);
       
+      // Check if current user is a participant
+      const isParticipant = currentUserId ? participants.some(p => p.id === currentUserId) : false;
+      console.log('👥 Is current user participant:', isParticipant);
+      
       const responseData = {
         id: tournament.id,
         name: tournament.name,
@@ -442,7 +509,8 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         participantCount: tournament.participants || 0, // Keep the count for compatibility
         matches,
         created_by: tournament.created_by,
-        currentUserId
+        currentUserId,
+        isParticipant
       };
       
       console.log('📤 Sending response data:', responseData);
@@ -919,7 +987,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
 }
 
 // Helper function to map database status to API status
-function mapDatabaseStatus(status: string): 'pending' | 'active' | 'completed' | 'expired' | 'archived' {
+function mapDatabaseStatus(status: string): 'pending' | 'active' | 'completed' {
   switch (status) {
     case 'pending':
       return 'pending';
@@ -927,10 +995,6 @@ function mapDatabaseStatus(status: string): 'pending' | 'active' | 'completed' |
       return 'active';
     case 'completed':
       return 'completed';
-    case 'expired':
-      return 'expired';
-    case 'archived':
-      return 'archived';
     default:
       return 'pending'; // Default value
   }
