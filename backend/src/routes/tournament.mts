@@ -327,20 +327,31 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     },
     async (request, reply: FastifyReply) => {
       try {
+        console.log('🔍 === TOURNAMENT DETAILS ENDPOINT CALLED ===');
+        console.log('🔍 Request params:', request.params);
+        console.log('🔍 Request headers:', request.headers);
+        
         // Check and auto-archive tournaments that have passed their start date
+        console.log('🔄 Running auto-archive check...');
         await autoArchiveTournaments();
-        console.log('=== FETCHING TOURNAMENT DETAILS ===');
+        console.log('✅ Auto-archive check completed');
+        
         const { id } = request.params as { id: string };
-        console.log('Tournament ID:', id);
+        console.log('🎯 Tournament ID:', id);
+        console.log('🎯 Tournament ID type:', typeof id);
+        console.log('🎯 Parsed tournament ID:', parseInt(id));
+        
         const db = getDb();
+        console.log('🗄️ Database connection obtained');
       
       // First check if tournament exists
+      console.log('🔍 Checking if tournament exists...');
       const tournamentExists = await db('tournaments')
         .select('id')
         .where('id', parseInt(id))
         .first();
       
-      console.log('Tournament exists check:', tournamentExists);
+      console.log('✅ Tournament exists check result:', tournamentExists);
       
       if (!tournamentExists) {
         console.log('Tournament not found in database');
@@ -348,6 +359,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       }
       
       // Fetch tournament details
+      console.log('🔍 Fetching tournament details from database...');
       const tournament = await db('tournaments')
         .select(
           'tournaments.id',
@@ -361,11 +373,14 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         .where('tournaments.id', parseInt(id))
         .groupBy('tournaments.id', 'tournaments.name', 'tournaments.description', 'tournaments.status', 'tournaments.created_by')
         .first();
+      
+      console.log('✅ Tournament details query result:', tournament);
             if (!tournament) {
         throw new NotFoundError('Tournament not found');
       }
       
       // Fetch tournament participants
+      console.log('🔍 Fetching tournament participants...');
       const participantRows = await db('tournament_participants')
         .select(
           'tournament_participants.user_id',
@@ -375,7 +390,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         .join('users', 'tournament_participants.user_id', 'users.id')
         .where('tournament_participants.tournament_id', parseInt(id));
       
-      console.log('Participant rows:', participantRows);
+      console.log('✅ Participant rows:', participantRows);
       
       // Transform participants data
       const participants = participantRows.map(participant => ({
@@ -385,6 +400,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       }));
       
       // Fetch tournament matches
+      console.log('🔍 Fetching tournament matches...');
       const matchRows = await db('matches')
         .select(
           'matches.id',
@@ -400,7 +416,7 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         .leftJoin('users as u2', 'matches.player2_id', 'u2.id')
         .where('matches.tournament_id', parseInt(id));
       
-      console.log('Match rows:', matchRows);
+      console.log('✅ Match rows:', matchRows);
       
       // Transform matches data
       const matches: Match[] = matchRows.map(match => ({
@@ -415,8 +431,9 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       
       // Get current user ID from request
       const currentUserId = request.user?.id;
+      console.log('👤 Current user ID:', currentUserId);
       
-      return reply.send({
+      const responseData = {
         id: tournament.id,
         name: tournament.name,
         description: tournament.description,
@@ -426,14 +443,25 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         matches,
         created_by: tournament.created_by,
         currentUserId
-      });
+      };
+      
+      console.log('📤 Sending response data:', responseData);
+      return reply.send(responseData);
       } catch (error) {
-        console.error('Error in tournament details endpoint:', error);
-        return reply.status(500).send({ 
+        console.error('💥 Error in tournament details endpoint:', error);
+        console.error('💥 Error stack:', error instanceof Error ? error.stack : 'No stack trace');
+        console.error('💥 Error type:', typeof error);
+        console.error('💥 Error constructor:', error?.constructor?.name);
+        
+        const errorResponse = {
           error: 'Internal Server Error', 
           message: 'Failed to fetch tournament details',
-          details: error instanceof Error ? error.message : 'Unknown error'
-        });
+          details: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: new Date().toISOString()
+        };
+        
+        console.log('📤 Sending error response:', errorResponse);
+        return reply.status(500).send(errorResponse);
       }
     }
   );
@@ -922,4 +950,3 @@ function mapMatchStatus(status: string): 'scheduled' | 'ongoing' | 'completed' {
   }
 }
 
-t add

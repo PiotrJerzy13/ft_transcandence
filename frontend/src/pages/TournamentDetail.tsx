@@ -55,25 +55,43 @@ export default function TournamentDetail() {
   }, [id]);
 
   const fetchTournamentDetails = async () => {
+    console.log('🔍 Fetching tournament details for ID:', id);
+    console.log('🔗 API URL:', API_ENDPOINTS.TOURNAMENT_DETAIL(parseInt(id)));
+    
     try {
+      console.log('📡 Making request to tournament details endpoint...');
       const response = await fetch(API_ENDPOINTS.TOURNAMENT_DETAIL(parseInt(id)), {
         credentials: 'include'
       });
       
+      console.log('📊 Response status:', response.status);
+      console.log('📊 Response headers:', Object.fromEntries(response.headers.entries()));
+      
       if (response.ok) {
         const data = await response.json();
-        console.log('Tournament details response:', data);
+        console.log('✅ Tournament details response:', data);
         setTournament(data);
         setParticipants(data.participants || []);
         setMatches(data.matches || []);
         setIsParticipant(data.isParticipant || false);
         setIsCreator(data.created_by === data.currentUserId);
       } else {
+        console.log('❌ Response not OK, status:', response.status);
+        const errorText = await response.text();
+        console.log('❌ Error response body:', errorText);
+        
+        try {
+          const errorData = JSON.parse(errorText);
+          console.log('❌ Parsed error data:', errorData);
+        } catch (parseError) {
+          console.log('❌ Could not parse error response as JSON');
+        }
+        
         addToast('Failed to load tournament details', 'error');
         navigate('/tournaments');
       }
     } catch (error) {
-      console.error('Error fetching tournament details:', error);
+      console.error('💥 Network error fetching tournament details:', error);
       addToast('Failed to load tournament details', 'error');
       navigate('/tournaments');
     } finally {
