@@ -117,14 +117,14 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         'tournaments.description',
         'tournaments.start_date',
         'tournaments.created_by',
-        'tournaments.bracket_type',
-        'tournaments.seeding_method',
-        'tournaments.total_rounds',
+        db.raw('COALESCE(tournaments.bracket_type, \'single_elimination\') as bracket_type'),
+        db.raw('COALESCE(tournaments.seeding_method, \'random\') as seeding_method'),
+        db.raw('COALESCE(tournaments.total_rounds, 1) as total_rounds'),
         db.raw('COALESCE(COUNT(tournament_participants.user_id), 0) as participants')
       )
       .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
       .whereNotIn('tournaments.status', ['expired']) // Exclude expired tournaments, include archived
-      .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date', 'tournaments.created_by', 'tournaments.bracket_type', 'tournaments.seeding_method', 'tournaments.total_rounds');
+      .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date', 'tournaments.created_by');
     
     console.log('Raw tournament rows:', JSON.stringify(tournamentRows, null, 2));
     
