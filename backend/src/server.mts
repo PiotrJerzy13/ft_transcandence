@@ -28,6 +28,7 @@ import indexRoutes from './routes/index.mjs';
 import authRoutes from './routes/auth.mjs';
 import userRoutes from './routes/user.mjs';
 import tournamentRoutes from './routes/tournament.mjs';
+import matchmakingRoutes from './routes/matchmaking.mjs';
 import twoFactorAuthRoutes from './routes/twoFactorAuth.mjs';
 
 // Import ELK logger
@@ -212,7 +213,8 @@ const start = async () => {
     await app.register(authRoutes, { prefix: '/api/auth' });
     await app.register(userRoutes, { prefix: '/api/user' });
     await app.register(tournamentRoutes, { prefix: '/api' });
-    await app.register(twoFactorAuthRoutes, { prefix: '/api' });
+await app.register(matchmakingRoutes, { prefix: '/api' });
+await app.register(twoFactorAuthRoutes, { prefix: '/api' });
     
     app.log.info('Routes registered successfully');
     

@@ -8,6 +8,7 @@ import GameModeSelection from './components/GameModeSelection';
 import GameHistorySection from './components/GameHistorySection';
 import PlayerProfileSidebar from './components/PlayerProfileSidebar';
 import LobbyActions from './components/LobbyActions';
+import MatchmakingQueue from '../components/MatchmakingQueue';
 import { useNavigate } from 'react-router-dom';
 
 export default function GameLobby() {
@@ -24,6 +25,13 @@ export default function GameLobby() {
   // --- Handlers stay here ---
   const handleGameModeSelect = (mode: 'pong' | 'arkanoid') => {
     navigate(mode === 'pong' ? '/game' : '/game2');
+  };
+
+  const handleGameFound = (session: any) => {
+    // TODO: Navigate to game with session data
+    console.log('Game found:', session);
+    // For now, just show a message
+    alert(`Match found! Session: ${session.sessionId}`);
   };
 
   const handleLogout = async () => {
@@ -84,6 +92,7 @@ export default function GameLobby() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
           <div className="lg:col-span-2 space-y-6">
             <GameModeSelection onSelectGame={handleGameModeSelect} />
+            <MatchmakingQueue onGameFound={handleGameFound} />
             <GameHistorySection 
                 playerStats={playerStats}
                 pongHistory={pongHistory}
