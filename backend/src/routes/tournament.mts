@@ -10,16 +10,7 @@ import {
   type PlayerSeed 
 } from '../utils/bracketSystem.js';
 
-interface Tournament {
-  id: number;
-  name: string;
-  status: 'pending' | 'active' | 'completed' | 'expired' | 'archived';
-  participants: number;
-  created_by?: number;
-  bracket_type?: 'single_elimination' | 'double_elimination' | 'swiss';
-  seeding_method?: 'random' | 'ranked' | 'manual';
-  total_rounds?: number;
-}
+// Tournament interface removed as it's not used in the current implementation
 
 interface Match {
   id: number;
@@ -81,120 +72,85 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     
     return reply.send({ message: 'Tournaments fixed!', tournaments });
   });
-  // List all tournaments - Public endpoint, no authentication required
-  fastify.get('/tournaments', async (_request, reply: FastifyReply) => {
-    console.log('=== TOURNAMENTS ENDPOINT CALLED ===');
-    const db = getDb();
-    
-    // Check and auto-archive tournaments that have passed their start date
-    await autoArchiveTournaments();
-    
-    // Quick fix: Add creators as participants for tournaments with 0 participants
-    const tournamentsWithoutParticipants = await db('tournaments as t')
-      .leftJoin('tournament_participants as tp', 't.id', 'tp.tournament_id')
-      .whereNull('tp.tournament_id')
-      .select('t.id', 't.created_by');
-    
-    for (const tournament of tournamentsWithoutParticipants) {
-      if (tournament.created_by) {
-        await db('tournament_participants').insert({
-          tournament_id: tournament.id,
-          user_id: tournament.created_by
-        });
-        console.log(`Fixed tournament ${tournament.id} - added creator ${tournament.created_by} as participant`);
-      }
-    }
-    
-    // Debug: Log the raw data
-    console.log('=== DEBUG: Fetching tournaments ===');
-    
-    // Fetch tournaments from database with proper participant count (exclude expired, include archived)
-    const tournamentRows = await db('tournaments')
-      .select(
-        'tournaments.id',
-        'tournaments.name',
-        'tournaments.status',
-        'tournaments.description',
-        'tournaments.start_date',
-        'tournaments.created_by',
-        db.raw('COALESCE(tournaments.bracket_type, \'single_elimination\') as bracket_type'),
-        db.raw('COALESCE(tournaments.seeding_method, \'random\') as seeding_method'),
-        db.raw('COALESCE(tournaments.total_rounds, 1) as total_rounds'),
-        db.raw('COALESCE(COUNT(tournament_participants.user_id), 0) as participants')
-      )
-      .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
-      .whereNotIn('tournaments.status', ['expired']) // Exclude expired tournaments, include archived
-      .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date', 'tournaments.created_by');
-    
-    console.log('Raw tournament rows:', JSON.stringify(tournamentRows, null, 2));
-    
-    // Transform database rows to match the API format
-    const tournaments: Tournament[] = tournamentRows.map(row => {
-      const tournament = {
+  // GET /tournaments - List all tournaments
+  fastify.get('/tournaments', async (_request, reply) => {
+    try {
+      console.log('🔍 Fetching tournaments...');
+      
+             // First, let's check what columns exist in the tournaments table
+       const db = getDb();
+       const tableInfo = await db.raw("PRAGMA table_info(tournaments)");
+       const columns = tableInfo.map((col: any) => col.name);
+       console.log('Available columns:', columns);
+       
+       // Build query based on available columns
+       let query = db('tournaments')
+         .select(
+           'tournaments.id',
+           'tournaments.name',
+           'tournaments.status',
+           'tournaments.description',
+           'tournaments.start_date',
+           'tournaments.created_by',
+           db.raw('COALESCE(COUNT(tournament_participants.user_id), 0) as participants')
+         )
+         .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
+         .whereNotIn('tournaments.status', ['expired'])
+         .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date', 'tournaments.created_by');
+       
+       // Add new columns if they exist
+       if (columns.includes('bracket_type')) {
+         query = query.select(db.raw('COALESCE(tournaments.bracket_type, \'single_elimination\') as bracket_type'));
+       } else {
+         query = query.select(db.raw('\'single_elimination\' as bracket_type'));
+       }
+       
+       if (columns.includes('seeding_method')) {
+         query = query.select(db.raw('COALESCE(tournaments.seeding_method, \'random\') as seeding_method'));
+       } else {
+         query = query.select(db.raw('\'random\' as seeding_method'));
+       }
+       
+       if (columns.includes('total_rounds')) {
+         query = query.select(db.raw('COALESCE(tournaments.total_rounds, 1) as total_rounds'));
+       } else {
+         query = query.select(db.raw('1 as total_rounds'));
+       }
+       
+       if (columns.includes('bracket_config')) {
+         query = query.select('tournaments.bracket_config');
+       } else {
+         query = query.select(db.raw('NULL as bracket_config'));
+       }
+      
+      const tournamentRows = await query;
+      console.log('Raw tournament rows:', JSON.stringify(tournamentRows, null, 2));
+      
+      // Transform the data
+      const finalTournaments = tournamentRows.map((row: any) => ({
         id: row.id,
         name: row.name,
-        status: mapDatabaseStatus(row.status),
-        participants: parseInt(row.participants) || 0,
-        created_by: row.created_by,
-        bracket_type: row.bracket_type || 'single_elimination',
-        seeding_method: row.seeding_method || 'random',
-        total_rounds: row.total_rounds || 1
-      };
-      console.log('Transformed tournament:', tournament);
-      return tournament;
-    });
-    
-    console.log('Final tournaments array:', JSON.stringify(tournaments, null, 2));
-    
-    // Quick fix: If any tournament has 0 participants, add the creator as participant
-    for (const tournament of tournaments) {
-      if (tournament.participants === 0) {
-        console.log(`Fixing tournament ${tournament.id} - adding creator as participant`);
-        const tournamentData = await db('tournaments')
-          .select('created_by')
-          .where('id', tournament.id)
-          .first();
-        
-        if (tournamentData && tournamentData.created_by) {
-          // Check if participant already exists
-          const existingParticipant = await db('tournament_participants')
-            .where('tournament_id', tournament.id)
-            .where('user_id', tournamentData.created_by)
-            .first();
-          
-          if (!existingParticipant) {
-            await db('tournament_participants').insert({
-              tournament_id: tournament.id,
-              user_id: tournamentData.created_by
-            });
-            console.log(`Added creator ${tournamentData.created_by} as participant to tournament ${tournament.id}`);
-          }
-        }
-      }
+        status: row.status,
+        description: row.description,
+        startDate: row.start_date,
+        createdBy: row.created_by,
+        participants: row.participants,
+        bracketType: row.bracket_type || 'single_elimination',
+        seedingMethod: row.seeding_method || 'random',
+        totalRounds: row.total_rounds || 1,
+        bracketConfig: row.bracket_config ? JSON.parse(row.bracket_config) : null
+      }));
+      
+      console.log('Final tournaments after fix:', JSON.stringify(finalTournaments, null, 2));
+      return reply.send({ tournaments: finalTournaments });
+    } catch (error) {
+      console.error('Error in tournaments endpoint:', error);
+      return reply.status(500).send({ 
+        error: 'Internal Server Error', 
+        message: 'Failed to fetch tournaments',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
-    
-    // Fetch updated data
-    const updatedTournamentRows = await db('tournaments')
-      .select(
-        'tournaments.id',
-        'tournaments.name',
-        'tournaments.status',
-        'tournaments.description',
-        'tournaments.start_date',
-        db.raw('COALESCE(COUNT(tournament_participants.user_id), 0) as participants')
-      )
-      .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
-      .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date');
-    
-    const finalTournaments: Tournament[] = updatedTournamentRows.map(row => ({
-      id: row.id,
-      name: row.name,
-      status: mapDatabaseStatus(row.status),
-      participants: parseInt(row.participants) || 0
-    }));
-    
-    console.log('Final tournaments after fix:', JSON.stringify(finalTournaments, null, 2));
-    return reply.send({ tournaments: finalTournaments });
   });
 
   // Create new tournament - Protected endpoint
@@ -370,12 +326,13 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       }
     },
     async (request, reply: FastifyReply) => {
-      // Check and auto-archive tournaments that have passed their start date
-      await autoArchiveTournaments();
-      console.log('=== FETCHING TOURNAMENT DETAILS ===');
-      const { id } = request.params as { id: string };
-      console.log('Tournament ID:', id);
-      const db = getDb();
+      try {
+        // Check and auto-archive tournaments that have passed their start date
+        await autoArchiveTournaments();
+        console.log('=== FETCHING TOURNAMENT DETAILS ===');
+        const { id } = request.params as { id: string };
+        console.log('Tournament ID:', id);
+        const db = getDb();
       
       // First check if tournament exists
       const tournamentExists = await db('tournaments')
@@ -397,11 +354,12 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
           'tournaments.name',
           'tournaments.description',
           'tournaments.status',
+          'tournaments.created_by',
           db.raw('COUNT(tournament_participants.user_id) as participants')
         )
         .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
         .where('tournaments.id', parseInt(id))
-        .groupBy('tournaments.id', 'tournaments.name', 'tournaments.description', 'tournaments.status')
+        .groupBy('tournaments.id', 'tournaments.name', 'tournaments.description', 'tournaments.status', 'tournaments.created_by')
         .first();
             if (!tournament) {
         throw new NotFoundError('Tournament not found');
@@ -469,6 +427,14 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         created_by: tournament.created_by,
         currentUserId
       });
+      } catch (error) {
+        console.error('Error in tournament details endpoint:', error);
+        return reply.status(500).send({ 
+          error: 'Internal Server Error', 
+          message: 'Failed to fetch tournament details',
+          details: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
     }
   );
 
@@ -956,3 +922,4 @@ function mapMatchStatus(status: string): 'scheduled' | 'ongoing' | 'completed' {
   }
 }
 
+t add
