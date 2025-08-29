@@ -43,6 +43,12 @@ async function testBracketSystem() {
     }
     console.log('✅ Server is running\n');
 
+    // Note: For this test, we'll skip authentication and focus on bracket generation
+    // In a real scenario, you'd need to login first and get a session cookie
+    
+    console.log('⚠️  Note: This test will create tournaments without authentication');
+    console.log('   You may need to manually delete test tournaments later\n');
+
     // Test tournament creation with different bracket types
     for (const tournament of testTournaments) {
       console.log(`2. Creating ${tournament.bracketType} tournament: ${tournament.name}`);
@@ -52,13 +58,14 @@ async function testBracketSystem() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(tournament),
-        credentials: 'include'
+        body: JSON.stringify(tournament)
+        // Note: Removed credentials for testing without auth
       });
 
       if (!createResponse.ok) {
         const error = await createResponse.text();
         console.log(`❌ Failed to create tournament: ${error}`);
+        console.log(`   Status: ${createResponse.status}`);
         continue;
       }
 
@@ -71,13 +78,14 @@ async function testBracketSystem() {
       // Test starting the tournament
       console.log(`3. Starting tournament ${createResult.tournament.id}...`);
       const startResponse = await fetch(`${API_BASE}/tournaments/${createResult.tournament.id}/start`, {
-        method: 'POST',
-        credentials: 'include'
+        method: 'POST'
+        // Note: Removed credentials for testing without auth
       });
 
       if (!startResponse.ok) {
         const error = await startResponse.text();
-        console.log(`❌ Failed to start tournament: ${error}\n`);
+        console.log(`❌ Failed to start tournament: ${error}`);
+        console.log(`   Status: ${startResponse.status}\n`);
         continue;
       }
 
@@ -90,16 +98,23 @@ async function testBracketSystem() {
 
       // Test getting tournament details
       console.log(`4. Fetching tournament details...`);
-      const detailsResponse = await fetch(`${API_BASE}/tournaments/${createResult.tournament.id}`, {
-        credentials: 'include'
-      });
+      const detailsResponse = await fetch(`${API_BASE}/tournaments/${createResult.tournament.id}`);
 
       if (detailsResponse.ok) {
         const details = await detailsResponse.json();
         console.log(`✅ Tournament details retrieved`);
         console.log(`   Status: ${details.status}`);
         console.log(`   Participants: ${details.participantCount}`);
-        console.log(`   Matches: ${details.matches?.length || 0}\n`);
+        console.log(`   Matches: ${details.matches?.length || 0}`);
+        
+        // Show some match details
+        if (details.matches && details.matches.length > 0) {
+          console.log(`   First few matches:`);
+          details.matches.slice(0, 3).forEach((match, index) => {
+            console.log(`     Match ${index + 1}: ${match.player1} vs ${match.player2} (${match.status})`);
+          });
+        }
+        console.log('');
       } else {
         console.log(`❌ Failed to get tournament details\n`);
       }
@@ -107,9 +122,7 @@ async function testBracketSystem() {
 
     // Test listing all tournaments
     console.log('5. Testing tournament listing...');
-    const listResponse = await fetch(`${API_BASE}/tournaments`, {
-      credentials: 'include'
-    });
+    const listResponse = await fetch(`${API_BASE}/tournaments`);
 
     if (listResponse.ok) {
       const listResult = await listResponse.json();
@@ -123,6 +136,7 @@ async function testBracketSystem() {
 
   } catch (error) {
     console.error('❌ Test failed:', error.message);
+    console.error('Stack trace:', error.stack);
   }
 }
 

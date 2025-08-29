@@ -275,7 +275,6 @@ function generateFinalMatches(winnersMatches: number, losersMatches: number): Br
 
 // Helper function to apply seeding
 function applySeeding(participants: number[], seeding: PlayerSeed[]): number[] {
-  const seededParticipants: number[] = [];
   const seedMap = new Map(seeding.map(s => [s.player_id, s.seed]));
   
   // Sort participants by seed

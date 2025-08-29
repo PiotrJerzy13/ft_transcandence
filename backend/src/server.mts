@@ -28,17 +28,17 @@ import indexRoutes from './routes/index.mjs';
 import authRoutes from './routes/auth.mjs';
 import userRoutes from './routes/user.mjs';
 import tournamentRoutes from './routes/tournament.mjs';
-import twoFactorAuthRoutes from './routes/twoFactorAuth.mts';
+import twoFactorAuthRoutes from './routes/twoFactorAuth.mjs';
 
 // Import ELK logger
 // import { elkLogger } from './utils/elkLogger.js';
 
 // Temporary mock ELK logger to avoid connection issues
 const elkLogger = {
-  info: () => Promise.resolve(),
-  error: () => Promise.resolve(),
-  warn: () => Promise.resolve(),
-  debug: () => Promise.resolve()
+  info: (_message: string, _metadata?: any) => Promise.resolve(),
+  error: (_message: string, _metadata?: any) => Promise.resolve(),
+  warn: (_message: string, _metadata?: any) => Promise.resolve(),
+  debug: (_message: string, _metadata?: any) => Promise.resolve()
 };
 
 dotenv.config();
