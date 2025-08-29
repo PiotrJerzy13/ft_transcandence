@@ -13,6 +13,7 @@ interface Tournament {
   participants: number;
   start_date?: string;
   created_by?: number;
+  currentUserId?: number;
 }
 
 interface Participant {
@@ -27,6 +28,13 @@ interface Match {
   player2: string;
   score: string;
   status: 'scheduled' | 'ongoing' | 'completed';
+  player1_id?: number;
+  player2_id?: number;
+  player1_score?: number;
+  player2_score?: number;
+  round?: number;
+  match_number?: number;
+  bracket_type?: 'winners' | 'losers' | 'final';
 }
 
 export default function TournamentDetail() {
@@ -164,6 +172,39 @@ export default function TournamentDetail() {
     }
   };
 
+  const handleMatchUpdate = async (matchId: number, player1Score: number, player2Score: number) => {
+    try {
+      const response = await fetch(API_ENDPOINTS.UPDATE_MATCH_SCORE(matchId), {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify({
+          player1Score,
+          player2Score
+        })
+      });
+
+      if (response.ok) {
+        addToast('Match score updated successfully!', 'success');
+        fetchTournamentDetails(); // Refresh data to get updated bracket
+      } else {
+        const errorData = await response.json();
+        let errorMessage = 'Failed to update match score';
+        if (errorData.message) {
+          errorMessage = errorData.message;
+        } else if (errorData.error) {
+          errorMessage = errorData.error;
+        }
+        addToast(errorMessage, 'error');
+      }
+    } catch (error) {
+      console.error('Error updating match score:', error);
+      addToast('Failed to update match score', 'error');
+    }
+  };
+
   const handlePlayMatch = async (matchId: number) => {
     try {
       // For now, just show a message that this would start the game
@@ -211,6 +252,22 @@ export default function TournamentDetail() {
     }
   };
 
+  // Transform matches for the bracket component
+  const bracketMatches = matches.map(match => ({
+    id: match.id,
+    player1_id: match.player1_id || null,
+    player2_id: match.player2_id || null,
+    player1_username: match.player1,
+    player2_username: match.player2,
+    player1_score: match.player1_score || null,
+    player2_score: match.player2_score || null,
+    status: match.status === 'scheduled' ? 'pending' : 
+           match.status === 'ongoing' ? 'ongoing' : 'completed',
+    round: match.round || 1,
+    match_number: match.match_number || match.id,
+    bracket_type: match.bracket_type || 'winners'
+  }));
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
@@ -229,7 +286,7 @@ export default function TournamentDetail() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-4 sm:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8">
           <div>
@@ -320,9 +377,16 @@ export default function TournamentDetail() {
         </div>
 
         {/* Tournament Bracket */}
-        <div className="bg-slate-800/50 rounded-lg p-6 mb-8">
-          <TournamentBracket matches={matches} participants={participants} />
-        </div>
+        {matches.length > 0 && (
+          <div className="bg-slate-800/50 rounded-lg p-6 mb-8">
+            <TournamentBracket 
+              matches={bracketMatches} 
+              participants={participants}
+              onMatchUpdate={handleMatchUpdate}
+              isEditable={tournament.status === 'active' && (isCreator || isParticipant)}
+            />
+          </div>
+        )}
 
         {/* Matches */}
         {matches.length > 0 && (
@@ -347,6 +411,16 @@ export default function TournamentDetail() {
             <h3 className="text-xl font-bold text-white mb-2">Tournament Started!</h3>
             <p className="text-gray-400">
               Matches will be generated and displayed here.
+            </p>
+          </div>
+        )}
+
+        {matches.length === 0 && tournament.status === 'pending' && (
+          <div className="bg-slate-800/50 rounded-lg p-6 text-center">
+            <div className="text-6xl mb-4">⏳</div>
+            <h3 className="text-xl font-bold text-white mb-2">Tournament Not Started</h3>
+            <p className="text-gray-400">
+              Tournament brackets will be generated when the tournament starts.
             </p>
           </div>
         )}

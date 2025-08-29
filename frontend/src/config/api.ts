@@ -10,6 +10,7 @@ export const API_ENDPOINTS = {
   JOIN_TOURNAMENT: (id: number) => `${API_BASE_URL}/api/tournaments/${id}/join`,
   START_TOURNAMENT: (id: number) => `${API_BASE_URL}/api/tournaments/${id}/start`,
   DELETE_TOURNAMENT: (id: number) => `${API_BASE_URL}/api/tournaments/${id}`,
+  UPDATE_MATCH_SCORE: (matchId: number) => `${API_BASE_URL}/api/matches/${matchId}/score`,
   PONG_HISTORY: `${API_BASE_URL}/api/pong/history`,
   ARKANOID_HISTORY: `${API_BASE_URL}/api/arkanoid/history`,
   // 2FA endpoints
