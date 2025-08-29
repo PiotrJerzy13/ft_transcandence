@@ -2,6 +2,13 @@ import type { FastifyInstance, FastifyReply } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
 import { getDb } from '../db/index.js';
 import { BadRequestError, UnauthorizedError, NotFoundError } from './error.js';
+import { 
+  generateSingleEliminationBracket, 
+  generateDoubleEliminationBracket, 
+  generateSwissBracket,
+  validateBracket,
+  type PlayerSeed 
+} from '../utils/bracketSystem.js';
 
 interface Tournament {
   id: number;
@@ -9,6 +16,9 @@ interface Tournament {
   status: 'pending' | 'active' | 'completed' | 'expired' | 'archived';
   participants: number;
   created_by?: number;
+  bracket_type?: 'single_elimination' | 'double_elimination' | 'swiss';
+  seeding_method?: 'random' | 'ranked' | 'manual';
+  total_rounds?: number;
 }
 
 interface Match {
@@ -107,11 +117,14 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         'tournaments.description',
         'tournaments.start_date',
         'tournaments.created_by',
+        'tournaments.bracket_type',
+        'tournaments.seeding_method',
+        'tournaments.total_rounds',
         db.raw('COALESCE(COUNT(tournament_participants.user_id), 0) as participants')
       )
       .leftJoin('tournament_participants', 'tournaments.id', 'tournament_participants.tournament_id')
       .whereNotIn('tournaments.status', ['expired']) // Exclude expired tournaments, include archived
-      .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date', 'tournaments.created_by');
+      .groupBy('tournaments.id', 'tournaments.name', 'tournaments.status', 'tournaments.description', 'tournaments.start_date', 'tournaments.created_by', 'tournaments.bracket_type', 'tournaments.seeding_method', 'tournaments.total_rounds');
     
     console.log('Raw tournament rows:', JSON.stringify(tournamentRows, null, 2));
     
@@ -122,7 +135,10 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         name: row.name,
         status: mapDatabaseStatus(row.status),
         participants: parseInt(row.participants) || 0,
-        created_by: row.created_by
+        created_by: row.created_by,
+        bracket_type: row.bracket_type || 'single_elimination',
+        seeding_method: row.seeding_method || 'random',
+        total_rounds: row.total_rounds || 1
       };
       console.log('Transformed tournament:', tournament);
       return tournament;
@@ -192,21 +208,51 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
           name: { type: 'string', minLength: 3, maxLength: 100 },
           description: { type: 'string', maxLength: 500 },
           startDate: { type: 'string', format: 'date-time' },
-          maxParticipants: { type: 'number', minimum: 2, maximum: 64 }
+          maxParticipants: { type: 'number', minimum: 2, maximum: 64 },
+          bracketType: { 
+            type: 'string', 
+            enum: ['single_elimination', 'double_elimination', 'swiss'],
+            default: 'single_elimination'
+          },
+          seedingMethod: { 
+            type: 'string', 
+            enum: ['random', 'ranked', 'manual'],
+            default: 'random'
+          },
+          bracketConfig: { type: 'object' }
         }
       }
     }
   }, async (request, reply: FastifyReply) => {
     console.log('=== CREATING TOURNAMENT ===');
-    const { name, description, startDate, maxParticipants = 16 } = request.body as {
+    const { 
+      name, 
+      description, 
+      startDate, 
+      maxParticipants = 16,
+      bracketType = 'single_elimination',
+      seedingMethod = 'random',
+      bracketConfig = {}
+    } = request.body as {
       name: string;
       description: string;
       startDate: string;
       maxParticipants?: number;
+      bracketType?: 'single_elimination' | 'double_elimination' | 'swiss';
+      seedingMethod?: 'random' | 'ranked' | 'manual';
+      bracketConfig?: any;
     };
     const userId = request.user?.id;
     
-    console.log('Tournament data:', { name, description, startDate, maxParticipants, userId });
+    console.log('Tournament data:', { 
+      name, 
+      description, 
+      startDate, 
+      maxParticipants, 
+      bracketType,
+      seedingMethod,
+      userId 
+    });
     
     if (!userId) {
       throw new UnauthorizedError('User authentication required');
@@ -221,6 +267,16 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       throw new BadRequestError('Tournament start date must be in the future');
     }
 
+    // Calculate total rounds based on bracket type and max participants
+    let totalRounds = 1;
+    if (bracketType === 'single_elimination') {
+      totalRounds = Math.ceil(Math.log2(maxParticipants));
+    } else if (bracketType === 'double_elimination') {
+      totalRounds = Math.ceil(Math.log2(maxParticipants)) * 2 - 1;
+    } else if (bracketType === 'swiss') {
+      totalRounds = bracketConfig.rounds || 5;
+    }
+
     // Create tournament
     console.log('Creating tournament in database...');
     const [tournamentId] = await db('tournaments').insert({
@@ -228,7 +284,11 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       description,
       start_date: startDateTime.toISOString(),
       status: 'pending',
-      created_by: userId
+      created_by: userId,
+      bracket_type: bracketType,
+      seeding_method: seedingMethod,
+      total_rounds: totalRounds,
+      bracket_config: JSON.stringify(bracketConfig)
     });
     console.log('Tournament created with ID:', tournamentId);
 
@@ -249,6 +309,9 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
         description,
         startDate,
         maxParticipants,
+        bracketType,
+        seedingMethod,
+        totalRounds,
         status: 'pending'
       }
     });
@@ -693,6 +756,16 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       throw new BadRequestError('Tournament start date has not been reached');
     }
     
+    // Get tournament configuration
+    const tournamentConfig = await db('tournaments')
+      .select('bracket_type', 'seeding_method', 'total_rounds', 'bracket_config')
+      .where('id', parseInt(id))
+      .first();
+    
+    if (!tournamentConfig) {
+      throw new NotFoundError('Tournament configuration not found');
+    }
+    
     // Get participants
     const participants = await db('tournament_participants')
       .select('user_id')
@@ -705,11 +778,47 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
     
     const participantIds = participants.map(p => p.user_id);
     
-    // Generate brackets
-    const brackets = generateTournamentBrackets(participantIds);
+    // Get player seeding if using ranked seeding
+    let playerSeeds: PlayerSeed[] = [];
+    if (tournamentConfig.seeding_method === 'ranked') {
+      // Get player ratings/rankings from user stats
+      const playerStats = await db('user_stats')
+        .select('user_id', 'rating', 'total_games')
+        .whereIn('user_id', participantIds)
+        .orderBy('rating', 'desc');
+      
+      playerSeeds = playerStats.map((stat, index) => ({
+        player_id: stat.user_id,
+        seed: index + 1,
+        rating: stat.rating || 1000
+      }));
+    }
+    
+    // Generate brackets based on tournament type
+    let bracket;
+    switch (tournamentConfig.bracket_type) {
+      case 'single_elimination':
+        bracket = generateSingleEliminationBracket(participantIds, playerSeeds);
+        break;
+      case 'double_elimination':
+        bracket = generateDoubleEliminationBracket(participantIds, playerSeeds);
+        break;
+      case 'swiss':
+        const config = tournamentConfig.bracket_config ? JSON.parse(tournamentConfig.bracket_config) : {};
+        const rounds = config.rounds || 5;
+        bracket = generateSwissBracket(participantIds, rounds);
+        break;
+      default:
+        throw new BadRequestError('Invalid bracket type');
+    }
+    
+    // Validate bracket integrity
+    if (!validateBracket(bracket)) {
+      throw new BadRequestError('Generated bracket is invalid');
+    }
     
     // Insert matches into database
-    const matchInserts = brackets.map(match => ({
+    const matchInserts = bracket.matches.map(match => ({
       tournament_id: parseInt(id),
       player1_id: match.player1_id === -1 ? null : match.player1_id,
       player2_id: match.player2_id === -1 ? null : match.player2_id,
@@ -717,7 +826,11 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       player2_score: 0,
       status: match.player1_id === -1 || match.player2_id === -1 ? 'completed' : 'pending',
       round: match.round,
-      match_number: match.match_number
+      match_number: match.match_number,
+      bracket_type: match.bracket_type,
+      winner_advances_to: match.winner_advances_to || null,
+      loser_advances_to: match.loser_advances_to || null,
+      is_bye: match.player1_id === -1 || match.player2_id === -1
     }));
     
     await db('matches').insert(matchInserts);
@@ -731,8 +844,10 @@ export default async function tournamentRoutes(fastify: FastifyInstance) {
       success: true,
       message: 'Tournament started successfully',
       tournamentId: parseInt(id),
-      matchesGenerated: brackets.length,
-      participants: participantIds.length
+      matchesGenerated: bracket.matches.length,
+      participants: participantIds.length,
+      bracketType: tournamentConfig.bracket_type,
+      totalRounds: bracket.total_rounds
     });
   });
 
@@ -841,35 +956,3 @@ function mapMatchStatus(status: string): 'scheduled' | 'ongoing' | 'completed' {
   }
 }
 
-// Helper function to generate tournament brackets
-function generateTournamentBrackets(participants: number[]): Array<{
-  player1_id: number;
-  player2_id: number;
-  round: number;
-  match_number: number;
-}> {
-  const matches: Array<{
-    player1_id: number;
-    player2_id: number;
-    round: number;
-    match_number: number;
-  }> = [];
-  const shuffledParticipants = [...participants].sort(() => Math.random() - 0.5);
-  
-  // Ensure we have an even number of participants (add bye if needed)
-  if (shuffledParticipants.length % 2 !== 0) {
-    shuffledParticipants.push(-1); // -1 represents a bye
-  }
-  
-  // Generate first round matches
-  for (let i = 0; i < shuffledParticipants.length; i += 2) {
-    matches.push({
-      player1_id: shuffledParticipants[i],
-      player2_id: shuffledParticipants[i + 1],
-      round: 1,
-      match_number: Math.floor(i / 2) + 1
-    });
-  }
-  
-  return matches;
-}
