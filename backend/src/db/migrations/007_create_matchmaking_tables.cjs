@@ -13,7 +13,7 @@ exports.up = function(knex) {
       table.integer('max_rating').defaultTo(9999);
       table.boolean('is_active').defaultTo(true);
       table.timestamp('joined_at').defaultTo(knex.fn.now());
-      table.timestamp('expires_at').defaultTo(knex.raw('datetime("now", "+5 minutes")')); // 5 min timeout
+      table.timestamp('expires_at'); // Will be set programmatically to now + 5 minutes
       
       // Ensure one active queue entry per user per game type
       table.unique(['user_id', 'game_type', 'is_active']);

@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { API_ENDPOINTS } from '../config/api';
-import { useToast } from '../context/ToastContext';
 
 interface QueueEntry {
   gameType: string;
@@ -32,7 +31,13 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
   const [queueEntries, setQueueEntries] = useState<QueueEntry[]>([]);
   const [activeSessions, setActiveSessions] = useState<GameSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const { addToast } = useToast();
+  const [message, setMessage] = useState<string>('');
+
+  // Function to show message and clear it after 3 seconds
+  const showMessage = (msg: string) => {
+    setMessage(msg);
+    setTimeout(() => setMessage(''), 3000);
+  };
 
   // Check queue status on component mount
   useEffect(() => {
@@ -95,17 +100,17 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
         const data = await response.json();
         setIsInQueue(true);
         setQueueEntries([data.queueEntry]);
-        addToast(`Joined ${selectedGame} matchmaking queue!`, 'success');
+        showMessage(`✅ Joined ${selectedGame} matchmaking queue!`);
         
         // Start polling for active sessions
         setTimeout(checkActiveSessions, 2000);
       } else {
         const errorData = await response.json();
-        addToast(errorData.message || 'Failed to join queue', 'error');
+        showMessage(`❌ ${errorData.message || 'Failed to join queue'}`);
       }
     } catch (error) {
       console.error('Error joining queue:', error);
-      addToast('Failed to join queue', 'error');
+      showMessage('❌ Failed to join queue');
     } finally {
       setIsLoading(false);
     }
@@ -128,14 +133,14 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
       if (response.ok) {
         setIsInQueue(false);
         setQueueEntries([]);
-        addToast('Left matchmaking queue', 'info');
+        showMessage('✅ Left matchmaking queue');
       } else {
         const errorData = await response.json();
-        addToast(errorData.message || 'Failed to leave queue', 'error');
+        showMessage(`❌ ${errorData.message || 'Failed to leave queue'}`);
       }
     } catch (error) {
       console.error('Error leaving queue:', error);
-      addToast('Failed to leave queue', 'error');
+      showMessage('❌ Failed to leave queue');
     } finally {
       setIsLoading(false);
     }
@@ -185,6 +190,17 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
   return (
     <div className="bg-slate-800/50 rounded-lg p-6">
       <h2 className="text-xl font-bold text-white mb-6">🎮 Quick Match</h2>
+      
+      {/* Message Display */}
+      {message && (
+        <div className={`mb-4 p-3 rounded-lg text-sm ${
+          message.includes('✅') ? 'bg-green-500/20 text-green-400 border border-green-500/30' :
+          message.includes('❌') ? 'bg-red-500/20 text-red-400 border border-red-500/30' :
+          'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+        }`}>
+          {message}
+        </div>
+      )}
       
       {/* Game Selection */}
       <div className="mb-6">

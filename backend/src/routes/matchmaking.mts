@@ -13,18 +13,13 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
         type: 'object',
         required: ['gameType'],
         properties: {
-          gameType: { type: 'string', enum: ['pong', 'arkanoid'] },
-          minRating: { type: 'number', minimum: 0 },
-          maxRating: { type: 'number', minimum: 0 }
+          gameType: { type: 'string', enum: ['pong', 'arkanoid'] }
         }
       }
     }
   }, async (request, reply: FastifyReply) => {
-    const { gameType, minRating = 0, maxRating = 9999 } = request.body as {
-      gameType: string;
-      minRating?: number;
-      maxRating?: number;
-    };
+    console.log('🎮 JOIN MATCHMAKING REQUEST RECEIVED:', request.body);
+    const { gameType } = request.body as { gameType: string };
     const userId = request.user?.id;
     
     if (!userId) {
@@ -34,7 +29,7 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
     const db = getDb();
     
     try {
-      // Check if user is already in queue
+      // Check if already in queue
       const existingQueue = await db('matchmaking_queue')
         .where('user_id', userId)
         .where('game_type', gameType)
@@ -49,8 +44,8 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
       const [queueEntry] = await db('matchmaking_queue').insert({
         user_id: userId,
         game_type: gameType,
-        min_rating: minRating,
-        max_rating: maxRating,
+        min_rating: 0,
+        max_rating: 9999,
         is_active: true,
         joined_at: new Date().toISOString(),
         expires_at: new Date(Date.now() + 5 * 60 * 1000).toISOString() // 5 minutes
@@ -91,6 +86,7 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
       }
     }
   }, async (request, reply: FastifyReply) => {
+    console.log('🚪 LEAVE MATCHMAKING REQUEST RECEIVED:', request.body);
     const { gameType } = request.body as { gameType: string };
     const userId = request.user?.id;
     
@@ -128,6 +124,7 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
   fastify.get('/matchmaking/status', {
     preHandler: authenticate
   }, async (request, reply: FastifyReply) => {
+    console.log('📊 MATCHMAKING STATUS REQUEST RECEIVED');
     const userId = request.user?.id;
     
     if (!userId) {
@@ -141,6 +138,8 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
         .where('user_id', userId)
         .where('is_active', true)
         .select('game_type', 'joined_at', 'expires_at');
+      
+      console.log(`📊 Found ${queueEntries.length} queue entries for user ${userId}`);
       
       return reply.send({
         success: true,
@@ -161,6 +160,7 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
   fastify.get('/game-sessions/active', {
     preHandler: authenticate
   }, async (request, reply: FastifyReply) => {
+    console.log('🎮 ACTIVE GAME SESSIONS REQUEST RECEIVED');
     const userId = request.user?.id;
     
     if (!userId) {
@@ -177,6 +177,8 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
         .whereIn('status', ['waiting', 'active'])
         .select('*')
         .orderBy('created_at', 'desc');
+      
+      console.log(`🎮 Found ${sessions.length} active sessions for user ${userId}`);
       
       return reply.send({
         success: true,
@@ -217,15 +219,13 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
     try {
       const session = await db('game_sessions')
         .where('session_id', sessionId)
+        .where(function() {
+          this.where('player1_id', userId).orWhere('player2_id', userId);
+        })
         .first();
       
       if (!session) {
         throw new NotFoundError('Game session not found');
-      }
-      
-      // Check if user is a participant
-      if (session.player1_id !== userId && session.player2_id !== userId) {
-        throw new UnauthorizedError('Not a participant in this game session');
       }
       
       return reply.send({
@@ -237,7 +237,6 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
           status: session.status,
           player1Id: session.player1_id,
           player2Id: session.player2_id,
-          winnerId: session.winner_id,
           player1Score: session.player1_score,
           player2Score: session.player2_score,
           maxScore: session.max_score,
@@ -249,7 +248,7 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
       });
       
     } catch (error) {
-      console.error('Error getting game session:', error);
+      console.error('Error getting game session details:', error);
       throw error;
     }
   });
@@ -258,13 +257,6 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
   fastify.put('/game-sessions/:sessionId/score', {
     preHandler: authenticate,
     schema: {
-      params: {
-        type: 'object',
-        required: ['sessionId'],
-        properties: {
-          sessionId: { type: 'string' }
-        }
-      },
       body: {
         type: 'object',
         required: ['player1Score', 'player2Score'],
@@ -276,10 +268,7 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
     }
   }, async (request, reply: FastifyReply) => {
     const { sessionId } = request.params as { sessionId: string };
-    const { player1Score, player2Score } = request.body as {
-      player1Score: number;
-      player2Score: number;
-    };
+    const { player1Score, player2Score } = request.body as { player1Score: number; player2Score: number };
     const userId = request.user?.id;
     
     if (!userId) {
@@ -291,20 +280,13 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
     try {
       const session = await db('game_sessions')
         .where('session_id', sessionId)
+        .where(function() {
+          this.where('player1_id', userId).orWhere('player2_id', userId);
+        })
         .first();
       
       if (!session) {
         throw new NotFoundError('Game session not found');
-      }
-      
-      // Check if user is a participant
-      if (session.player1_id !== userId && session.player2_id !== userId) {
-        throw new UnauthorizedError('Not a participant in this game session');
-      }
-      
-      // Check if game is active
-      if (session.status !== 'active') {
-        throw new BadRequestError('Game is not active');
       }
       
       // Update scores
@@ -317,17 +299,13 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
       
       // Check if game is completed
       const maxScore = session.max_score || 11;
-      let newStatus = session.status;
-      let winnerId = session.winner_id;
-      
       if (player1Score >= maxScore || player2Score >= maxScore) {
-        newStatus = 'completed';
-        winnerId = player1Score >= maxScore ? session.player1_id : session.player2_id;
+        const winnerId = player1Score >= maxScore ? session.player1_id : session.player2_id;
         
         await db('game_sessions')
           .where('session_id', sessionId)
           .update({
-            status: newStatus,
+            status: 'completed',
             winner_id: winnerId,
             completed_at: new Date().toISOString()
           });
@@ -338,9 +316,7 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
       
       return reply.send({
         success: true,
-        message: 'Score updated',
-        gameCompleted: newStatus === 'completed',
-        winnerId: winnerId
+        message: 'Score updated successfully'
       });
       
     } catch (error) {
@@ -355,39 +331,22 @@ async function tryFindMatch(gameType: string, userId: number) {
   const db = getDb();
   
   try {
-    // Get user's rating
-    const userStats = await db('user_stats')
-      .where('user_id', userId)
+    // Find another player in the same queue
+    const otherPlayer = await db('matchmaking_queue')
+      .where('game_type', gameType)
+      .where('is_active', true)
+      .where('user_id', '!=', userId)
       .first();
     
-    const userRating = userStats?.rating || 1000;
-    
-    // Find potential opponents
-    const potentialMatches = await db('matchmaking_queue')
-      .join('user_stats', 'matchmaking_queue.user_id', 'user_stats.user_id')
-      .where('matchmaking_queue.game_type', gameType)
-      .where('matchmaking_queue.is_active', true)
-      .where('matchmaking_queue.user_id', '!=', userId)
-      .where('user_stats.rating', '>=', userRating - 200) // Within 200 rating points
-      .where('user_stats.rating', '<=', userRating + 200)
-      .select(
-        'matchmaking_queue.*',
-        'user_stats.rating as opponent_rating'
-      )
-      .orderBy('matchmaking_queue.joined_at', 'asc')
-      .limit(5);
-    
-    if (potentialMatches.length > 0) {
-      const opponent = potentialMatches[0];
-      
-      // Create game session
+    if (otherPlayer) {
+      // Create a game session
       const sessionId = uuidv4();
-      const [gameSession] = await db('game_sessions').insert({
+      const [session] = await db('game_sessions').insert({
         session_id: sessionId,
         game_type: gameType,
         status: 'waiting',
         player1_id: userId,
-        player2_id: opponent.user_id,
+        player2_id: otherPlayer.user_id,
         player1_score: 0,
         player2_score: 0,
         max_score: 11,
@@ -396,20 +355,17 @@ async function tryFindMatch(gameType: string, userId: number) {
       
       // Remove both players from queue
       await db('matchmaking_queue')
-        .whereIn('user_id', [userId, opponent.user_id])
+        .whereIn('user_id', [userId, otherPlayer.user_id])
         .where('game_type', gameType)
         .where('is_active', true)
         .update({ is_active: false });
       
-      console.log(`🎯 Match found! Session ${sessionId} created for ${gameType} game`);
+      console.log(`🎮 Match found! Created session ${sessionId} for users ${userId} and ${otherPlayer.user_id}`);
       
-      // TODO: Send WebSocket notifications to both players
-      
-      return gameSession;
+      return session;
     }
     
     return null;
-    
   } catch (error) {
     console.error('Error trying to find match:', error);
     return null;
@@ -421,43 +377,18 @@ async function updateUserStats(player1Id: number, player2Id: number, winnerId: n
   const db = getDb();
   
   try {
-    // Get current stats
-    const player1Stats = await db('user_stats').where('user_id', player1Id).first();
-    const player2Stats = await db('user_stats').where('user_id', player2Id).first();
+    // Update winner stats
+    await db('users')
+      .where('id', winnerId)
+      .increment('wins', 1);
     
-    // Update wins/losses
-    if (winnerId === player1Id) {
-      await db('user_stats')
-        .where('user_id', player1Id)
-        .update({
-          wins: (player1Stats?.wins || 0) + 1,
-          total_games: (player1Stats?.total_games || 0) + 1
-        });
-      
-      await db('user_stats')
-        .where('user_id', player2Id)
-        .update({
-          losses: (player2Stats?.losses || 0) + 1,
-          total_games: (player2Stats?.total_games || 0) + 1
-        });
-    } else {
-      await db('user_stats')
-        .where('user_id', player2Id)
-        .update({
-          wins: (player2Stats?.wins || 0) + 1,
-          total_games: (player2Stats?.total_games || 0) + 1
-        });
-      
-      await db('user_stats')
-        .where('user_id', player1Id)
-        .update({
-          losses: (player1Stats?.losses || 0) + 1,
-          total_games: (player1Stats?.total_games || 0) + 1
-        });
-    }
+    // Update loser stats
+    const loserId = winnerId === player1Id ? player2Id : player1Id;
+    await db('users')
+      .where('id', loserId)
+      .increment('losses', 1);
     
-    console.log(`📊 Updated stats for game completion. Winner: ${winnerId}`);
-    
+    console.log(`📊 Updated stats: Winner ${winnerId}, Loser ${loserId}`);
   } catch (error) {
     console.error('Error updating user stats:', error);
   }
