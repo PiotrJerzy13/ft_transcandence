@@ -5,6 +5,8 @@ import { BadRequestError, UnauthorizedError, NotFoundError } from '../utils/erro
 import { v4 as uuidv4 } from 'uuid';
 
 export default async function matchmakingRoutes(fastify: FastifyInstance) {
+  console.log('🚀 MATCHMAKING ROUTES REGISTERED');
+  
   // Join matchmaking queue
   fastify.post('/matchmaking/join', {
     preHandler: authenticate,
@@ -29,7 +31,7 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
     const db = getDb();
     
     try {
-      // Check if already in queue
+      // Check if already in queue (active entries only)
       const existingQueue = await db('matchmaking_queue')
         .where('user_id', userId)
         .where('game_type', gameType)
@@ -39,6 +41,13 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
       if (existingQueue) {
         throw new BadRequestError('Already in matchmaking queue');
       }
+      
+      // Clean up any old inactive entries for this user and game type
+      await db('matchmaking_queue')
+        .where('user_id', userId)
+        .where('game_type', gameType)
+        .where('is_active', false)
+        .del();
       
       // Join the queue
       const [queueEntry] = await db('matchmaking_queue').insert({
@@ -97,10 +106,29 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
     const db = getDb();
     
     try {
-      const result = await db('matchmaking_queue')
+      // First, check if user is actually in the queue
+      console.log(`🔍 DEBUG: Looking for queue entry - userId: ${userId}, gameType: ${gameType}`);
+      
+      const existingEntry = await db('matchmaking_queue')
         .where('user_id', userId)
         .where('game_type', gameType)
         .where('is_active', true)
+        .first();
+      
+      console.log(`🔍 DEBUG: Found existing entry:`, existingEntry);
+      
+      if (!existingEntry) {
+        // Debug: Check what entries exist for this user
+        const allUserEntries = await db('matchmaking_queue')
+          .where('user_id', userId)
+          .select('*');
+        console.log(`🔍 DEBUG: All entries for user ${userId}:`, allUserEntries);
+        throw new BadRequestError('Not in matchmaking queue');
+      }
+      
+      // Update the entry to inactive
+      const result = await db('matchmaking_queue')
+        .where('id', existingEntry.id)
         .update({ is_active: false });
       
       if (result === 0) {
@@ -108,6 +136,14 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
       }
       
       console.log(`🚪 User ${userId} left ${gameType} matchmaking queue`);
+      console.log(`🔍 DEBUG: Updated entry ID ${existingEntry.id} to inactive`);
+      
+      // Debug: Check if there are any remaining active entries
+      const remainingActive = await db('matchmaking_queue')
+        .where('user_id', userId)
+        .where('is_active', true)
+        .select('*');
+      console.log(`🔍 DEBUG: Remaining active entries for user ${userId}:`, remainingActive);
       
       return reply.send({
         success: true,
@@ -124,7 +160,10 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
   fastify.get('/matchmaking/status', {
     preHandler: authenticate
   }, async (request, reply: FastifyReply) => {
-    console.log('📊 MATCHMAKING STATUS REQUEST RECEIVED');
+    console.log('📊 MATCHMAKING STATUS REQUEST RECEIVED - START');
+    console.log('📊 Request URL:', request.url);
+    console.log('📊 Request method:', request.method);
+    console.log('📊 Request headers:', request.headers);
     const userId = request.user?.id;
     
     if (!userId) {
@@ -134,12 +173,18 @@ export default async function matchmakingRoutes(fastify: FastifyInstance) {
     const db = getDb();
     
     try {
+      // Debug: Check all entries for this user first
+      const allEntries = await db('matchmaking_queue')
+        .where('user_id', userId)
+        .select('*');
+      console.log(`🔍 DEBUG: All entries for user ${userId}:`, allEntries);
+      
       const queueEntries = await db('matchmaking_queue')
         .where('user_id', userId)
         .where('is_active', true)
         .select('game_type', 'joined_at', 'expires_at');
       
-      console.log(`📊 Found ${queueEntries.length} queue entries for user ${userId}`);
+      console.log(`📊 Found ${queueEntries.length} ACTIVE queue entries for user ${userId}:`, queueEntries);
       
       return reply.send({
         success: true,

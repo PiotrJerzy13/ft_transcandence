@@ -53,8 +53,15 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
 
       if (response.ok) {
         const data = await response.json();
+        console.log('📊 Queue status response:', data);
+        console.log('📊 Queue entries array:', data.queueEntries);
+        console.log('📊 Queue entries length:', data.queueEntries?.length);
         setQueueEntries(data.queueEntries || []);
-        setIsInQueue(data.queueEntries && data.queueEntries.length > 0);
+        const inQueue = data.queueEntries && data.queueEntries.length > 0;
+        console.log('📊 Setting isInQueue to:', inQueue);
+        setIsInQueue(inQueue);
+      } else {
+        console.error('❌ Queue status request failed:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error checking queue status:', error);
@@ -131,11 +138,13 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
       });
 
       if (response.ok) {
+        console.log('🚪 Leave queue successful');
         setIsInQueue(false);
         setQueueEntries([]);
         showMessage('✅ Left matchmaking queue');
       } else {
         const errorData = await response.json();
+        console.log('🚪 Leave queue failed:', errorData);
         showMessage(`❌ ${errorData.message || 'Failed to leave queue'}`);
       }
     } catch (error) {
@@ -249,6 +258,17 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
               className="w-full px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {isLoading ? 'Leaving...' : 'Leave Queue'}
+            </button>
+            <button
+              onClick={() => {
+                console.log('🔄 Force reset queue state');
+                setIsInQueue(false);
+                setQueueEntries([]);
+                showMessage('🔄 Queue state reset');
+              }}
+              className="w-full px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition-colors"
+            >
+              Force Reset (Debug)
             </button>
           </div>
         )}

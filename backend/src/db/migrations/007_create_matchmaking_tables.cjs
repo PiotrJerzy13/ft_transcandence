@@ -16,7 +16,7 @@ exports.up = function(knex) {
       table.timestamp('expires_at'); // Will be set programmatically to now + 5 minutes
       
       // Ensure one active queue entry per user per game type
-      table.unique(['user_id', 'game_type', 'is_active']);
+      // Note: We'll handle this in the application logic instead of a constraint
       table.index(['game_type', 'is_active', 'joined_at']);
     })
     
