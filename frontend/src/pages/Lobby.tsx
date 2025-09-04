@@ -95,7 +95,7 @@ export default function GameLobby() {
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-8">
           <div className="lg:col-span-2 space-y-6">
-            <GameModeSelection onSelectGame={handleGameModeSelect} />
+            <GameModeSelection onSelectGame={handleGameModeSelect} onMultiplayerClick={handleMultiplayerClick} />
             <MatchmakingQueue onGameFound={handleGameFound} />
             <GameHistorySection 
                 playerStats={playerStats}
