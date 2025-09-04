@@ -8,6 +8,7 @@ import ProtectedRoute from "../components/ProtectedRoute";
 import Leaderboard from '../pages/Leaderboard';
 import Tournaments from '../pages/Tournaments';
 import TournamentDetail from '../pages/TournamentDetail';
+import MultiplayerGamePage from '../pages/MultiplayerGame';
 
 export default function AppRouter() {
   return (
@@ -22,6 +23,7 @@ export default function AppRouter() {
 		<Route path="/leaderboard" element={<ProtectedRoute><Leaderboard /></ProtectedRoute>} />
 		<Route path="/tournaments" element={<ProtectedRoute><Tournaments /></ProtectedRoute>} />
 		<Route path="/tournaments/:id" element={<ProtectedRoute><TournamentDetail /></ProtectedRoute>} />
+		<Route path="/multiplayer" element={<ProtectedRoute><MultiplayerGamePage /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

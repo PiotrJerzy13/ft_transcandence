@@ -27,6 +27,10 @@ export default function GameLobby() {
     navigate(mode === 'pong' ? '/game' : '/game2');
   };
 
+  const handleMultiplayerClick = () => {
+    navigate('/multiplayer');
+  };
+
   const handleGameFound = (session: any) => {
     // TODO: Navigate to game with session data
     console.log('Game found:', session);

@@ -1,18 +1,19 @@
 //This component will contain the two cards for selecting Pong or Arkanoid.
-import { Users, Target } from 'lucide-react';
+import { Users, Target, Globe } from 'lucide-react';
 
 interface GameModeSelectionProps {
   onSelectGame: (mode: 'pong' | 'arkanoid') => void;
+  onMultiplayerClick: () => void;
 }
 
-export default function GameModeSelection({ onSelectGame }: GameModeSelectionProps) {
+export default function GameModeSelection({ onSelectGame, onMultiplayerClick }: GameModeSelectionProps) {
   return (
     <div className="bg-black/40 backdrop-blur-sm border border-purple-500/30 rounded-xl p-6">
       <h2 className="text-2xl font-bold text-white mb-6 flex items-center">
         <Target className="w-6 h-6 mr-2 text-purple-400" />
         Select Game Mode
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Pong Mode */}
         <div 
           className="group bg-gradient-to-br from-blue-900/50 to-cyan-900/50 border border-cyan-500/30 rounded-xl p-6 cursor-pointer hover:border-cyan-400 transition-all duration-300 hover:shadow-lg hover:shadow-cyan-500/20"
@@ -28,6 +29,23 @@ export default function GameModeSelection({ onSelectGame }: GameModeSelectionPro
             <div className="w-6 h-6 rounded-full border-2 border-cyan-400 group-hover:bg-cyan-400 transition-colors"></div>
           </div>
         </div>
+        
+        {/* Multiplayer Mode */}
+        <div 
+          className="group bg-gradient-to-br from-green-900/50 to-emerald-900/50 border border-emerald-500/30 rounded-xl p-6 cursor-pointer hover:border-emerald-400 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/20"
+          onClick={onMultiplayerClick}
+        >
+          <div className="flex items-center mb-4">
+            <Globe className="w-8 h-8 text-emerald-400 mr-3" />
+            <h3 className="text-xl font-bold text-white">Multiplayer Pong</h3>
+          </div>
+          <p className="text-gray-300 mb-4">Challenge players worldwide in real-time multiplayer matches!</p>
+          <div className="flex items-center justify-between">
+            <span className="text-sm text-emerald-400 font-mono">ONLINE</span>
+            <div className="w-6 h-6 rounded-full border-2 border-emerald-400 group-hover:bg-emerald-400 transition-colors"></div>
+          </div>
+        </div>
+        
         {/* Arkanoid Mode */}
         <div 
           className="group bg-gradient-to-br from-indigo-900/50 to-pink-900/50 border border-indigo-500/30 rounded-xl p-6 cursor-pointer hover:border-indigo-400 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/20"
