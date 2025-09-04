@@ -74,3 +74,8 @@ async function applyMigration() {
 
 // Run the migration
 applyMigration().catch(console.error);
+
+
+
+
+

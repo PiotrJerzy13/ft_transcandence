@@ -27,10 +27,23 @@ export async function authenticate(
     request.log.debug({ authorization: request.headers.authorization }, 'Authorization header received');
     
     // Get token from cookie or authorization header
-    const token = request.cookies.token || 
-      (request.headers.authorization && request.headers.authorization.split(' ')[1]);
+    const authHeader = request.headers.authorization;
+    const cookieToken = request.cookies.token;
+    
+    console.log('🔍 Auth Debug - Authorization header:', authHeader);
+    console.log('🔍 Auth Debug - Cookie token:', cookieToken);
+    
+    let token: string | null = null;
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      token = authHeader.split(' ')[1];
+      console.log('🔍 Auth Debug - Extracted token from header:', token ? token.substring(0, 20) + '...' : 'null');
+    } else if (cookieToken) {
+      token = cookieToken;
+      console.log('🔍 Auth Debug - Using cookie token:', token.substring(0, 20) + '...');
+    }
     
     if (!token) {
+      console.log('❌ Auth Debug - No token found');
       request.log.warn('Authentication failed: no token provided');
       reply.status(401).send({ error: 'Authentication required' });
       return;

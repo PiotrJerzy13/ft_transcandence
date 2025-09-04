@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import cookie from '@fastify/cookie';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
+import websocket from '@fastify/websocket';
 import dotenv from 'dotenv';
 import type { FastifyInstance } from 'fastify';
 import pongRoutes from './routes/pongRoutes.js';
@@ -30,6 +31,8 @@ import userRoutes from './routes/user.mjs';
 import tournamentRoutes from './routes/tournament.mjs';
 import matchmakingRoutes from './routes/matchmaking.mjs';
 import twoFactorAuthRoutes from './routes/twoFactorAuth.mjs';
+import websocketRoutes from './routes/websocket.mjs';
+
 
 // Import ELK logger
 // import { elkLogger } from './utils/elkLogger.js';
@@ -196,27 +199,120 @@ const start = async () => {
     
     app.log.info('Swagger documentation registered');
     
-    // Register plugins
-    await app.register(cors, {
-      origin: true,
-      credentials: true,
-    });
-    await app.register(pongRoutes, { prefix: '/api/pong' });
-    await app.register(arkanoidRoutes, { prefix: '/api/arkanoid' });
-    await app.register(leaderboardRoutes, { prefix: '/api' });
-    await app.register(cookie);
-    
-    app.log.info('Plugins registered successfully');
-    
-    // Register routes
-    await app.register(indexRoutes);
-    await app.register(authRoutes, { prefix: '/api/auth' });
-    await app.register(userRoutes, { prefix: '/api/user' });
-    await app.register(tournamentRoutes, { prefix: '/api' });
-await app.register(matchmakingRoutes, { prefix: '/api' });
-await app.register(twoFactorAuthRoutes, { prefix: '/api' });
-    
-    app.log.info('Routes registered successfully');
+    try {
+      // Debug environment variables
+      console.log('Environment variables check:');
+      console.log('COOKIE_SECRET:', process.env.COOKIE_SECRET ? 'SET' : 'NOT SET');
+      console.log('JWT_SECRET:', process.env.JWT_SECRET ? 'SET' : 'NOT SET');
+      console.log('NODE_ENV:', process.env.NODE_ENV);
+      
+      // Register plugins
+      app.log.info('Registering CORS plugin...');
+      await app.register(cors, {
+        origin: true,
+        credentials: true,
+      });
+      app.log.info('CORS plugin registered');
+      
+      try {
+        app.log.info('Registering WebSocket plugin...');
+        console.log('WebSocket plugin import:', websocket);
+        console.log('WebSocket plugin type:', typeof websocket);
+        await app.register(websocket);
+        app.log.info('WebSocket plugin registered');
+      } catch (error) {
+        console.error('WebSocket plugin registration error details:', error);
+        app.log.error('Failed to register WebSocket plugin:', error);
+        throw error;
+      }
+      
+      app.log.info('Registering pong routes...');
+      await app.register(pongRoutes, { prefix: '/api/pong' });
+      app.log.info('Pong routes registered');
+      
+      app.log.info('Registering arkanoid routes...');
+      await app.register(arkanoidRoutes, { prefix: '/api/arkanoid' });
+      app.log.info('Arkanoid routes registered');
+      
+      app.log.info('Registering leaderboard routes...');
+      await app.register(leaderboardRoutes, { prefix: '/api' });
+      app.log.info('Leaderboard routes registered');
+      
+      app.log.info('Registering cookie plugin...');
+      await app.register(cookie);
+      app.log.info('Cookie plugin registered');
+      
+      app.log.info('All plugins registered successfully');
+      
+      // Register routes
+      try {
+        app.log.info('Registering index routes...');
+        await app.register(indexRoutes);
+        app.log.info('Index routes registered');
+      } catch (error) {
+        app.log.error('Failed to register index routes:', error);
+        throw error;
+      }
+      
+      try {
+        app.log.info('Registering auth routes...');
+        await app.register(authRoutes, { prefix: '/api/auth' });
+        app.log.info('Auth routes registered');
+      } catch (error) {
+        app.log.error('Failed to register auth routes:', error);
+        throw error;
+      }
+      
+      try {
+        app.log.info('Registering user routes...');
+        await app.register(userRoutes, { prefix: '/api/user' });
+        app.log.info('User routes registered');
+      } catch (error) {
+        app.log.error('Failed to register user routes:', error);
+        throw error;
+      }
+      
+      try {
+        app.log.info('Registering tournament routes...');
+        await app.register(tournamentRoutes, { prefix: '/api' });
+        app.log.info('Tournament routes registered');
+      } catch (error) {
+        app.log.error('Failed to register tournament routes:', error);
+        throw error;
+      }
+      
+      try {
+        app.log.info('Registering matchmaking routes...');
+        await app.register(matchmakingRoutes, { prefix: '/api' });
+        app.log.info('Matchmaking routes registered');
+      } catch (error) {
+        app.log.error('Failed to register matchmaking routes:', error);
+        throw error;
+      }
+      
+      try {
+        app.log.info('Registering 2FA routes...');
+        await app.register(twoFactorAuthRoutes, { prefix: '/api' });
+        app.log.info('2FA routes registered');
+      } catch (error) {
+        app.log.error('Failed to register 2FA routes:', error);
+        throw error;
+      }
+      
+      try {
+        app.log.info('Registering WebSocket routes...');
+        await app.register(websocketRoutes, { prefix: '/api' });
+        app.log.info('WebSocket routes registered');
+      } catch (error) {
+        app.log.error('Failed to register WebSocket routes:', error);
+        throw error;
+      }
+      
+      app.log.info('All routes registered successfully');
+    } catch (routeError) {
+      app.log.error('Failed to register routes/plugins:', routeError);
+      throw routeError;
+    }
     
     // Prometheus metrics endpoint
     app.get('/metrics', async (_request, reply) => {
@@ -317,32 +413,29 @@ await app.register(twoFactorAuthRoutes, { prefix: '/api' });
     process.on('SIGINT', closeGracefully);
     process.on('SIGTERM', closeGracefully);
 
-    app.ready(err => {
-      if (err) {
-        app.log.error('Error during server startup', err);
-        throw err;
-      }
-      app.printRoutes(); // Debug: logs all registered routes to console
-    });
-    
-    // Start server
-    await app.listen({ 
-      port: Number(process.env.PORT) || 3000, 
-      host: '0.0.0.0' 
-    });
-    
-    const port = Number(process.env.PORT) || 3000;
-    app.log.info(`Server running on port ${port}`);
-    app.log.info(`Swagger documentation available at https://localhost:${port}/documentation`);
-    
-    // Send startup log to ELK
-    elkLogger.info('ft_transcendence server started successfully', {
-      port,
-      nodeEnv: process.env.NODE_ENV || 'development',
-      pid: process.pid
-    }).catch(err => {
-      app.log.warn('Failed to send startup log to ELK:', err);
-    });
+    // Simplified server startup for debugging
+    try {
+      await app.listen({ 
+        port: Number(process.env.PORT) || 3000, 
+        host: '0.0.0.0' 
+      });
+      
+      const port = Number(process.env.PORT) || 3000;
+      app.log.info(`Server running on port ${port}`);
+      app.log.info(`Swagger documentation available at https://localhost:${port}/documentation`);
+      
+      // Send startup log to ELK
+      elkLogger.info('ft_transcendence server started successfully', {
+        port,
+        nodeEnv: process.env.NODE_ENV || 'development',
+        pid: process.pid
+      }).catch(err => {
+        app.log.warn('Failed to send startup log to ELK:', err);
+      });
+    } catch (listenError) {
+      app.log.error('Failed to start server:', listenError);
+      throw listenError;
+    }
     
   } catch (err) {
     app.log.error('Server startup failed', err);

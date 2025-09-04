@@ -3,6 +3,7 @@ import { getDb } from '../db/index.js';
 import { authenticate } from '../middleware/auth.js';
 import { BadRequestError, UnauthorizedError, NotFoundError } from '../utils/error.js';
 import { v4 as uuidv4 } from 'uuid';
+import { getWebSocketManager } from '../websocket/WebSocketManager.js';
 
 export default async function matchmakingRoutes(fastify: FastifyInstance) {
   console.log('🚀 MATCHMAKING ROUTES REGISTERED');
@@ -398,16 +399,26 @@ async function tryFindMatch(gameType: string, userId: number) {
         created_at: new Date().toISOString()
       }).returning('*');
       
-      // Remove both players from queue
-      await db('matchmaking_queue')
-        .whereIn('user_id', [userId, otherPlayer.user_id])
-        .where('game_type', gameType)
-        .where('is_active', true)
-        .update({ is_active: false });
-      
-      console.log(`🎮 Match found! Created session ${sessionId} for users ${userId} and ${otherPlayer.user_id}`);
-      
-      return session;
+             // Remove both players from queue
+       await db('matchmaking_queue')
+         .whereIn('user_id', [userId, otherPlayer.user_id])
+         .where('game_type', gameType)
+         .where('is_active', true)
+         .update({ is_active: false });
+       
+       console.log(`🎮 Match found! Created session ${sessionId} for users ${userId} and ${otherPlayer.user_id}`);
+       
+       // Create WebSocket game room and notify players
+       try {
+         const wsManager = getWebSocketManager();
+         wsManager.createGameRoom(sessionId, gameType, userId, otherPlayer.user_id);
+         console.log(`📡 WebSocket game room created and players notified for match ${sessionId}`);
+       } catch (wsError) {
+         console.error('Error creating WebSocket game room:', wsError);
+         // Continue with game session creation even if WebSocket fails
+       }
+       
+       return session;
     }
     
     return null;

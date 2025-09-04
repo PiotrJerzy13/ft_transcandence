@@ -19,3 +19,8 @@ exports.down = function(knex) {
     table.unique(['user_id', 'game_type', 'is_active']);
   });
 };
+
+
+
+
+

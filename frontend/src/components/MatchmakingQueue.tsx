@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { API_ENDPOINTS } from '../config/api';
 
 interface QueueEntry {
@@ -32,6 +32,11 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
   const [activeSessions, setActiveSessions] = useState<GameSession[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState<string>('');
+  const [pollingActive, setPollingActive] = useState(false);
+  
+  // Refs pour gérer les intervalles
+  const queuePollingInterval = useRef<number | null>(null);
+  const sessionPollingInterval = useRef<number | null>(null);
 
   // Function to show message and clear it after 3 seconds
   const showMessage = (msg: string) => {
@@ -39,12 +44,69 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
     setTimeout(() => setMessage(''), 3000);
   };
 
-  // Check queue status on component mount
-  useEffect(() => {
+  // Start intelligent polling for queue status
+  const startQueuePolling = () => {
+    console.log('🔄 Starting queue status polling...');
+    setPollingActive(true);
+    
+    // Vérifier immédiatement
     checkQueueStatus();
+    
+    // Puis vérifier toutes les 3 secondes
+    queuePollingInterval.current = setInterval(() => {
+      console.log('🔄 Polling queue status...');
+      checkQueueStatus();
+    }, 3000);
+  };
+
+  // Start intelligent polling for active sessions
+  const startSessionPolling = () => {
+    console.log('🎮 Starting session polling...');
+    
+    // Vérifier immédiatement
     checkActiveSessions();
+    
+    // Puis vérifier toutes les 3 secondes
+    sessionPollingInterval.current = setInterval(() => {
+      console.log('🎮 Polling active sessions...');
+      checkActiveSessions();
+    }, 3000);
+  };
+
+  // Stop all polling
+  const stopAllPolling = () => {
+    console.log('⏹️ Stopping all polling...');
+    setPollingActive(false);
+    
+    if (queuePollingInterval.current) {
+      clearInterval(queuePollingInterval.current);
+      queuePollingInterval.current = null;
+    }
+    
+    if (sessionPollingInterval.current) {
+      clearInterval(sessionPollingInterval.current);
+      sessionPollingInterval.current = null;
+    }
+  };
+
+  // Check queue status on component mount and start polling
+  useEffect(() => {
+    console.log('🚀 MatchmakingQueue component mounted, starting polling...');
+    
+    // Démarrer le polling des sessions (toujours actif)
+    startSessionPolling();
+    
+    // Vérifier l'état initial de la queue
+    checkQueueStatus();
+    
+    // Cleanup function
+    return () => {
+      console.log('🧹 Cleaning up polling intervals...');
+      stopAllPolling();
+    };
   }, []);
 
+  // Check queue status
   const checkQueueStatus = async () => {
     try {
       const response = await fetch(API_ENDPOINTS.MATCHMAKING_STATUS, {
@@ -56,10 +118,30 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
         console.log('📊 Queue status response:', data);
         console.log('📊 Queue entries array:', data.queueEntries);
         console.log('📊 Queue entries length:', data.queueEntries?.length);
+        
         setQueueEntries(data.queueEntries || []);
         const inQueue = data.queueEntries && data.queueEntries.length > 0;
         console.log('📊 Setting isInQueue to:', inQueue);
+        
+        // Mettre à jour l'état de la queue
         setIsInQueue(inQueue);
+        
+        // Si on n'est plus en queue, arrêter le polling de queue
+        if (!inQueue && pollingActive) {
+          console.log('🚪 No longer in queue, stopping queue polling');
+          if (queuePollingInterval.current) {
+            clearInterval(queuePollingInterval.current);
+            queuePollingInterval.current = null;
+          }
+          setPollingActive(false);
+        }
+        
+        // Si on est en queue et que le polling n'est pas actif, le démarrer
+        if (inQueue && !pollingActive) {
+          console.log('🎯 Back in queue, starting queue polling');
+          startQueuePolling();
+        }
+        
       } else {
         console.error('❌ Queue status request failed:', response.status, response.statusText);
       }
@@ -68,6 +150,7 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
     }
   };
 
+  // Check active sessions
   const checkActiveSessions = async () => {
     try {
       const response = await fetch(API_ENDPOINTS.ACTIVE_GAME_SESSIONS, {
@@ -76,13 +159,27 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
 
       if (response.ok) {
         const data = await response.json();
-        setActiveSessions(data.sessions || []);
+        const newSessions = data.sessions || [];
         
-        // Check for new waiting sessions (potential matches found)
-        const waitingSessions = data.sessions?.filter((s: GameSession) => s.status === 'waiting') || [];
-        if (waitingSessions.length > 0 && onGameFound) {
-          onGameFound(waitingSessions[0]);
+        console.log('🎮 Active sessions response:', newSessions);
+        
+        // Vérifier s'il y a de nouvelles sessions
+        const hasNewSessions = JSON.stringify(newSessions) !== JSON.stringify(activeSessions);
+        
+        if (hasNewSessions) {
+          console.log('🆕 New sessions detected, updating state...');
+          setActiveSessions(newSessions);
+          
+          // Check for new waiting sessions (potential matches found)
+          const waitingSessions = newSessions.filter((s: GameSession) => s.status === 'waiting') || [];
+          if (waitingSessions.length > 0 && onGameFound) {
+            console.log('🎯 New waiting session found, calling onGameFound');
+            onGameFound(waitingSessions[0]);
+          }
         }
+        
+      } else {
+        console.error('❌ Active sessions request failed:', response.status, response.statusText);
       }
     } catch (error) {
       console.error('Error checking active sessions:', error);
@@ -109,8 +206,10 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
         setQueueEntries([data.queueEntry]);
         showMessage(`✅ Joined ${selectedGame} matchmaking queue!`);
         
-        // Start polling for active sessions
-        setTimeout(checkActiveSessions, 2000);
+        // Démarrer le polling intelligent de la queue
+        startQueuePolling();
+        
+        console.log('🎯 Started intelligent queue polling after joining');
       } else {
         const errorData = await response.json();
         showMessage(`❌ ${errorData.message || 'Failed to join queue'}`);
@@ -142,6 +241,15 @@ export default function MatchmakingQueue({ onGameFound }: MatchmakingQueueProps)
         setIsInQueue(false);
         setQueueEntries([]);
         showMessage('✅ Left matchmaking queue');
+        
+        // Arrêter le polling de la queue
+        if (queuePollingInterval.current) {
+          clearInterval(queuePollingInterval.current);
+          queuePollingInterval.current = null;
+        }
+        setPollingActive(false);
+        
+        console.log('⏹️ Stopped queue polling after leaving');
       } else {
         const errorData = await response.json();
         console.log('🚪 Leave queue failed:', errorData);
