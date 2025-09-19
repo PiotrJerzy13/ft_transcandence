@@ -29,8 +29,6 @@ A Dockerized single-page web platform for playing real-time Pong, built with **R
 
 ## 🧩 Modules Summary
 
-You need **7 major modules** for full credit. Current estimated count: **4.5/9.5 majors**
-
 | Category             | Module                                 | Status        | Points |
 |----------------------|----------------------------------------|---------------|--------|
 | ✅ Web               | Backend with Fastify                   | Done          | 1.0    |
