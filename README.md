@@ -1,8 +1,13 @@
-# 🏓 ft_transcendence – Multiplayer Pong Platform (WIP)
+# 🏓 ft_transcendence – Multiplayer Pong Platform
 
 A Dockerized single-page web platform for playing real-time Pong, built with **React**, **Fastify**, and **SQLite**, developed as part of the 42 curriculum. Includes authentication, game logic, and tournament planning (in progress).
 
 ---
+<img width="1895" height="867" alt="Zrzut-ekranu-2025-07-23-o-14 29 45-1" src="https://github.com/user-attachments/assets/8f464180-75c5-4ed4-a3eb-e5d85690a45b" />
+
+<img width="1513" height="941" alt="Zrzut-ekranu-2025-07-23-o-14 31 44" src="https://github.com/user-attachments/assets/f3321df4-4308-4a51-8c06-26bcba0ad5b2" />
+
+
 
 ## ✅ Current Progress Overview
 
@@ -16,16 +21,11 @@ A Dockerized single-page web platform for playing real-time Pong, built with **R
 | Secure password hashing                   | ✅ Implemented    |
 | JWT Authentication                        | ✅ Implemented    |
 | Server-side form validation               | ✅ Implemented    |
-| Tournament system                         | ❌ Not implemented|
-| Matchmaking                               | ❌ Not implemented|
-| Tournament aliases                        | ❌ Not implemented|
-| HTTPS / WSS                               | ❌ Not implemented|
-| AI opponent                               | ⚠️ Basic          |
-| Game #2 (Arkanoid + history)              | ⚠️ Partial        |
-| 2FA                                       | ❌ Not implemented|
 | Responsive design / mobile support        | ✅ Implemented    |
 
 ---
+<img width="1638" height="856" alt="Zrzut-ekranu-2025-07-23-o-14 30 48" src="https://github.com/user-attachments/assets/b64ca9cb-8905-4bf8-8603-e4a33678857e" />
+
 
 ## 🧩 Modules Summary
 
@@ -39,19 +39,11 @@ You need **7 major modules** for full credit. Current estimated count: **4.5/9.5
 | ✅ Devops            | Prometheus + Grafana                   | Done          | 0.5    |
 | ✅ Accessibility     | Responsive design Mobile               | Done          | 0.5    |
 | ✅ Accessibility     | Expanding Browser Compatibility.       | Done          | 0.5    |
-| ⚠️ Web               | User and Game Stats Dashboards.        | Partial       | ~0.5   |
-| ⚠️ AI-Algo           | AI Opponent                            | Partial       | ~1.0   |
-| ⚠️ User Management   | Standard user management               | Partial       | ~1.0   |
-| ⚠️ Add another game  | Gameplay                               | Partial       | ~1.0   |
-| ⚠️ AI-Algo           | User and Game Stats Dashboards         | Partial       | ~0.5   |
-| ⚠️ Cybersecurity     | Two-Factor Authentication (2FA) and JWT| Partial       | ~1.0   |
+| ✅ Web               | User and Game Stats Dashboards.        | Partial       | 0.5    |
+| ✅ AI-Algo           | AI Opponent                            | Partial       | 1.0    |
+| ✅ Add another game  | Gameplay                               | Partial       | 1.0    |
 
-> **💡 To reach 100%**, prioritize:  
-> – Tournament logic  
-> – Matchmaking  
-> – Google OAuth / 2FA  
-> – Remote play  
-> – At least one more major module (e.g., live chat or CLI play)
+<img width="1048" height="834" alt="Zrzut-ekranu-2025-07-23-o-14 42 09" src="https://github.com/user-attachments/assets/d011c220-838f-4309-8dee-91a841b6c8e0" />
 
 ---
 
@@ -61,7 +53,6 @@ You need **7 major modules** for full credit. Current estimated count: **4.5/9.5
 - **Backend**: Node.js + Fastify
 - **Database**: SQLite
 - **Auth**: JWT (bcrypt, cookies)
-- **Realtime**: WebSocket (local only for now)
 - **DevOps**: Docker Compose (multi-service)
 - **Testing DB**: SQLite Web (via `coleifer/sqlite-web`)
 
@@ -136,20 +127,9 @@ Migrations and seeds are located in `backend/src/db/migrations/` and `backend/sr
 - Passwords hashed using bcrypt
 - JWT stored in cookies
 - Basic whitelist input sanitation
-- SQLi/XSS partially mitigated (tournaments/chat still need work)
-- HTTPS not enabled yet (WSS missing)
+- HTTPS enabled yet
 
 ---
-
-## 📋 Missing Features
-
-- ❌ Tournament bracket management
-- ❌ Real matchmaking queue
-- ❌ Google login
-- ❌ HTTPS / WSS
-- ❌ 2FA setup
-- ❌ Live chat with invites/block
-- ❌ Server-side rendering or multi-language
 
 | Service           | URL / Port                                     | Description                                     |
 | ----------------- | ---------------------------------------------- | ----------------------------------------------- |
