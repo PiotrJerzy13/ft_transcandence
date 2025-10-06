@@ -24,7 +24,7 @@ export default function Chat({ className = '', isOpen = true, onToggle }: ChatPr
   const [message, setMessage] = useState('');
   const [showOnlineUsers, setShowOnlineUsers] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
-  const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isChatOpen, setIsChatOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
