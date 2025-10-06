@@ -57,6 +57,15 @@ export default async function websocketRoutes(fastify: FastifyInstance) {
         }
         break;
 
+      case 'authenticate':
+        // Handle authentication (user is already authenticated via middleware)
+        console.log(`🔐 WebSocket authentication for user ${userId}`);
+        socket.send(JSON.stringify({
+          type: 'connection_established',
+          message: 'Authentication successful'
+        }));
+        break;
+
       default:
         console.log(`Unknown WebSocket message type: ${type} from user ${userId}`);
         socket.send(JSON.stringify({

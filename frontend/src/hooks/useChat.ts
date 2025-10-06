@@ -62,7 +62,7 @@ export const useChat = (options: UseChatOptions = {}) => {
 
     try {
       const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${window.location.host}/api/ws`;
+      const wsUrl = `${protocol}//localhost:3000/api/ws`;
       
       wsRef.current = new WebSocket(wsUrl);
 
@@ -74,6 +74,17 @@ export const useChat = (options: UseChatOptions = {}) => {
           error: null
         }));
         reconnectAttemptsRef.current = 0;
+        
+        // Send user authentication info
+        if (playerData?.user) {
+          wsRef.current?.send(JSON.stringify({
+            type: 'authenticate',
+            data: {
+              userId: playerData.user.id,
+              username: playerData.user.username
+            }
+          }));
+        }
       };
 
       wsRef.current.onmessage = (event) => {
@@ -308,6 +319,27 @@ export const useChat = (options: UseChatOptions = {}) => {
             timestamp: new Date().toISOString(),
             type: 'system'
           }]
+        }));
+        break;
+
+      case 'connection_established':
+        console.log('🔌 WebSocket connection established');
+        break;
+
+      case 'initial_chat_state':
+        console.log('📊 Initial chat state received:', data);
+        setState(prev => ({
+          ...prev,
+          messages: data.messages || [],
+          onlineUsers: data.onlineUsers || []
+        }));
+        break;
+
+      case 'error':
+        console.error('🚨 WebSocket error from server:', data.message);
+        setState(prev => ({
+          ...prev,
+          error: data.message || 'Server error'
         }));
         break;
 
