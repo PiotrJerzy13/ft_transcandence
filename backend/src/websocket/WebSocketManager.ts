@@ -16,6 +16,9 @@ interface Player {
   ws: WebSocket;
   gameType?: string;
   gameSessionId?: string;
+  currentChannel?: string;
+  isTyping?: boolean;
+  lastSeen?: Date;
 }
 
 interface GameRoom {
@@ -30,6 +33,8 @@ export class WebSocketManager {
   private players: Map<number, Player> = new Map();
   private gameRooms: Map<string, GameRoom> = new Map();
   private gameStateManager: GameStateManager;
+  private chatMessages: any[] = [];
+  private globalChannel = 'global';
 
   constructor(_fastify: FastifyInstance) {
     // Fastify instance available for future use if needed
@@ -44,7 +49,10 @@ export class WebSocketManager {
     const player: Player = {
       id: userId,
       username,
-      ws
+      ws,
+      currentChannel: this.globalChannel,
+      isTyping: false,
+      lastSeen: new Date()
     };
 
     this.players.set(userId, player);
@@ -59,12 +67,18 @@ export class WebSocketManager {
       userId,
       username
     });
+
+    // Notify other players about new user
+    this.broadcastUserJoined(userId, username);
   }
 
   // Remove a player connection
   removePlayer(userId: number): void {
     const player = this.players.get(userId);
     if (player) {
+      // Notify other players about user leaving
+      this.broadcastUserLeft(userId, player.username);
+      
       // Leave any active game rooms
       if (player.gameSessionId) {
         this.leaveGameRoom(userId, player.gameSessionId);
@@ -349,6 +363,142 @@ export class WebSocketManager {
     } catch (error) {
       console.error(`❌ Error cleaning up game state for session ${sessionId}:`, error);
     }
+  }
+
+  // Chat System Methods
+
+  // Handle incoming chat messages
+  handleChatMessage(userId: number, messageData: any): void {
+    const player = this.players.get(userId);
+    if (!player) return;
+
+    const chatMessage = {
+      id: `msg_${Date.now()}_${userId}`,
+      userId: player.id,
+      username: player.username,
+      message: messageData.message,
+      timestamp: new Date().toISOString(),
+      type: messageData.type || 'message',
+      channel: messageData.channel || this.globalChannel
+    };
+
+    // Store message
+    this.chatMessages.push(chatMessage);
+    
+    // Keep only last 100 messages
+    if (this.chatMessages.length > 100) {
+      this.chatMessages = this.chatMessages.slice(-100);
+    }
+
+    // Broadcast to all connected players
+    this.broadcastToAll({
+      type: 'chat_message',
+      data: chatMessage
+    });
+
+    console.log(`💬 Chat message from ${player.username}: ${messageData.message}`);
+  }
+
+  // Handle typing indicators
+  handleTypingStart(userId: number, channel: string = this.globalChannel): void {
+    const player = this.players.get(userId);
+    if (!player) return;
+
+    player.isTyping = true;
+    
+    // Broadcast typing indicator to all players except sender
+    this.broadcastToAll({
+      type: 'typing_start',
+      username: player.username,
+      channel
+    });
+  }
+
+  handleTypingStop(userId: number, channel: string = this.globalChannel): void {
+    const player = this.players.get(userId);
+    if (!player) return;
+
+    player.isTyping = false;
+    
+    // Broadcast typing stop to all players except sender
+    this.broadcastToAll({
+      type: 'typing_stop',
+      username: player.username,
+      channel
+    });
+  }
+
+  // Handle game invites
+  handleGameInvite(fromUserId: number, targetUserId: number, gameType: string): void {
+    const fromPlayer = this.players.get(fromUserId);
+    const targetPlayer = this.players.get(targetUserId);
+    
+    if (!fromPlayer || !targetPlayer) return;
+
+    const inviteMessage = {
+      id: `invite_${Date.now()}_${fromUserId}`,
+      userId: fromPlayer.id,
+      username: fromPlayer.username,
+      message: `${fromPlayer.username} vous invite à jouer à ${gameType}`,
+      timestamp: new Date().toISOString(),
+      type: 'game_invite',
+      channel: this.globalChannel,
+      gameInvite: {
+        gameType,
+        sessionId: `invite_${Date.now()}`
+      }
+    };
+
+    // Send invite to target player
+    this.sendToPlayer(targetUserId, {
+      type: 'chat_message',
+      data: inviteMessage
+    });
+
+    // Send confirmation to sender
+    this.sendToPlayer(fromUserId, {
+      type: 'system_message',
+      message: `Invitation envoyée à ${targetPlayer.username}`
+    });
+
+    console.log(`🎮 Game invite from ${fromPlayer.username} to ${targetPlayer.username} for ${gameType}`);
+  }
+
+  // Broadcast user joined
+  private broadcastUserJoined(userId: number, username: string): void {
+    this.broadcastToAll({
+      type: 'user_joined',
+      user: {
+        id: userId,
+        username,
+        status: 'online',
+        lastSeen: new Date().toISOString()
+      }
+    });
+  }
+
+  // Broadcast user left
+  private broadcastUserLeft(userId: number, username: string): void {
+    this.broadcastToAll({
+      type: 'user_left',
+      userId,
+      username
+    });
+  }
+
+  // Get online users list
+  getOnlineUsers(): any[] {
+    return Array.from(this.players.values()).map(player => ({
+      id: player.id,
+      username: player.username,
+      status: player.gameSessionId ? 'in_game' : 'online',
+      lastSeen: player.lastSeen?.toISOString()
+    }));
+  }
+
+  // Get recent chat messages
+  getRecentMessages(limit: number = 50): any[] {
+    return this.chatMessages.slice(-limit);
   }
 }
 

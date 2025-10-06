@@ -10,7 +10,7 @@ export default async function websocketRoutes(fastify: FastifyInstance) {
 
   // Handle incoming WebSocket messages
   function handleWebSocketMessage(userId: number, data: any, socket: any) {
-    const { type, payload } = data;
+    const { type, data: messageData } = data;
 
     switch (type) {
       case 'ping':
@@ -20,17 +20,41 @@ export default async function websocketRoutes(fastify: FastifyInstance) {
 
       case 'ready':
         // Player is ready to start game
-        handlePlayerReady(userId, payload);
+        handlePlayerReady(userId, messageData);
         break;
 
       case 'game_action':
         // Handle game actions (paddle movement, etc.)
-        handleGameAction(userId, payload);
+        handleGameAction(userId, messageData);
         break;
 
       case 'chat_message':
         // Handle chat messages
-        handleChatMessage(userId, payload);
+        wsManager.handleChatMessage(userId, messageData);
+        break;
+
+      case 'typing_start':
+        // Handle typing start
+        wsManager.handleTypingStart(userId, messageData?.channel);
+        break;
+
+      case 'typing_stop':
+        // Handle typing stop
+        wsManager.handleTypingStop(userId, messageData?.channel);
+        break;
+
+      case 'game_invite':
+        // Handle game invites
+        const { targetUserId, gameType } = messageData;
+        wsManager.handleGameInvite(userId, targetUserId, gameType);
+        break;
+
+      case 'join_channel':
+        // Handle channel joining
+        const player = wsManager.getPlayer(userId);
+        if (player) {
+          player.currentChannel = messageData?.channelId || 'global';
+        }
         break;
 
       default:
@@ -84,26 +108,6 @@ export default async function websocketRoutes(fastify: FastifyInstance) {
     }
   }
 
-  // Handle chat messages
-  function handleChatMessage(userId: number, payload: any) {
-    const { sessionId, message } = payload;
-
-    if (sessionId) {
-      const gameRoom = wsManager.getGameRoom(sessionId);
-      if (gameRoom) {
-        // Broadcast chat message to all players in the room
-        const chatMessage = {
-          type: 'chat_message',
-          sessionId,
-          userId,
-          message,
-          timestamp: Date.now()
-        };
-
-        wsManager.broadcastToRoom(sessionId, chatMessage);
-      }
-    }
-  }
 
   // WebSocket connection endpoint
   fastify.get('/ws', {

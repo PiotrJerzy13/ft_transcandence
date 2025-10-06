@@ -9,6 +9,7 @@ import GameHistorySection from './components/GameHistorySection';
 import PlayerProfileSidebar from './components/PlayerProfileSidebar';
 import LobbyActions from './components/LobbyActions';
 import MatchmakingQueue from '../components/MatchmakingQueue';
+import Chat from '../components/Chat';
 import { useNavigate } from 'react-router-dom';
 
 export default function GameLobby() {
@@ -115,6 +116,9 @@ export default function GameLobby() {
 
         <LobbyActions onLogout={handleLogout} />
       </div>
+
+      {/* Chat Component */}
+      <Chat />
     </div>
   );
 }
