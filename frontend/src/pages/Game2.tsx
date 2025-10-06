@@ -17,6 +17,7 @@ import { usePlayerData } from '../context/PlayerDataContext'; // Import player d
   const [level, setLevel] = useState(1);
   const [gameState, setGameState] = useState('menu'); // 'menu', 'playing', 'paused', 'gameOver', 'levelComplete'
   const [canvasSize, setCanvasSize] = useState({ width: 800, height: 600 });
+  const [activePowerUps, setActivePowerUps] = useState<Array<{type: string, duration: number, maxDuration: number}>>([]);
   const animationFrameRef = useRef<number | null>(null);
   const gameInstanceRef = useRef<Arkanoid | null>(null);
   const gameStartTimeRef = useRef<number | null>(null);
@@ -38,6 +39,14 @@ import { usePlayerData } from '../context/PlayerDataContext'; // Import player d
     { primary: "#3b82f6", secondary: "#2563eb", glow: "#3b82f6" },
     { primary: "#a855f7", secondary: "#9333ea", glow: "#a855f7" },
   ];
+
+  const getLevelPatternName = (level: number): string => {
+    const patterns = [
+      'Classic', 'Pyramid', 'Cross', 'Border', 'Zigzag',
+      'Circle', 'Maze', 'Star', 'Checkerboard', 'Boss'
+    ];
+    return patterns[level - 1] || 'Unknown';
+  };
 
   const handleResize = useCallback(() => {
     const canvas = canvasRef.current;
@@ -161,6 +170,14 @@ import { usePlayerData } from '../context/PlayerDataContext'; // Import player d
 
     if (gameState === 'playing') {
       gameInstanceRef.current.update();
+      
+      // Update active power-ups display
+      const powerUps = gameInstanceRef.current.getActivePowerUps();
+      setActivePowerUps(powerUps.map(p => ({
+        type: p.type,
+        duration: p.duration,
+        maxDuration: p.maxDuration
+      })));
     }
 
     gameInstanceRef.current.draw(ctx, canvas.width, canvas.height);
@@ -301,11 +318,63 @@ import { usePlayerData } from '../context/PlayerDataContext'; // Import player d
           </div>
           <div className="bg-black/50 px-2 py-1 rounded">
             Level: <span className="font-bold text-purple-400">{level}</span>
+            <div className="text-xs text-gray-300 mt-1">
+              {level <= 10 ? `Pattern: ${getLevelPatternName(level)}` : 'Random Pattern'}
+            </div>
           </div>
           <div className="bg-black/50 px-2 py-1 rounded">
             Lives: <span className="font-bold text-green-400">{lives}</span>
           </div>
         </div>
+        
+        {/* Active Power-ups Display */}
+        {activePowerUps.length > 0 && (
+          <div className="absolute top-4 right-4 flex flex-col gap-2">
+            {activePowerUps.map((powerUp, index) => {
+              const progress = (powerUp.duration / powerUp.maxDuration) * 100;
+              const getPowerUpIcon = (type: string) => {
+                const icons: {[key: string]: string} = {
+                  'multi_ball': '⚽',
+                  'paddle_large': '📏',
+                  'paddle_fast': '⚡',
+                  'ball_laser': '💎',
+                  'shield': '🛡️',
+                  'bomb': '💣'
+                };
+                return icons[type] || '?';
+              };
+              
+              return (
+                <div key={index} className="bg-black/70 px-3 py-2 rounded-lg border border-purple-400/50">
+                  <div className="flex items-center gap-2 text-white">
+                    <span className="text-lg">{getPowerUpIcon(powerUp.type)}</span>
+                    <div className="flex flex-col">
+                      <span className="text-xs font-bold capitalize">
+                        {powerUp.type.replace('_', ' ')}
+                      </span>
+                      <div className="w-16 h-1 bg-gray-600 rounded-full overflow-hidden">
+                        <div 
+                          className="h-full bg-gradient-to-r from-purple-400 to-pink-400 transition-all duration-100"
+                          style={{ width: `${progress}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {/* Boss Level Warning */}
+        {level === 10 && gameState === 'playing' && (
+          <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-30">
+            <div className="bg-red-900/90 border-2 border-red-500 rounded-lg px-6 py-4 text-center animate-pulse">
+              <h3 className="text-2xl font-bold text-red-400 mb-2">BOSS LEVEL!</h3>
+              <p className="text-red-200">Special blocks with double points!</p>
+            </div>
+          </div>
+        )}
+
         {(gameState === 'menu' || gameState === 'gameOver') && (
           <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/70 z-20">
             <h2 className="text-3xl font-bold mb-4">
