@@ -38,6 +38,37 @@ export type Achievement = {
 	date?: string;
 };
 
+// Chat System Types
+export type ChatMessage = {
+	id: string;
+	userId: number;
+	username: string;
+	message: string;
+	timestamp: string;
+	type: 'message' | 'system' | 'game_invite' | 'achievement';
+	channel?: string;
+	gameInvite?: {
+		gameType: 'pong' | 'arkanoid';
+		sessionId: string;
+	};
+};
+
+export type ChatChannel = {
+	id: string;
+	name: string;
+	type: 'global' | 'private' | 'game';
+	participants: number[];
+	lastMessage?: ChatMessage;
+	createdAt: string;
+};
+
+export type ChatUser = {
+	id: number;
+	username: string;
+	status: 'online' | 'offline' | 'in_game';
+	lastSeen?: string;
+};
+
 // Multiplayer Game Types for Phase 3
 export interface Position {
   x: number;

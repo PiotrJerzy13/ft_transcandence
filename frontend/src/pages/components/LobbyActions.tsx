@@ -18,6 +18,12 @@ export default function LobbyActions({ onLogout }: LobbyActionsProps) {
         View Leaderboard
       </button>
       <button 
+        onClick={() => window.location.href = '/dashboard'}
+        className="px-6 py-3 bg-gradient-to-r from-green-600 to-teal-600 text-white rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300"
+      >
+        📊 Dashboard
+      </button>
+      <button 
         onClick={() => alert('Settings feature coming soon!')}
         className="px-6 py-3 bg-gray-800 border border-gray-600 text-white rounded-lg font-semibold hover:bg-gray-700 transition-all duration-300"
       >
