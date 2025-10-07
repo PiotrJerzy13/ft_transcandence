@@ -112,7 +112,7 @@ const app: FastifyInstance = fastify({
 });
 
 // CORS configuration for production
-await app.register(require('@fastify/cors'), {
+await app.register(cors, {
   origin: process.env.NODE_ENV === 'production' 
     ? ['http://50.19.72.26:5173', 'http://50.19.72.26:3000'] 
     : true,
@@ -191,10 +191,6 @@ const start = async () => {
     app.log.info('Swagger documentation registered');
     
     // Register plugins
-    await app.register(cors, {
-      origin: true,
-      credentials: true,
-    });
     await app.register(pongRoutes, { prefix: '/api/pong' });
     await app.register(arkanoidRoutes, { prefix: '/api/arkanoid' });
     await app.register(leaderboardRoutes, { prefix: '/api' });
