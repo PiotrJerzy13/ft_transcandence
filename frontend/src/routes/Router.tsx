@@ -10,6 +10,8 @@ import Tournaments from '../pages/Tournaments';
 import TournamentDetail from '../pages/TournamentDetail';
 import MultiplayerGamePage from '../pages/MultiplayerGame';
 import Dashboard from '../pages/Dashboard';
+import TwoFactorSettings from '../pages/TwoFactorSettings';
+import TwoFactorSetupPage from '../pages/TwoFactorSetupPage';
 
 export default function AppRouter() {
   return (
@@ -26,6 +28,8 @@ export default function AppRouter() {
 		<Route path="/tournaments" element={<ProtectedRoute><Tournaments /></ProtectedRoute>} />
 		<Route path="/tournaments/:id" element={<ProtectedRoute><TournamentDetail /></ProtectedRoute>} />
 		<Route path="/multiplayer" element={<ProtectedRoute><MultiplayerGamePage /></ProtectedRoute>} />
+		<Route path="/settings/2fa" element={<ProtectedRoute><TwoFactorSettings /></ProtectedRoute>} />
+		<Route path="/settings/2fa/setup" element={<ProtectedRoute><TwoFactorSetupPage /></ProtectedRoute>} />
       </Routes>
     </BrowserRouter>
   );

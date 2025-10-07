@@ -183,9 +183,9 @@ export default function Chat({ className = '', isOpen = true, onToggle }: ChatPr
 
       <div className="flex h-96">
         {/* Messages Area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 flex flex-col min-w-0">
           {/* Messages List */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+          <div className="flex-1 overflow-y-auto p-4 space-y-3" style={{ maxHeight: '280px' }}>
             {error && (
               <div className="text-red-400 text-sm text-center py-2">
                 Erreur de connexion: {error}

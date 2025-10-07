@@ -11,7 +11,9 @@ import {
   Trophy, 
   TrendingUp,
   Settings,
-  User
+  User,
+  Shield,
+  Lock
 } from 'lucide-react';
 import type { ArkanoidScore, PongGame } from '../types';
 
@@ -130,13 +132,56 @@ export default function Dashboard() {
         {/* Tab Content */}
         <div className="space-y-6">
           {activeTab === 'overview' && (
-            <AdvancedDashboard
-              playerStats={playerStats}
-              pongHistory={pongHistory}
-              arkanoidHistory={arkanoidHistory}
-              pongStats={pongStats}
-              arkanoidStats={arkanoidStats}
-            />
+            <>
+              <AdvancedDashboard
+                playerStats={playerStats}
+                pongHistory={pongHistory}
+                arkanoidHistory={arkanoidHistory}
+                pongStats={pongStats}
+                arkanoidStats={arkanoidStats}
+              />
+              
+              {/* Security Section */}
+              <div className="bg-black/20 rounded-xl p-6 border border-purple-500/20">
+                <div className="flex items-center space-x-3 mb-4">
+                  <Shield className="w-6 h-6 text-purple-500" />
+                  <h3 className="text-xl font-bold text-white">Security</h3>
+                </div>
+                
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="bg-gray-800/50 rounded-lg p-4">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <Lock className="w-5 h-5 text-blue-500" />
+                      <h4 className="text-white font-semibold">Two-Factor Authentication</h4>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Add an extra layer of security to your account with 2FA.
+                    </p>
+                    <a
+                      href="/settings/2fa"
+                      className="inline-flex items-center space-x-2 bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-lg transition-colors"
+                    >
+                      <Shield className="w-4 h-4" />
+                      <span>Manage 2FA</span>
+                    </a>
+                  </div>
+                  
+                  <div className="bg-gray-800/50 rounded-lg p-4">
+                    <div className="flex items-center space-x-3 mb-3">
+                      <Settings className="w-5 h-5 text-green-500" />
+                      <h4 className="text-white font-semibold">Account Settings</h4>
+                    </div>
+                    <p className="text-gray-400 text-sm mb-4">
+                      Manage your account preferences and security settings.
+                    </p>
+                    <button className="inline-flex items-center space-x-2 bg-gray-600 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-colors">
+                      <Settings className="w-4 h-4" />
+                      <span>Settings</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
           )}
 
           {activeTab === 'games' && (
