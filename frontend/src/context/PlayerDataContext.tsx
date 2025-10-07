@@ -1,5 +1,6 @@
 // frontend/src/context/PlayerDataContext.tsx
-import React, { createContext, useState, useContext, useCallback, ReactNode, useEffect } from 'react';
+import { createContext, useState, useContext, useCallback, useEffect, useMemo } from 'react';
+import type { ReactNode } from 'react';
 import type { PlayerStats, Achievement } from '../types';
 
 interface PlayerData {
@@ -30,10 +31,22 @@ export const PlayerDataProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const fetchData = useCallback(async () => {
+  const fetchData = useCallback(async (retryCount = 0) => {
     setLoading(true);
     setError(null);
     try {
+      // First check if user is authenticated
+      const authRes = await fetch('/api/user/me', {
+        credentials: 'include',
+      });
+      
+      if (!authRes.ok) {
+        // User is not authenticated, don't fetch profile
+        setPlayerData(null);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch('/api/user/profile', {
         credentials: 'include',
         headers: {
@@ -45,6 +58,11 @@ export const PlayerDataProvider = ({ children }: { children: ReactNode }) => {
       });
 
       if (!res.ok) {
+        if (res.status === 401 && retryCount < 3) {
+          // Retry after a short delay for potential race condition
+          setTimeout(() => fetchData(retryCount + 1), 500);
+          return;
+        }
         if (res.status === 401) {
           // Don't treat this as an error, just means user is not logged in
           setPlayerData(null);
@@ -80,7 +98,12 @@ export const PlayerDataProvider = ({ children }: { children: ReactNode }) => {
     fetchData();
   }, [fetchData]);
 
-  const value = { playerData, loading, error, refetch: fetchData };
+  const value = useMemo(() => ({ 
+    playerData, 
+    loading, 
+    error, 
+    refetch: fetchData 
+  }), [playerData, loading, error, fetchData]);
 
   return (
     <PlayerDataContext.Provider value={value}>

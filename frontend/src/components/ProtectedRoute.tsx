@@ -16,14 +16,22 @@ export default function ProtectedRoute({ children }: { children: React.ReactElem
         console.error("Auth check failed:", err);
         setIsAuthenticated(false);
       } finally {
-        setIsLoading(false);
+        // Add small delay to ensure cookies are properly set
+        setTimeout(() => setIsLoading(false), 100);
       }
     };
 
     checkAuth();
   }, []);
 
-  if (isLoading) return null;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-black flex items-center justify-center">
+        <div className="text-cyan-400 font-mono">Loading...</div>
+      </div>
+    );
+  }
+  
   if (!isAuthenticated) return <Navigate to="/login" replace />;
 
   return children;

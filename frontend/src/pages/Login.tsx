@@ -33,7 +33,10 @@ export default function Login() {
 
       if (response.ok) {
         console.log("✅ Login successful:", data);
-        navigate("/lobby");
+        // Small delay to ensure cookie is properly set
+        setTimeout(() => {
+          navigate("/lobby");
+        }, 100);
       } else {
         setError(data.error || "Login failed");
       }

@@ -59,12 +59,20 @@ export default function GameLobby() {
         <div className="bg-red-900/20 border border-red-500/30 rounded-xl p-8 max-w-md text-center">
           <h2 className="text-red-400 text-xl mb-4">Failed to Load Profile</h2>
           <p className="text-gray-300 mb-4">{error || "Could not retrieve player data. Please try logging in again."}</p>
-          <button 
-            onClick={() => navigate('/login', { replace: true })}
-            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
-          >
-            Go to Login
-          </button>
+          <div className="space-y-2">
+            <button 
+              onClick={() => window.location.reload()}
+              className="w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Retry
+            </button>
+            <button 
+              onClick={() => navigate('/login', { replace: true })}
+              className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+            >
+              Go to Login
+            </button>
+          </div>
         </div>
       </div>
     );
