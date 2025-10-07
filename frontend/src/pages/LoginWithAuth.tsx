@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
-import { usePlayerData } from "../context/PlayerDataContext";
+import { useAuth } from "../context/AuthContext";
 
-export default function Login() {
+export default function LoginWithAuth() {
   const [form, setForm] = useState({ username: "", password: "" });
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-  const { refetch } = usePlayerData();
+  const { login } = useAuth();
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setForm({ ...form, [e.target.name]: e.target.value });
@@ -19,51 +19,13 @@ export default function Login() {
     setIsLoading(true);
 
     try {
-      const response = await fetch("/api/auth/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        credentials: "include",
-        body: JSON.stringify({
-          username: form.username,
-          password: form.password,
-        }),
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        console.log("✅ Login successful:", data);
-        
-        // Verify authentication is working before redirecting
-        const verifyAuth = async () => {
-          try {
-            const authCheck = await fetch("/api/user/me", {
-              credentials: "include",
-            });
-            
-            if (authCheck.ok) {
-              console.log("✅ Authentication verified, triggering data fetch and redirecting to lobby");
-              // Trigger player data fetch since user is now authenticated
-              refetch();
-              navigate("/lobby");
-            } else {
-              console.warn("⚠️ Authentication check failed, waiting and retrying...");
-              // Retry after a short delay
-              setTimeout(verifyAuth, 200);
-            }
-          } catch (err) {
-            console.error("❌ Auth verification error:", err);
-            // Still try to navigate, but with additional delay
-            setTimeout(() => navigate("/lobby"), 500);
-          }
-        };
-        
-        // Start verification after a small delay to let cookie settle
-        setTimeout(verifyAuth, 100);
+      const success = await login(form.username, form.password);
+      
+      if (success) {
+        console.log("✅ Login and authentication complete");
+        navigate("/lobby");
       } else {
-        setError(data.error || "Login failed");
+        setError("Invalid credentials");
       }
     } catch (err) {
       console.error("❌ Login error:", err);
@@ -92,9 +54,6 @@ export default function Login() {
             </span>
           </h1>
           <div className="h-1 w-32 bg-gradient-to-r from-cyan-400 via-purple-400 to-amber-400 mx-auto rounded-full animate-pulse shadow-lg shadow-cyan-400/50" />
-          {/* <div className="text-xs text-gray-400 font-mono mt-2 tracking-widest opacity-60">
-            &gt; INITIALIZE_AUTH_PROTOCOL &lt;
-          </div> */}
         </div>
 
         <div className="relative bg-black/80 backdrop-blur-sm border-2 border-cyan-500/50 p-6 sm:p-8 rounded-lg shadow-2xl shadow-cyan-500/25">
@@ -106,11 +65,12 @@ export default function Login() {
 
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
-              <label className="block mb-2 text-sm font-medium text-cyan-300 font-mono tracking-wide">
+              <label htmlFor="username" className="block mb-2 text-sm font-medium text-cyan-300 font-mono tracking-wide">
                 &gt; USERNAME INPUT
               </label>
               <input
                 type="text"
+                id="username"
                 name="username"
                 value={form.username}
                 onChange={handleChange}
@@ -121,11 +81,12 @@ export default function Login() {
             </div>
 
             <div>
-              <label className="block mb-2 text-sm font-medium text-purple-300 font-mono tracking-wide">
+              <label htmlFor="password" className="block mb-2 text-sm font-medium text-purple-300 font-mono tracking-wide">
                 &gt; PASSWORD INPUT
               </label>
               <input
                 type="password"
+                id="password"
                 name="password"
                 value={form.password}
                 onChange={handleChange}

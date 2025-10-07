@@ -28,25 +28,42 @@ export const usePlayerData = () => {
 
 export const PlayerDataProvider = ({ children }: { children: ReactNode }) => {
   const [playerData, setPlayerData] = useState<PlayerData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false); // Start with false since we don't fetch on mount
   const [error, setError] = useState<string | null>(null);
 
   const fetchData = useCallback(async (retryCount = 0) => {
     setLoading(true);
     setError(null);
+    
+    // Add initial delay on first attempt to avoid race condition with cookie setting
+    if (retryCount === 0) {
+      await new Promise(resolve => setTimeout(resolve, 250));
+    }
+    
     try {
+      console.log(`[PlayerData] Attempt ${retryCount + 1}: Starting authentication check...`);
+      console.log(`[PlayerData] Current cookies:`, document.cookie);
+      
       // First check if user is authenticated
       const authRes = await fetch('/api/user/me', {
         credentials: 'include',
       });
       
+      console.log(`[PlayerData] Auth check response:`, {
+        status: authRes.status,
+        ok: authRes.ok,
+        headers: Object.fromEntries(authRes.headers.entries())
+      });
+      
       if (!authRes.ok) {
         // User is not authenticated, don't fetch profile
+        console.log('Auth check failed, user not authenticated');
         setPlayerData(null);
         setLoading(false);
         return;
       }
 
+      console.log('Auth check passed, fetching profile...');
       const res = await fetch('/api/user/profile', {
         credentials: 'include',
         headers: {
@@ -57,10 +74,18 @@ export const PlayerDataProvider = ({ children }: { children: ReactNode }) => {
         },
       });
 
+      console.log(`[PlayerData] Profile fetch response:`, {
+        status: res.status,
+        ok: res.ok,
+        headers: Object.fromEntries(res.headers.entries())
+      });
+
       if (!res.ok) {
         if (res.status === 401 && retryCount < 3) {
-          // Retry after a short delay for potential race condition
-          setTimeout(() => fetchData(retryCount + 1), 500);
+          // Retry after increasing delay for potential race condition
+          const delay = (retryCount + 1) * 300; // 300ms, 600ms, 900ms
+          console.log(`[PlayerData] Profile fetch failed with 401, retrying in ${delay}ms (attempt ${retryCount + 1}/3)`);
+          setTimeout(() => fetchData(retryCount + 1), delay);
           return;
         }
         if (res.status === 401) {
@@ -95,8 +120,10 @@ export const PlayerDataProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    // Don't fetch automatically on mount - let protected routes trigger it
+    // This prevents unnecessary calls when user is on login page
+    console.log('[PlayerData] Provider mounted, waiting for explicit fetch call');
+  }, []);
 
   const value = useMemo(() => ({ 
     playerData, 
