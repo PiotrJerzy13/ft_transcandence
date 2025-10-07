@@ -1,0 +1,85 @@
+# AWS CloudFormation Template for ft_transcendence
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'ft_transcendence deployment on AWS Free Tier'
+
+Parameters:
+  KeyName:
+    Description: Name of an existing EC2 KeyPair
+    Type: AWS::EC2::KeyPair::KeyName
+    
+  YourIP:
+    Description: Your IP address for SSH access (get from whatismyip.com)
+    Type: String
+    Default: "0.0.0.0/0"
+
+Resources:
+  # Security Group
+  WebServerSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for ft_transcendence
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref YourIP
+          Description: SSH access
+        - IpProtocol: tcp
+          FromPort: 3000
+          ToPort: 3000
+          CidrIp: 0.0.0.0/0
+          Description: Backend API
+        - IpProtocol: tcp
+          FromPort: 5173
+          ToPort: 5173
+          CidrIp: 0.0.0.0/0
+          Description: Frontend
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+          Description: HTTP
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+          Description: HTTPS
+
+  # EC2 Instance
+  WebServerInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: ami-0c02fb55956c7d316  # Amazon Linux 2 AMI (us-east-1)
+      InstanceType: t2.micro  # Free tier eligible
+      KeyName: !Ref KeyName
+      SecurityGroups:
+        - !Ref WebServerSecurityGroup
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y docker git
+          service docker start
+          usermod -a -G docker ec2-user
+          curl -L "https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+          chmod +x /usr/local/bin/docker-compose
+          cd /home/ec2-user
+          git clone https://github.com/PiotrJerzy13/ft_transcandence.git
+          cd ft_transcandence
+          docker-compose -f docker-compose.prod.yml up -d
+      Tags:
+        - Key: Name
+          Value: ft_transcendence-server
+
+Outputs:
+  WebsiteURL:
+    Description: URL of your ft_transcendence application
+    Value: !Sub 'http://${WebServerInstance.PublicDnsName}:5173'
+  
+  BackendURL:
+    Description: Backend API URL
+    Value: !Sub 'http://${WebServerInstance.PublicDnsName}:3000'
+  
+  SSHCommand:
+    Description: SSH command to connect to the instance
+    Value: !Sub 'ssh -i ${KeyName}.pem ec2-user@${WebServerInstance.PublicDnsName}'

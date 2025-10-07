@@ -104,15 +104,19 @@ const loggerConfig = {
 const app: FastifyInstance = fastify({ 
   logger: loggerConfig,
   ignoreTrailingSlash: true,
-  // https: {
-  //   key: fs.readFileSync(path.join(certDir, 'localhost.key')),
-  //   cert: fs.readFileSync(path.join(certDir, 'localhost.crt'))
-  // },
   ajv: {
     plugins: [
       (addFormats as unknown as (ajv: any) => any)
     ]
   }
+});
+
+// CORS configuration for production
+await app.register(require('@fastify/cors'), {
+  origin: process.env.NODE_ENV === 'production' 
+    ? ['http://50.19.72.26:5173', 'http://50.19.72.26:3000'] 
+    : true,
+  credentials: true
 });
 
 // Add request logging hook

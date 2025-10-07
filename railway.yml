@@ -1,0 +1,2 @@
+# For Railway deployment, add this to your project root
+web: docker-compose up
