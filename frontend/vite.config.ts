@@ -12,16 +12,13 @@ export default defineConfig({
   server: {
     host: '0.0.0.0',
     port: 5173,
-    // Only use HTTPS in development, not in production
-    ...(process.env.NODE_ENV !== 'production' && {
-      https: {
-        key: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.key')),
-        cert: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.crt')),
-      }
-    }),
+    https: {
+      key: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.key')),
+      cert: fs.readFileSync(path.join(__dirname, 'certs', 'localhost.crt')),
+    },
     proxy: {
       '/api': {
-        target: process.env.BACKEND_URL || 'http://backend:3000',
+        target: 'http://backend:3000',
         changeOrigin: true,
         secure: false
       }
