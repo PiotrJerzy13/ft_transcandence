@@ -11,3 +11,12 @@ export function useLocalStorage<T>(key: string, initialValue: T) {
   
     return [stored, setValue] as const;
   }
+
+  export async function timingMiddleware(request: any, reply: any) {
+    const start = Date.now();
+    
+    reply.addHook('onSend', async () => {
+      const duration = Date.now() - start;
+      reply.header('X-Response-Time', `${duration}ms`);
+    });
+  }
