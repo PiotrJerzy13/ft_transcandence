@@ -8,3 +8,8 @@ export interface CustomizationProfile {
 	ball: BallOptions;
   }
   
+  interface CustomizationPanelProps {
+	onChange: (profile: CustomizationProfile) => void;
+	initial?: CustomizationProfile;
+  }
+  
