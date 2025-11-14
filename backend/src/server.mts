@@ -152,6 +152,20 @@ const start = async () => {
     collectDefaultMetrics();
     app.log.info('Prometheus metrics collection started');
     
+    // Register CORS FIRST (before everything else)
+    app.log.info('Registering CORS plugin...');
+    await app.register(cors, {
+      origin: process.env.NODE_ENV === 'production' 
+        ? ['http://50.19.72.26:5173', 'http://50.19.72.26:3000']
+        : 'http://localhost:5173',
+      credentials: true,
+    });
+    app.log.info('CORS plugin registered');
+    
+    // Register Cookies
+    await app.register(cookie);
+    app.log.info('Cookie plugin registered');
+    
     // Register Swagger
     await app.register(swagger, {
       openapi: {
@@ -207,13 +221,6 @@ const start = async () => {
       console.log('NODE_ENV:', process.env.NODE_ENV);
       
       // Register plugins
-      app.log.info('Registering CORS plugin...');
-      await app.register(cors, {
-        origin: true,
-        credentials: true,
-      });
-      app.log.info('CORS plugin registered');
-      
       try {
         app.log.info('Registering WebSocket plugin...');
         console.log('WebSocket plugin import:', websocket);
@@ -237,10 +244,6 @@ const start = async () => {
       app.log.info('Registering leaderboard routes...');
       await app.register(leaderboardRoutes, { prefix: '/api' });
       app.log.info('Leaderboard routes registered');
-      
-      app.log.info('Registering cookie plugin...');
-      await app.register(cookie);
-      app.log.info('Cookie plugin registered');
       
       app.log.info('All plugins registered successfully');
       
