@@ -10,3 +10,17 @@ export function validateBallOptions(ball: any): boolean {
     ball.color.length > 0
   );
 }
+
+
+export function validatePaddleOptions(paddle: any): boolean {
+	return (
+	  typeof paddle.height === 'number' &&
+	  paddle.height > 0 &&
+	  typeof paddle.width === 'number' &&
+	  paddle.width > 0 &&
+	  typeof paddle.color === 'string' &&
+	  paddle.color.length > 0
+	);
+  }
+
+  
