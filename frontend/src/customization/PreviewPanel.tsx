@@ -39,3 +39,15 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ arena, ball, paddle }) => {
           transform: 'translate(-50%, -50%)'
         }}
       />
+      <div
+        className="preview-paddle"
+        style={{
+          position: 'absolute',
+          bottom: '10px',
+          left: '50%',
+          width: `${paddle.width}px`,
+          height: `${paddle.height}px`,
+          backgroundColor: paddle.color,
+          transform: 'translateX(-50%)'
+        }}
+      />
