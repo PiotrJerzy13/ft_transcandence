@@ -11,3 +11,9 @@ export interface ApiResponse<T> {
     sort?: string;
   }
   
+  export interface GameResult {
+    player1Score: number;
+    player2Score: number;
+    duration: number;
+    mode: 'pong' | 'arkanoid';
+  }
