@@ -5,10 +5,10 @@ interface ScaleOptions {
   height: number;
 }
 
-const usePreviewScale = (options: ScaleOptions) => {
+const usePreviewScale = (options: ScaleOptions): number => {
   const [scale, setScale] = useState(1);
 
-    useEffect(() => {
+  useEffect(() => {
     const resize = () => {
       const maxWidth = 320;
       const maxHeight = 220;
