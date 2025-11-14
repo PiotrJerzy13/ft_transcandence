@@ -1,4 +1,4 @@
-import { GameCustomizationProfile } from './customizationTypes';
+import { GameCustomizationProfile } from './customizationTypes.js';
 
 export function validateBallOptions(ball: any): boolean {
   return (
