@@ -51,3 +51,5 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ arena, ball, paddle }) => {
           transform: 'translateX(-50%)'
         }}
       />
+	  
+export default PreviewPanel;
