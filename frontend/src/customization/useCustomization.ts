@@ -8,3 +8,9 @@ export const useCustomization = (initial?: CustomizationProfile) => {
     initial?.arena || { theme: 'Classic', backgroundColor: '#000000', borderStyle: 'solid' }
   );
 
+  // Ball state
+  import { BallOptions } from './ArenaSettings';
+  const [ball, setBall] = useState<BallOptions>(
+    initial?.ball || { speed: 5, size: 20, color: '#ff0000' }
+  );
+
