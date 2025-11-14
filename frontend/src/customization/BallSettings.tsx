@@ -5,3 +5,10 @@ interface BallOptions {
   size: number;
   color: string;
 }
+
+interface BallSettingsProps {
+	onChange: (ball: BallOptions) => void;
+	initial?: BallOptions;
+  }
+  
+  
