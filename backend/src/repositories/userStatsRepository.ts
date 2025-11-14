@@ -305,7 +305,6 @@ export class UserStatsRepository {
     const newlyUnlocked: Achievement[] = [];
 
     for (const achievement of allAchievements) {
-    //   const userAch = userAchievements.find(ua => ua.achievement_id === achievement.id);
       let progress = 0;
       switch (achievement.requirement_type) {
         case 'first_win':
@@ -321,13 +320,11 @@ export class UserStatsRepository {
           progress = stats.total_play_time;
           break;
         case 'level_reached':
-          // This refers to the Arkanoid game level, not the player's overall level.
-          // You may want to track this separately if needed.
+
           progress = 0;
           break;
         case 'perfect_game':
-          // This requires specific data from a game result (e.g., opponent score was 0).
-          // It cannot be checked from general stats alone.
+
           progress = 0;
           break;
       }
@@ -359,12 +356,8 @@ export class UserStatsRepository {
           shouldUnlock = stats.total_play_time >= achievement.requirement_value;
           break;
         case 'level_reached':
-          // This refers to the Arkanoid game level, not the player's overall level.
-          // This type of achievement must be checked and awarded from the arkanoid route specifically.
           break;
         case 'perfect_game':
-          // This requires specific data from a game result (e.g., opponent score was 0).
-          // It cannot be checked from general stats alone. We'll address this in Step 2.
           break;
       }
 

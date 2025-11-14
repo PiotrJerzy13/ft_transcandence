@@ -1,7 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import { authenticate } from '../middleware/auth.js';
-// --- REMOVE getDb ---
-// import { getDb } from '../db/index.js';
+
 
 // --- IMPORT THE REPOSITORY ---
 import userRepository from '../repositories/userRepository.js';
@@ -11,11 +10,9 @@ export default async function leaderboardRoutes(fastify: FastifyInstance) {
     try {
       req.log.info('[LEADERBOARD] Fetching top players from repository');
 
-      // --- REPLACE THE ENTIRE DATABASE QUERY WITH THIS SINGLE LINE ---
+
       const topPlayersData = await userRepository.getLeaderboard(10); // Get top 10 players
       
-      // The repository now returns the correct nested structure.
-      // We calculate the win rate and transform to camelCase for consistency.
       const playersWithWinRate = topPlayersData.map(player => {
         // Access stats from the nested 'stats' object
         const totalGames = (player.stats.wins || 0) + (player.stats.losses || 0);

@@ -17,7 +17,6 @@ class AuthController {
     reply: FastifyReply
   ) {
     try {
-      // console.log("Request body:", request.body);
       request.log.debug({ body: request.body }, "Registration request received");
       const { username, email, password } = request.body;
       
