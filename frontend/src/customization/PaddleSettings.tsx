@@ -5,3 +5,9 @@ export interface PaddleOptions {
   width: number;
   color: string;
 }
+
+interface PaddleSettingsProps {
+	onChange: (paddle: PaddleOptions) => void;
+	initial?: PaddleOptions;
+  }
+  
