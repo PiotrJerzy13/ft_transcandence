@@ -7,3 +7,9 @@ export const COLORS = {
     background: '#0f172a',
     text: '#f1f5f9',
   };
+
+  export const GAME_COLORS = {
+    pongBall: '#ff3333',
+    pongPaddle: '#3366ff',
+    arkanoidBrick: '#ffaa00',
+  };
