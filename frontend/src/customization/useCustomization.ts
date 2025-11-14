@@ -19,3 +19,22 @@ export const useCustomization = (initial?: CustomizationProfile) => {
   const [paddle, setPaddle] = useState<PaddleOptions>(
     initial?.paddle || { height: 100, width: 20, color: '#0000ff' }
   );
+
+  // getProfile function
+  const getProfile = (): CustomizationProfile => ({
+    name: initial?.name || 'Default Profile',
+    arena,
+    ball,
+    paddle
+  });
+
+  return {
+    arena,
+    setArena,
+    ball,
+    setBall,
+    paddle,
+    setPaddle,
+    getProfile
+  };
+};
