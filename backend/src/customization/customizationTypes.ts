@@ -1,24 +1,24 @@
 
 export interface BallOptions {
-	speed: number;       // prędkość piłki
-	size: number;        // rozmiar piłki
-	color: string;       // kolor piłki
+	speed: number;       
+	size: number;        
+	color: string;      
   }
   
   export interface PaddleOptions {
-	height: number;      // wysokość paletki
-	width: number;       // szerokość paletki
-	color: string;       // kolor paletki
+	height: number;     
+	width: number;
+	color: string;
   }
   
   export interface ArenaOptions {
-	theme: string;       // motyw / styl planszy
-	backgroundColor: string; // kolor tła
-	borderStyle: string; // styl krawędzi
+	theme: string;
+	backgroundColor: string; 
+	borderStyle: string; 
   }
   
   export interface GameCustomizationProfile {
-	name: string;            // nazwa profilu
+	name: string;            
 	ball: BallOptions;
 	paddle: PaddleOptions;
 	arena: ArenaOptions;
