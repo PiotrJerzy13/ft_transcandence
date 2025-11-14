@@ -23,3 +23,12 @@ return res.status(400).json({ message: 'Profile must have a name' });
 savedProfiles.push(profile);
 res.json({ message: 'Profile saved', profile });
 };
+
+export const getProfileByName = (req: Request, res: Response) => {
+	const { name } = req.params;
+	const profile = savedProfiles.find(p => p.name === name) || null;
+	if (!profile) {
+	return res.status(404).json({ message: 'Profile not found' });
+	}
+	res.json(profile);
+	};
