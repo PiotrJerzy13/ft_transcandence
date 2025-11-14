@@ -9,3 +9,7 @@ export const formatScore = (score: number): string => {
     const secs = seconds % 60;
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
+
+  export const formatDate = (date: Date): string => {
+    return new Intl.DateTimeFormat('fr-FR').format(date);
+  };
