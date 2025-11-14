@@ -5,3 +5,9 @@ interface ArenaOptions {
   backgroundColor: string;
   borderStyle: string;
 }
+
+interface ArenaSettingsProps {
+	onChange: (arena: ArenaOptions) => void;
+	initial?: ArenaOptions;
+  }
+  
