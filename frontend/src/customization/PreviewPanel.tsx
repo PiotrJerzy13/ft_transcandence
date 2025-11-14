@@ -26,3 +26,16 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ arena, ball, paddle }) => {
     </div>
   );
 };
+      <div
+        className="preview-ball"
+        style={{
+          position: 'absolute',
+          top: '50%',
+          left: '50%',
+          width: `${ball.size}px`,
+          height: `${ball.size}px`,
+          backgroundColor: ball.color,
+          borderRadius: '50%',
+          transform: 'translate(-50%, -50%)'
+        }}
+      />
