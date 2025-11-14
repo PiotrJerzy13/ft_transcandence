@@ -32,3 +32,13 @@ export function validatePaddleOptions(paddle: any): boolean {
 	  arena.borderStyle.length > 0
 	);
   }
+
+  export function validateCustomizationProfile(profile: any): boolean {
+	return (
+	  typeof profile.name === 'string' &&
+	  profile.name.length > 0 &&
+	  validateBallOptions(profile.ball) &&
+	  validatePaddleOptions(profile.paddle) &&
+	  validateArenaOptions(profile.arena)
+	);
+  }
