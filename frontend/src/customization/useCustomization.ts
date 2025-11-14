@@ -14,3 +14,8 @@ export const useCustomization = (initial?: CustomizationProfile) => {
     initial?.ball || { speed: 5, size: 20, color: '#ff0000' }
   );
 
+  // Paddle state
+  import { PaddleOptions } from './PaddleSettings';
+  const [paddle, setPaddle] = useState<PaddleOptions>(
+    initial?.paddle || { height: 100, width: 20, color: '#0000ff' }
+  );
