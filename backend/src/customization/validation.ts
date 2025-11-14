@@ -11,7 +11,6 @@ export function validateBallOptions(ball: any): boolean {
   );
 }
 
-
 export function validatePaddleOptions(paddle: any): boolean {
 	return (
 	  typeof paddle.height === 'number' &&
@@ -23,4 +22,13 @@ export function validatePaddleOptions(paddle: any): boolean {
 	);
   }
 
-  
+  export function validateArenaOptions(arena: any): boolean {
+	return (
+	  typeof arena.theme === 'string' &&
+	  arena.theme.length > 0 &&
+	  typeof arena.backgroundColor === 'string' &&
+	  arena.backgroundColor.length > 0 &&
+	  typeof arena.borderStyle === 'string' &&
+	  arena.borderStyle.length > 0
+	);
+  }
