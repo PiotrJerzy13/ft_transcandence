@@ -24,3 +24,8 @@ const usePreviewScale = (options: ScaleOptions) => {
 
     return () => window.removeEventListener('resize', resize);
   }, [options.width, options.height]);
+  
+  return scale;
+};
+
+export default usePreviewScale;
