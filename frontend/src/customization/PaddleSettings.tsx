@@ -1,4 +1,10 @@
 import React, { useState } from 'react';
+import { PaddleSettingsData } from './customizationTypes';
+
+interface PaddleSettingsProps {
+  initial?: PaddleSettingsData;
+  onChange: (data: PaddleSettingsData) => void;
+}
 
 export interface PaddleOptions {
   height: number;
