@@ -59,19 +59,20 @@ export const getProfileSchema = {
 
 export const gameResultSchema = {
   tags: ['game'],
-  summary: 'Update user game result (win/loss)',
-  description: 'Updates statistics based on a new match result.',
+  summary: 'Record the result of a played game',
+  description: 'Updates statistics based on the outcome and duration of a match.',
   security: [{ cookieAuth: [] }],
   body: {
     type: 'object',
-    required: ['result'],
+    required: ['won', 'duration'],
     properties: {
-      result: { type: 'string', enum: ['win', 'loss'] }
+      won: { type: 'boolean' },
+      duration: { type: 'number' }
     }
   },
   response: {
     200: {
-      description: 'Game result recorded successfully',
+      description: 'Game result processed successfully',
       content: {
         'application/json': {
           schema: {
